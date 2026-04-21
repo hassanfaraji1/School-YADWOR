@@ -157,6 +157,7 @@
 <script>
 const FB_DB_URL = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
 const FB_API_KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+const FB_AUTH_URL = 'https://identitytoolkit.googleapis.com/v1/accounts';
 
 let authMode = 'login';
 let selectedGender = '';
@@ -214,7 +215,8 @@ async function saveNewUserToFirebase(userData) {
   } catch(e) { console.warn('Firebase save failed', e); }
 }
 
-function doLogin() {
+// =================== تسجيل الدخول عبر Firebase Auth ===================
+async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-password').value.trim();
   if(!email || !pass) { showToast('يرجى تعبئة جميع الحقول'); return; }
@@ -223,30 +225,57 @@ function doLogin() {
   btn.textContent = '...جاري الدخول';
   btn.disabled = true;
 
-  // تحقق من وجود حساب محلي مسجّل بهذا البريد
-  const savedEmail = localStorage.getItem('yadwor-email');
-  const savedPass  = localStorage.getItem('yadwor-password');
-
-  setTimeout(() => {
-    if(savedEmail && savedPass && email === savedEmail && pass === savedPass) {
-      localStorage.setItem('yadwor-logged-in', '1');
-      window.location.replace('home.html');
-    } else if(savedEmail && email !== savedEmail) {
-      showToast('البريد الإلكتروني غير صحيح');
-      btn.textContent = 'دخول';
-      btn.disabled = false;
-    } else if(savedPass && pass !== savedPass) {
-      showToast('كلمة المرور غير صحيحة');
-      btn.textContent = 'دخول';
-      btn.disabled = false;
-    } else {
-      // أول دخول بدون حساب مسجّل — نسمح بالدخول
-      localStorage.setItem('yadwor-logged-in', '1');
-      window.location.replace('home.html');
+  try {
+    const res = await fetch(`${FB_AUTH_URL}:signInWithPassword?key=${FB_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass, returnSecureToken: true })
+    });
+    const data = await res.json();
+    if (data.error) {
+      const errs = {
+        'EMAIL_NOT_FOUND': 'البريد الإلكتروني غير مسجّل',
+        'INVALID_PASSWORD': 'كلمة المرور غير صحيحة',
+        'USER_DISABLED': 'الحساب معطّل',
+        'INVALID_EMAIL': 'صيغة البريد الإلكتروني غير صحيحة',
+        'INVALID_LOGIN_CREDENTIALS': 'البريد أو كلمة المرور غير صحيحة'
+      };
+      showToast(errs[data.error.message] || 'خطأ في تسجيل الدخول');
+      btn.textContent = 'دخول'; btn.disabled = false;
+      return;
     }
-  }, 700);
+
+    // جلب بيانات المستخدم من Firebase Realtime DB
+    const uid = data.localId;
+    let userData = null;
+    try {
+      const dbRes = await fetch(`${FB_DB_URL}/users/${uid}.json?auth=${FB_API_KEY}`);
+      if (dbRes.ok) userData = await dbRes.json();
+    } catch(e) {}
+
+    // حفظ في localStorage
+    localStorage.setItem('yadwor-uid',           uid);
+    localStorage.setItem('yadwor-email',         email);
+    localStorage.setItem('yadwor-logged-in',     '1');
+    if (userData) {
+      if (userData.name)     { localStorage.setItem('yadwor-user-name', userData.name); localStorage.setItem('yadwor-settings-name', userData.name); }
+      if (userData.username) localStorage.setItem('yadwor-username', userData.username);
+      if (userData.avatar)   localStorage.setItem('yadwor-avatar-preview', userData.avatar);
+      if (userData.cover)    localStorage.setItem('yadwor-cover-preview', userData.cover);
+      if (userData.bio)      localStorage.setItem('yadwor-bio', userData.bio);
+      if (userData.location) localStorage.setItem('yadwor-location', userData.location);
+      if (userData.accountType) { localStorage.setItem('yadwor-account-type', userData.accountType); localStorage.setItem('yadwor-profile-type', userData.accountType); }
+      localStorage.setItem('yadwor-user-data', JSON.stringify(userData));
+    }
+    window.location.replace('home.html');
+
+  } catch(e) {
+    showToast('تعذر الاتصال، تحقق من الإنترنت');
+    btn.textContent = 'دخول'; btn.disabled = false;
+  }
 }
 
+// =================== إنشاء حساب عبر Firebase Auth ===================
 async function doSignup() {
   const name     = document.getElementById('reg-name').value.trim();
   const username = document.getElementById('reg-username').value.trim();
@@ -272,56 +301,74 @@ async function doSignup() {
   btn.textContent = '...جاري إنشاء الحساب';
   btn.disabled = true;
 
-  // توليد uid فريد
-  const uid = 'u' + Date.now() + Math.random().toString(36).slice(2, 6);
+  try {
+    // 1) إنشاء مستخدم في Firebase Authentication
+    const authRes = await fetch(`${FB_AUTH_URL}:signUp?key=${FB_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass, returnSecureToken: true })
+    });
+    const authData = await authRes.json();
+    if (authData.error) {
+      const errs = {
+        'EMAIL_EXISTS': 'هذا البريد الإلكتروني مسجّل بالفعل',
+        'WEAK_PASSWORD : Password should be at least 6 characters': 'كلمة المرور ضعيفة جداً',
+        'INVALID_EMAIL': 'صيغة البريد الإلكتروني غير صحيحة'
+      };
+      showToast(errs[authData.error.message] || 'خطأ في إنشاء الحساب: ' + authData.error.message);
+      btn.textContent = 'إنشاء الحساب'; btn.disabled = false;
+      return;
+    }
 
-  // الصورة الافتراضية حسب الجنس
-  const avatar = DEFAULT_AVATARS[selectedGender] || DEFAULT_AVATARS.default;
+    // 2) uid حقيقي من Firebase Authentication
+    const uid = authData.localId;
+    const avatar = DEFAULT_AVATARS[selectedGender] || DEFAULT_AVATARS.default;
+    const countryNames = {
+      MA:'المغرب', DZ:'الجزائر', TN:'تونس', EG:'مصر', SA:'السعودية',
+      AE:'الإمارات', KW:'الكويت', QA:'قطر', BH:'البحرين', OM:'عُمان',
+      JO:'الأردن', LB:'لبنان', IQ:'العراق', LY:'ليبيا', SD:'السودان', OTHER:'أخرى'
+    };
+    const countryName = countryNames[country] || country;
+    const location = countryName + '، ' + city;
 
-  // الدولة كنص
-  const countryNames = {
-    MA:'المغرب', DZ:'الجزائر', TN:'تونس', EG:'مصر', SA:'السعودية',
-    AE:'الإمارات', KW:'الكويت', QA:'قطر', BH:'البحرين', OM:'عُمان',
-    JO:'الأردن', LB:'لبنان', IQ:'العراق', LY:'ليبيا', SD:'السودان', OTHER:'أخرى'
-  };
-  const countryName = countryNames[country] || country;
-  const location = countryName + '، ' + city;
+    const userData = {
+      uid, name, username, email, bio,
+      country: countryName, city, location,
+      gender: selectedGender,
+      avatar, cover: DEFAULT_COVER,
+      accountType: 'influencer',
+      followers: 0, following: 0,
+      verified: false,
+      createdAt: Date.now()
+    };
 
-  const userData = {
-    uid, name, username, email, bio,
-    country: countryName, city, location,
-    gender: selectedGender,
-    avatar, cover: DEFAULT_COVER,
-    accountType: 'influencer',
-    followers: 0, following: 0,
-    verified: false,
-    createdAt: Date.now()
-  };
+    // 3) حفظ بيانات الملف الشخصي في Realtime Database
+    await saveNewUserToFirebase(userData);
 
-  // حفظ في localStorage
-  // uid يأتي من Firebase Authentication — مرجع فريد للمستخدم
-      localStorage.setItem('yadwor-uid',          uid);
-  localStorage.setItem('yadwor-user-name',    name);
-  localStorage.setItem('yadwor-settings-name',name);
-  localStorage.setItem('yadwor-username',     username);
-  localStorage.setItem('yadwor-email',        email);
-  localStorage.setItem('yadwor-password',     pass);
-  localStorage.setItem('yadwor-bio',          bio);
-  localStorage.setItem('yadwor-country',      countryName);
-  localStorage.setItem('yadwor-city',         city);
-  localStorage.setItem('yadwor-location',     location);
-  localStorage.setItem('yadwor-gender',       selectedGender);
-  localStorage.setItem('yadwor-avatar-preview', avatar);
-  localStorage.setItem('yadwor-cover-preview',  DEFAULT_COVER);
-  localStorage.setItem('yadwor-account-type', 'influencer');
-  localStorage.setItem('yadwor-profile-type', 'influencer');
-  localStorage.setItem('yadwor-user-data',    JSON.stringify(userData));
+    // 4) حفظ في localStorage
+    localStorage.setItem('yadwor-uid',           uid);
+    localStorage.setItem('yadwor-user-name',     name);
+    localStorage.setItem('yadwor-settings-name', name);
+    localStorage.setItem('yadwor-username',      username);
+    localStorage.setItem('yadwor-email',         email);
+    localStorage.setItem('yadwor-bio',           bio);
+    localStorage.setItem('yadwor-country',       countryName);
+    localStorage.setItem('yadwor-city',          city);
+    localStorage.setItem('yadwor-location',      location);
+    localStorage.setItem('yadwor-gender',        selectedGender);
+    localStorage.setItem('yadwor-avatar-preview',avatar);
+    localStorage.setItem('yadwor-cover-preview', DEFAULT_COVER);
+    localStorage.setItem('yadwor-account-type',  'influencer');
+    localStorage.setItem('yadwor-profile-type',  'influencer');
+    localStorage.setItem('yadwor-user-data',     JSON.stringify(userData));
+    localStorage.setItem('yadwor-logged-in',     '1');
 
-  // حفظ في Firebase ثم توجيه
-  await saveNewUserToFirebase(userData);
+    window.location.replace('home.html');
 
-  localStorage.setItem('yadwor-logged-in', '1');
-  window.location.replace('home.html');
+  } catch(e) {
+    showToast('تعذر الاتصال بالخادم، تحقق من الإنترنت');
+    btn.textContent = 'إنشاء الحساب'; btn.disabled = false;
+  }
 }
 
 // If already logged in, redirect to home
