@@ -248,6 +248,22 @@
   </div>
 </div>
 
+<!-- UNFOLLOW CONFIRM MODAL -->
+<div id="unfollow-confirm-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+  <div class="absolute inset-0" onclick="closeUnfollowModal()"></div>
+  <div class="relative w-full max-w-[340px] rounded-[24px] bg-white p-5 shadow-2xl text-center">
+    <div class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-blue-50">
+      <svg viewBox="0 0 24 24" class="h-7 w-7 fill-none stroke-blue-500" stroke-width="1.8" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/><path d="M18 8l4 4M22 8l-4 4"/></svg>
+    </div>
+    <h3 class="text-[17px] font-extrabold text-zinc-900">إلغاء المتابعة؟</h3>
+    <p class="mt-2 text-[13px] text-zinc-500 leading-relaxed">هل أنت متأكد من إلغاء متابعة هذا الحساب؟</p>
+    <div class="mt-5 flex gap-2">
+      <button onclick="closeUnfollowModal()" class="h-11 flex-1 rounded-[14px] bg-zinc-100 text-[14px] font-bold text-zinc-700">لا، تراجع</button>
+      <button onclick="confirmUnfollow()" class="h-11 flex-1 rounded-[14px] bg-red-600 text-[14px] font-bold text-white">نعم، إلغاء</button>
+    </div>
+  </div>
+</div>
+
 <script src="shared.js"></script>
 <script>
 const appCurrency = localStorage.getItem('yadwor-currency') || 'DH';
@@ -395,6 +411,10 @@ function renderProfile() {
     const isAlreadyMember = existingJoinReq && existingJoinReq.status === 'accepted';
     const hasPendingJoin = existingJoinReq && existingJoinReq.status === 'pending';
 
+    // حالة المتابعة: نقرأها من localStorage
+    const _vFollowKey = 'yadwor-following-' + (_visitorUid || _visitorUsername);
+    const _visitorFollowing = localStorage.getItem(_vFollowKey) === '1';
+
     let vActionBtn3 = '';
     if (vAccountType === 'institution') {
       if (isAlreadyMember) {
@@ -458,12 +478,18 @@ function renderProfile() {
             ${vp.bio ? `<p class="mt-2 text-[12px] leading-[1.7] text-zinc-500">${vp.bio}</p>` : ''}
           </div>
           <div class="mt-4 flex gap-2">
-            <button class="inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full bg-zinc-900 text-[13px] font-bold text-white cursor-pointer">
+            <button onclick="goToVisitorChat('${encodeURIComponent(vp.name||state._viewingUsername||'')}','${encodeURIComponent(vAvatar)}')" class="inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full bg-zinc-900 text-[13px] font-bold text-white cursor-pointer">
               <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               رسالة
             </button>
-            <button class="inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full bg-blue-500 text-[13px] font-bold text-white cursor-pointer">+ متابعة</button>
+            <button id="visitor-follow-btn" onclick="toggleVisitorFollow('${_visitorUid||''}','${_visitorUsername||''}')" class="${_visitorFollowing ? 'inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full text-[13px] font-bold border border-blue-300 bg-blue-50 text-blue-700 cursor-pointer' : 'inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full bg-blue-500 text-[13px] font-bold text-white cursor-pointer'}">${_visitorFollowing ? '✓ تتابع' : '+ متابعة'}</button>
             ${vActionBtn3}
+          </div>
+          <div class="mt-3 grid grid-cols-4 divide-x divide-x-reverse divide-zinc-100">
+            <div class="text-center px-1"><div class="text-[14px] font-extrabold" id="vstat-followers">${formatNumber(vp.followers||0)}</div><div class="text-[9px] text-zinc-500 font-bold mt-0.5">متابع</div></div>
+            <div class="text-center px-1"><div class="text-[14px] font-extrabold">${formatNumber(vp.following||0)}</div><div class="text-[9px] text-zinc-500 font-bold mt-0.5">يتابع</div></div>
+            <div class="text-center px-1"><div class="text-[14px] font-extrabold" style="color:#1e40af;">${vAccountType==='institution' ? formatNumber(vp.teachers||0) : vPosts.length}</div><div class="text-[9px] font-bold mt-0.5" style="color:#4b5563;">${vAccountType==='institution' ? 'أستاذ' : 'منشور'}</div></div>
+            <div class="text-center px-1"><div class="text-[14px] font-extrabold" style="color:#1e40af;">${vAccountType==='institution' ? formatNumber(vp.students||0) : vPosts.filter(p=>p.images&&p.images.length&&p.type!=='video').reduce((s,p)=>s+p.images.length,0)}</div><div class="text-[9px] font-bold mt-0.5" style="color:#4b5563;">${vAccountType==='institution' ? 'تلميذ' : 'وسائط'}</div></div>
           </div>
           ${hasPendingJoin ? `
           <div id="pending-join-notice" class="mt-3 rounded-[14px] bg-amber-50 border border-amber-200 px-4 py-3 text-right">
@@ -823,6 +849,84 @@ function renderProfileTabContent() {
 function toggleFollow() {
   state.isFollowing = !state.isFollowing;
   renderProfile();
+}
+
+// ====================== VISITOR FOLLOW ======================
+function toggleVisitorFollow(uid, username) {
+  const key = 'yadwor-following-' + (uid || username);
+  const isFollowing = localStorage.getItem(key) === '1';
+  if (isFollowing) {
+    // أظهر نافذة تأكيد إلغاء المتابعة
+    document.getElementById('unfollow-confirm-modal').classList.remove('hidden');
+    document.getElementById('unfollow-confirm-modal').setAttribute('data-uid', uid);
+    document.getElementById('unfollow-confirm-modal').setAttribute('data-username', username);
+  } else {
+    // متابعة جديدة
+    localStorage.setItem(key, '1');
+    // تحديث عداد المتابعين في Firebase
+    _updateVisitorFollowersCount(uid, username, +1);
+    // تحديث الزر مباشرة
+    const btn = document.getElementById('visitor-follow-btn');
+    if (btn) {
+      btn.className = 'inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full text-[13px] font-bold border border-blue-300 bg-blue-50 text-blue-700 cursor-pointer';
+      btn.textContent = '✓ تتابع';
+    }
+    // تحديث عداد المتابعين في الواجهة
+    const statEl = document.getElementById('vstat-followers');
+    if (statEl) {
+      const cur = parseInt(statEl.textContent.replace(/[^0-9]/g,'')) || 0;
+      statEl.textContent = formatNumber(cur + 1);
+    }
+    showToast('تمت المتابعة ✓');
+  }
+}
+
+function confirmUnfollow() {
+  const modal = document.getElementById('unfollow-confirm-modal');
+  const uid = modal.getAttribute('data-uid');
+  const username = modal.getAttribute('data-username');
+  const key = 'yadwor-following-' + (uid || username);
+  localStorage.setItem(key, '0');
+  _updateVisitorFollowersCount(uid, username, -1);
+  modal.classList.add('hidden');
+  // تحديث الزر
+  const btn = document.getElementById('visitor-follow-btn');
+  if (btn) {
+    btn.className = 'inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full bg-blue-500 text-[13px] font-bold text-white cursor-pointer';
+    btn.textContent = '+ متابعة';
+  }
+  // تحديث العداد
+  const statEl = document.getElementById('vstat-followers');
+  if (statEl) {
+    const cur = parseInt(statEl.textContent.replace(/[^0-9]/g,'')) || 0;
+    statEl.textContent = formatNumber(Math.max(0, cur - 1));
+  }
+  showToast('تم إلغاء المتابعة');
+}
+
+function closeUnfollowModal() {
+  document.getElementById('unfollow-confirm-modal').classList.add('hidden');
+}
+
+async function _updateVisitorFollowersCount(uid, username, delta) {
+  if (!uid) return;
+  try {
+    // جلب العدد الحالي
+    const res = await fetch(`${FB_DB_URL}/users/${uid}/followers.json?auth=${FB_API_KEY}`);
+    const cur = res.ok ? (await res.json() || 0) : 0;
+    const newVal = Math.max(0, (parseInt(cur) || 0) + delta);
+    await fetch(`${FB_DB_URL}/users/${uid}/followers.json?auth=${FB_API_KEY}`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(newVal)
+    });
+  } catch(e) {}
+}
+
+function goToVisitorChat(name, avatar) {
+  const decodedName   = decodeURIComponent(name);
+  const decodedAvatar = decodeURIComponent(avatar);
+  window.location.href = `messages.html?chat=${encodeURIComponent(decodedName)}&avatar=${encodeURIComponent(decodedAvatar)}`;
 }
 
 // ====================== EXERCISES MODAL ======================
