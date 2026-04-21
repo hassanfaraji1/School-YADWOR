@@ -439,6 +439,17 @@ async function acceptRequest(id) {
     r.status = 'accepted';
     // تحويل نوع حساب المستخدم المقبول إذا كان هو نفسه المستخدم الحالي
     await applyAccountTypeOnAcceptance(r);
+    // إذا كان الطالب شخصاً آخر — حدّث نوع حسابه في Firebase مباشرة
+    if (r.uid && r.uid !== localStorage.getItem('yadwor-uid')) {
+      const newType = r.role === 'teacher' ? 'teacher' : 'student';
+      try {
+        await fetch(`${FB_JR_URL}/users/${r.uid}.json?auth=${FB_JR_KEY}`, {
+          method: 'PATCH',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ accountType: newType, profileType: newType, updatedAt: Date.now() })
+        });
+      } catch(e) { console.warn('remote accountType update failed:', e); }
+    }
   }
   try { localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests)); } catch(e) {}
   // حفظ في Firebase
