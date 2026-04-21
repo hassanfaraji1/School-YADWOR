@@ -360,6 +360,9 @@ async function saveUserProfileToFirebaseSettings() {
     avatar: prof ? prof.avatar : state.settingsAvatarPreview,
     cover: prof ? prof.cover : state.settingsCoverPreview,
     accountType: localStorage.getItem('yadwor-account-type') || 'influencer',
+    location: localStorage.getItem('yadwor-location') || '',
+    country: localStorage.getItem('yadwor-country') || '',
+    city: localStorage.getItem('yadwor-city') || '',
     updatedAt: Date.now()
   };
   try {
