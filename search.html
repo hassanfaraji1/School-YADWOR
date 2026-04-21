@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>YADWOR – البحث</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
+  input:focus, select:focus { outline: none; }
+  .shimmer { animation: shimmer 1.5s infinite; background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%); background-size: 200% 100%; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .truncate { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#18181b; color:white; padding:8px 18px; border-radius:999px; font-size:13px; font-weight:700; z-index:999; pointer-events:none; opacity:0; transition:opacity .2s; }
+  .toast.show { opacity:1; }
+</style>
+</head>
+<body>
+<div id="toast" class="toast"></div>
+
+<header class="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/95 backdrop-blur-xl">
+  <div class="mx-auto flex h-11 max-w-[1100px] items-center justify-between px-3">
+    <div class="flex items-center gap-1.5">
+      <a href="home.html" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      </a>
+    </div>
+    <h1 class="text-[15px] font-extrabold tracking-tight">البحث</h1>
+    <div class="h-9 w-9"></div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-[760px] px-4 py-4 pb-24">
+  <div class="rounded-[14px] border border-zinc-200 bg-white p-3">
+    <div class="flex items-center gap-3 rounded-[12px] bg-zinc-100 px-4 py-3 text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16"/></svg>
+      <input id="search-input" oninput="renderSearch()" placeholder="ابحث عن مؤسسة أو أستاذ أو تلميذ..." class="w-full bg-transparent text-[14px]" />
+    </div>
+    <div class="mt-3 grid grid-cols-2 gap-2">
+      <button onclick="setSearchMode('users')" id="search-mode-users" class="rounded-[12px] px-3 py-2 text-[13px] font-bold bg-zinc-900 text-white">المستخدمون</button>
+      <button onclick="setSearchMode('posts')" id="search-mode-posts" class="rounded-[12px] px-3 py-2 text-[13px] font-bold bg-zinc-100 text-zinc-600">المنشورات</button>
+    </div>
+  </div>
+  <div id="search-results" class="mt-4 space-y-3"></div>
+</main>
+
+<!-- BOTTOM NAV -->
+<nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-[0_-6px_20px_rgba(0,0,0,0.04)]">
+  <div class="mx-auto grid max-w-[480px] grid-cols-5 px-2 py-2 gap-1">
+    <a href="profile.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>
+      الملف
+    </a>
+    <a href="messages.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      الرسائل
+    </a>
+    <a href="roomhom.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+      الغرف
+    </a>
+    <a href="search.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold bg-zinc-900 text-white">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16"/></svg>
+      البحث
+    </a>
+    <a href="home.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>
+      الرئيسية
+    </a>
+  </div>
+</nav>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<script src="shared.js"></script>
+<script>
+function setSearchMode(mode) {
+  state.searchMode = mode;
+  document.getElementById('search-mode-users').className = `rounded-[12px] px-3 py-2 text-[13px] font-bold ${mode==='users'?'bg-zinc-900 text-white':'bg-zinc-100 text-zinc-600'}`;
+  document.getElementById('search-mode-posts').className = `rounded-[12px] px-3 py-2 text-[13px] font-bold ${mode==='posts'?'bg-zinc-900 text-white':'bg-zinc-100 text-zinc-600'}`;
+  renderSearch();
+}
+
+var _searchTimer = null;
+var _firebaseApp2 = null;
+var _firebaseDb2 = null;
+
+function _initFirebase() {
+  if (_firebaseDb2) return;
+  if (typeof firebase === 'undefined') return;
+  try {
+    if (!firebase.apps || firebase.apps.length === 0) {
+      _firebaseApp2 = firebase.initializeApp({
+        apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
+        authDomain: "a-comment-5a3e5.firebaseapp.com",
+        databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com",
+        projectId: "a-comment-5a3e5",
+        storageBucket: "a-comment-5a3e5.appspot.com",
+        messagingSenderId: "557343451166",
+        appId: "1:557343451166:web:d181f098cdeccf7691260f"
+      });
+    } else {
+      _firebaseApp2 = firebase.app();
+    }
+    _firebaseDb2 = firebase.database();
+  } catch(e) {}
+}
+
+function renderSearch() {
+  const q = ((document.getElementById('search-input') || {}).value || '').trim();
+  const results = document.getElementById('search-results');
+  if (!results) return;
+
+  if (state.searchMode === 'users') {
+    if (!q) {
+      results.innerHTML = `<div class="rounded-[14px] border border-dashed border-zinc-300 bg-white p-8 text-center text-[13px] text-zinc-500">اكتب اسماً أو معرفاً للبحث عن مستخدم</div>`;
+      return;
+    }
+
+    results.innerHTML = `<div class="rounded-[14px] border border-zinc-200 bg-white p-5 text-center text-[13px] text-zinc-400">جاري البحث...</div>`;
+
+    clearTimeout(_searchTimer);
+    _searchTimer = setTimeout(function() {
+      _initFirebase();
+      if (!_firebaseDb2) {
+        results.innerHTML = `<div class="rounded-[14px] border border-dashed border-zinc-300 bg-white p-8 text-center text-[13px] text-zinc-500">تعذّر الاتصال بقاعدة البيانات</div>`;
+        return;
+      }
+
+      var found = [];
+      var qLower = q.toLowerCase();
+
+      _firebaseDb2.ref('users').once('value', function(snap) {
+        snap.forEach(function(child) {
+          var u = child.val();
+          if (!u) return;
+          var uid = child.key;
+          var name = u.yourname || u.name || '';
+          var username = u.username || u.userName || '';
+          var nameLower = name.toLowerCase();
+          var usernameLower = username.toLowerCase();
+          if (
+            nameLower.includes(qLower) ||
+            usernameLower.includes(qLower) ||
+            uid.toLowerCase().includes(qLower)
+          ) {
+            found.push({
+              uid: uid,
+              name: name || 'مستخدم',
+              username: username,
+              avatar: u.avatar || '',
+              accountType: u.accountType || u.type || 'user'
+            });
+          }
+        });
+
+        if (found.length === 0) {
+          results.innerHTML = `<div class="rounded-[14px] border border-dashed border-zinc-300 bg-white p-8 text-center text-[13px] text-zinc-500">لا توجد نتائج مطابقة لبحثك</div>`;
+          return;
+        }
+
+        results.innerHTML = found.map(function(u) {
+          var typeLabel = u.accountType === 'institution' ? 'مؤسسة' : u.accountType === 'teacher' ? 'أستاذ' : u.accountType === 'student' ? 'تلميذ' : 'مستخدم';
+          var avatarHtml = u.avatar
+            ? `<div class="shimmer absolute inset-0"></div><img src="${u.avatar}" class="h-12 w-12 rounded-full object-cover z-[1] relative" onerror="this.style.display='none'" onload="this.previousElementSibling&&this.previousElementSibling.remove()" />`
+            : `<div style="width:100%;height:100%;background:linear-gradient(135deg,#0d47a1,#1976d2);display:flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:800;font-size:1.1rem;">${(u.name||'م')[0]}</div>`;
+          return `<a href="profile.html" onclick="localStorage.setItem('yadwor-view-uid','${u.uid}')" class="flex w-full items-center gap-3 rounded-[12px] border border-zinc-200 bg-white px-3 py-3 text-right" style="text-decoration:none;">
+            <div class="relative h-12 w-12 shrink-0 rounded-full overflow-hidden">${avatarHtml}</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <h3 class="text-[14px] font-extrabold truncate">${u.name}</h3>
+                <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-600 shrink-0">${typeLabel}</span>
+              </div>
+              <p class="mt-1 text-[12px] text-zinc-500 truncate">${u.username ? '@' + u.username : ''}</p>
+            </div>
+          </a>`;
+        }).join('');
+      }, function() {
+        results.innerHTML = `<div class="rounded-[14px] border border-dashed border-zinc-300 bg-white p-8 text-center text-[13px] text-zinc-500">تعذّر البحث. تحقق من اتصالك بالإنترنت</div>`;
+      });
+
+    }, 400);
+
+  } else {
+    var filtered = state.posts.filter(function(p) {
+      return !q || p.content.includes(q) || p.author.includes(q);
+    });
+    results.innerHTML = filtered.length
+      ? filtered.map(function(p) { return renderPostCard(p); }).join('')
+      : `<div class="rounded-[14px] border border-dashed border-zinc-300 bg-white p-8 text-center text-[13px] text-zinc-500">لا توجد منشورات مطابقة لبحثك</div>`;
+  }
+}
+
+// Init
+renderSearch();
+</script>
+<script src="floating-room.js"></script>
+</body>
+</html>

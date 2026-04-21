@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>YADWOR – الملف الشخصي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
+  input:focus, select:focus, textarea:focus { outline: none; }
+  .shimmer { animation: shimmer 1.5s infinite; background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%); background-size: 200% 100%; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .truncate { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#18181b; color:white; padding:8px 18px; border-radius:999px; font-size:13px; font-weight:700; z-index:999; pointer-events:none; opacity:0; transition:opacity .2s; }
+  .toast.show { opacity:1; }
+  /* Sidebar */
+  #sidebar-overlay { transition: opacity .25s; }
+  #sidebar-panel { transition: transform .25s cubic-bezier(.4,0,.2,1); transform: translateX(100%); }
+  #sidebar-panel.open { transform: translateX(0); }
+</style>
+</head>
+<body>
+<div id="toast" class="toast"></div>
+
+<!-- HEADER -->
+<header class="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/95 backdrop-blur-xl">
+  <div class="mx-auto flex h-11 max-w-[1100px] items-center justify-between px-3">
+    <!-- Hamburger menu button (3 lines) -->
+    <button onclick="openSidebar()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round">
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+    <h1 class="text-[15px] font-extrabold tracking-tight">الملف الشخصي</h1>
+    <a href="notifications.html" class="relative flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    </a>
+  </div>
+</header>
+
+<main id="profile-content" class="mx-auto max-w-[980px] pb-24"></main>
+
+<!-- ===== BOTTOM NAV ===== -->
+<nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-[0_-6px_20px_rgba(0,0,0,0.04)]">
+  <div class="mx-auto grid max-w-[480px] grid-cols-5 px-2 py-2 gap-1">
+    <a href="profile.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold bg-zinc-900 text-white">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>
+      الملف
+    </a>
+    <a href="messages.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      الرسائل
+    </a>
+    <a href="roomhom.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+      الغرف
+    </a>
+    <a href="search.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16"/></svg>
+      البحث
+    </a>
+    <a href="home.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>
+      الرئيسية
+    </a>
+  </div>
+</nav>
+
+<!-- ===== SIDEBAR OVERLAY ===== -->
+<div id="sidebar-overlay" class="hidden fixed inset-0 z-50 bg-black/40" onclick="closeSidebar()"></div>
+
+<!-- ===== SIDEBAR PANEL ===== -->
+<div id="sidebar-panel" class="fixed top-0 right-0 z-50 h-full w-[82vw] max-w-[320px] bg-white shadow-2xl overflow-y-auto flex flex-col">
+  <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+    <h2 class="text-[18px] font-extrabold">القائمة</h2>
+    <button onclick="closeSidebar()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <nav class="flex-1 px-3 py-3 space-y-1">
+    <a href="home.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>الرئيسية</span>
+    </a>
+    <a href="profile.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>الملف الشخصي</span>
+    </a>
+    <a href="search.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>البحث</span>
+    </a>
+    <a href="reels.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>الريلز</span>
+    </a>
+    <a href="#" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>المحفوظات</span>
+    </a>
+    <a href="settings.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>الإعدادات</span>
+    </a>
+    <a href="catalog.html" id="sidebar-catalog-link" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>إدارة المواد</span>
+    </a>
+    <a href="join-requests.html" id="sidebar-join-requests-link" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span id="sidebar-join-count">طلبات الانضمام</span>
+    </a>
+    <a href="exercises.html" id="sidebar-exercises-link" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold" style="display:none;">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>التمارين والاختبارات</span>
+    </a>
+    <a href="results.html" id="sidebar-results-link" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold" style="display:none;">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>نتائج الاختبارات</span>
+    </a>
+    <button onclick="doLogout()" class="flex w-full items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold text-red-600">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>تسجيل الخروج</span>
+    </button>
+  </nav>
+  <!-- Account type switcher inside sidebar -->
+  <div class="px-4 pb-6 pt-2 border-t border-zinc-100">
+    <p class="mb-3 text-center text-[12px] font-bold text-zinc-500">تبديل نوع الحساب للمعاينة</p>
+    <div class="grid grid-cols-2 gap-2">
+      <button onclick="switchProfile('influencer');closeSidebar()" id="stype-influencer" class="rounded-2xl px-3 py-3 text-[13px] font-bold transition bg-zinc-900 text-white">مؤثر تعليمي</button>
+      <button onclick="switchProfile('institution');closeSidebar()" id="stype-institution" class="rounded-2xl px-3 py-3 text-[13px] font-bold transition bg-white ring-1 ring-zinc-200">مؤسسة</button>
+      <button onclick="switchProfile('teacher');closeSidebar()" id="stype-teacher" class="rounded-2xl px-3 py-3 text-[13px] font-bold transition bg-white ring-1 ring-zinc-200">أستاذ</button>
+      <button onclick="switchProfile('student');closeSidebar()" id="stype-student" class="rounded-2xl px-3 py-3 text-[13px] font-bold transition bg-white ring-1 ring-zinc-200">تلميذ</button>
+    </div>
+  </div>
+</div>
+
+<!-- EXERCISES MODAL -->
+<div id="exercises-modal" class="hidden fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-0 md:items-center md:p-4">
+  <div class="absolute inset-0" onclick="closeExercisesModal()"></div>
+  <div id="exercises-modal-content" class="relative max-h-[92vh] w-full overflow-auto rounded-t-[28px] bg-white p-5 shadow-2xl md:max-w-[540px] md:rounded-[28px]"></div>
+</div>
+
+<!-- JOIN MODAL -->
+<div id="join-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 md:items-center md:p-4">
+  <div class="absolute inset-0" onclick="closeJoinModal()"></div>
+  <div id="join-modal-content" class="relative max-h-[92vh] w-full overflow-auto rounded-t-[28px] bg-white p-4 shadow-2xl md:max-w-[560px] md:rounded-[28px]"></div>
+</div>
+
+<!-- CERT VIEWER -->
+<div id="cert-viewer" class="hidden fixed inset-0 z-[65] flex items-center justify-center bg-black/70 p-4">
+  <div class="absolute inset-0" onclick="closeCertViewer()"></div>
+  <div class="relative w-full max-w-[760px] overflow-hidden rounded-[28px] bg-white shadow-2xl">
+    <div class="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
+      <div>
+        <h3 id="cert-title" class="text-[17px] font-extrabold"></h3>
+        <p id="cert-type" class="text-[12px] text-zinc-500"></p>
+      </div>
+      <button onclick="closeCertViewer()" class="flex h-10 w-10 items-center justify-center rounded-full hover:bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="bg-zinc-100 p-3">
+      <img id="cert-img" src="" alt="" class="max-h-[75vh] w-full rounded-[22px] object-contain" />
+    </div>
+  </div>
+</div>
+
+<!-- COMMENTS MODAL -->
+<div id="comments-modal" class="hidden fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
+  <div class="absolute inset-0" onclick="closeCommentsModal()"></div>
+  <div class="relative max-h-[85vh] w-full overflow-auto rounded-t-[28px] bg-zinc-50 p-4 shadow-2xl md:max-w-[580px]">
+    <div class="mb-4 flex items-center justify-between">
+      <div>
+        <h3 class="text-[17px] font-extrabold">التعليقات</h3>
+        <p id="comments-post-author" class="mt-0.5 text-[12px] text-zinc-500"></p>
+      </div>
+      <button onclick="closeCommentsModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-200">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="comments-list" class="space-y-3 pb-24"></div>
+    <div class="fixed bottom-0 left-0 right-0 border-t border-zinc-200 bg-white p-3 md:max-w-[580px] md:mx-auto">
+      <div class="flex items-center gap-2 rounded-[14px] bg-zinc-100 p-2">
+        <input id="comment-input" placeholder="اكتب تعليقك..." class="w-full bg-transparent px-2 text-[14px]" onkeydown="if(event.key==='Enter')submitComment()" />
+        <button onclick="submitComment()" class="rounded-[12px] bg-zinc-900 px-4 py-2 text-[13px] font-bold text-white">إرسال</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div id="edit-modal" class="hidden fixed inset-0 z-[65] flex items-center justify-center bg-black/50 p-4">
+  <div class="absolute inset-0" onclick="closeEditModal()"></div>
+  <div class="relative w-full max-w-[560px] rounded-[24px] bg-white p-5 shadow-2xl">
+    <div class="mb-4 flex items-center justify-between">
+      <div><h3 class="text-[18px] font-extrabold">تعديل المنشور</h3><p class="mt-1 text-[12px] text-zinc-500">يسمح بتعديل المنشور مرتين فقط</p></div>
+      <button onclick="closeEditModal()" class="flex h-10 w-10 items-center justify-center rounded-full hover:bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <textarea id="edit-text" rows="6" class="w-full rounded-[16px] border border-zinc-300 p-4 text-[14px] focus:border-zinc-900"></textarea>
+    <div class="mt-4 flex gap-2">
+      <button onclick="closeEditModal()" class="h-11 flex-1 rounded-[14px] bg-zinc-100 text-[14px] font-bold text-zinc-700">إلغاء</button>
+      <button onclick="saveEdit()" id="save-edit-btn" class="h-11 flex-1 rounded-[14px] bg-zinc-900 text-[14px] font-bold text-white">حفظ التعديل</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE MODAL -->
+<div id="delete-modal" class="hidden fixed inset-0 z-[68] flex items-center justify-center bg-black/50 p-4">
+  <div class="absolute inset-0" onclick="closeDeleteModal()"></div>
+  <div class="relative w-full max-w-[420px] rounded-[24px] bg-white p-5 text-right shadow-2xl">
+    <h3 class="text-[18px] font-extrabold">تأكيد حذف المنشور</h3>
+    <p class="mt-2 text-[13px] text-zinc-500">هل أنت متأكد أنك تريد حذف هذا المنشور؟ لا يمكن التراجع بعد الحذف.</p>
+    <div class="mt-5 flex gap-2">
+      <button onclick="closeDeleteModal()" class="h-11 flex-1 rounded-[14px] bg-zinc-100 text-[14px] font-bold text-zinc-700">إلغاء</button>
+      <button onclick="confirmDelete()" class="h-11 flex-1 rounded-[14px] bg-red-600 text-[14px] font-bold text-white">حذف</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMAGE VIEWER MODAL -->
+<div id="image-viewer" class="hidden fixed inset-0 z-[80] flex flex-col items-center justify-center bg-black/95">
+  <button onclick="closeImageViewer()" class="absolute top-4 left-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 border-none cursor-pointer">
+    <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-white" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+  </button>
+  <div class="flex items-center justify-center w-full h-full px-12">
+    <img id="image-viewer-img" src="" alt="" class="max-w-full max-h-[85vh] object-contain rounded-xl" />
+  </div>
+  <div>
+    <div id="image-viewer-counter" class="text-white/70 text-[13px] font-bold mb-3 text-center"></div>
+    <div class="flex gap-4 justify-center mb-4">
+      <button onclick="prevImage()" class="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 border-none cursor-pointer">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-white" stroke-width="2.2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+      <button onclick="nextImage()" class="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 border-none cursor-pointer">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-white" stroke-width="2.2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+const appCurrency = localStorage.getItem('yadwor-currency') || 'DH';
+
+// joinedInstitution: تُعيّن true عندما يتم قبول الشخص في المؤسسة
+if (typeof state !== 'undefined' && state.joinedInstitution === undefined) {
+  state.joinedInstitution = localStorage.getItem('yadwor-joined-institution') === 'true';
+}
+// ====================== تنظيف المنشورات الوهمية القديمة ======================
+(function cleanFakePosts() {
+  const FAKE_USERNAMES = ['riyada.school','sara.mehdi','youssef.amine','leila.bennani','yadwor.reels'];
+  state.posts = state.posts.filter(p => {
+    if (FAKE_USERNAMES.includes(p.username)) return false;
+    if (String(p.id).length < 10) return false; // ids قديمة وهمية
+    return true;
+  });
+  // احذف خاصية owned من كل المنشورات المتبقية لأنها مصدر الخلط
+  state.posts = state.posts.map(p => { const c = Object.assign({}, p); delete c.owned; return c; });
+  localStorage.setItem('yadwor-posts', JSON.stringify(state.posts));
+})();
+// ====================== SIDEBAR ======================
+function openSidebar() {
+  const overlay = document.getElementById('sidebar-overlay');
+  const panel = document.getElementById('sidebar-panel');
+  overlay.classList.remove('hidden');
+  setTimeout(() => { panel.classList.add('open'); }, 10);
+  updateSidebarButtons();
+}
+function closeSidebar() {
+  const overlay = document.getElementById('sidebar-overlay');
+  const panel = document.getElementById('sidebar-panel');
+  panel.classList.remove('open');
+  setTimeout(() => overlay.classList.add('hidden'), 260);
+}
+function updateSidebarButtons() {
+  ['institution','teacher','student','user','influencer'].forEach(t => {
+    const btn = document.getElementById('stype-'+t);
+    if(btn) btn.className = `rounded-2xl px-3 py-3 text-[13px] font-bold transition ${t===state.profileType?'bg-zinc-900 text-white':'bg-white ring-1 ring-zinc-200'}`;
+  });
+  // Show join requests link and catalog only for institution
+  const joinLink = document.getElementById('sidebar-join-requests-link');
+  if(joinLink) joinLink.style.display = state.profileType === 'institution' ? 'flex' : 'none';
+  const catalogLink = document.getElementById('sidebar-catalog-link');
+  if(catalogLink) catalogLink.style.display = state.profileType === 'institution' ? 'flex' : 'none';
+  // Show exercises/results for teacher and institution
+  const exercisesLink = document.getElementById('sidebar-exercises-link');
+  if(exercisesLink) exercisesLink.style.display = (state.profileType === 'teacher' || state.profileType === 'institution') ? 'flex' : 'none';
+  const resultsLink = document.getElementById('sidebar-results-link');
+  if(resultsLink) resultsLink.style.display = (state.profileType === 'teacher' || state.profileType === 'institution') ? 'flex' : 'none';
+  const joinCount = document.getElementById('sidebar-join-count');
+  if(joinCount) {
+    const pending = state.joinRequests.filter(r=>r.status==='pending').length;
+    joinCount.textContent = pending > 0 ? `طلبات الانضمام (${pending})` : 'طلبات الانضمام';
+  }
+}
+
+// ====================== GOTO CHAT ======================
+function goToChat() {
+  const prof = profiles[state.profileType];
+  const name = encodeURIComponent(prof.name);
+  const avatar = encodeURIComponent(prof.avatar);
+  window.location.href = `messages.html?chat=${name}&avatar=${avatar}`;
+}
+
+// ====================== PROFILE RENDER ======================
+function formatNumber(n) {
+  if(n>=1000000) return `${(n/1000000).toFixed(1).replace(/\.0$/,'')}م`;
+  if(n>=1000) return `${(n/1000).toFixed(1).replace(/\.0$/,'')}ألف`;
+  return String(n);
+}
+
+function switchProfile(type) {
+  state.profileType = type;
+  localStorage.setItem('yadwor-profile-type', type);
+  state.activeTab = getDefaultTab(type);
+  renderProfile();
+  updateSidebarButtons();
+}
+
+function getDefaultTab(type) {
+  if(type==='institution') return 'teachers';
+  if(type==='teacher') return 'students';
+  if(type==='student') return 'teachers';
+  return 'posts';
+}
+
+function renderProfile() {
+  // ── إذا كنا نعرض ملف شخص آخر (زائر) ──
+  if (state._viewingUsername && _visitorProfile) {
+    const vp = _visitorProfile;
+    // فلترة المنشورات بالـ uid الفريد فقط — لا username
+    const vPosts = _visitorUid
+      ? state.posts.filter(p => p.uid && String(p.uid) === String(_visitorUid))
+      : state.posts.filter(p => p.username && p.username === _visitorUsername);
+    // صورة الزائر: من ملفه الشخصي أو من منشوراته (p.avatar مدمجة مع المنشور)
+    const vAvatar = vp.avatar || (vPosts.length ? vPosts[0].avatar : '') || `https://ui-avatars.com/api/?name=${encodeURIComponent(vp.name||_visitorUsername||'U')}&background=e4e6eb&color=555&size=200`;
+    const vCover  = vp.cover  || 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1400&auto=format&fit=crop';
+    const tabs = [{id:'posts',label:'المنشورات',count:vPosts.length},{id:'media',label:'الوسائط',count:vPosts.filter(p=>p.images&&p.images.length&&p.type!=='video').reduce((s,p)=>s+p.images.length,0)}];
+    document.getElementById('profile-content').innerHTML = `
+    <div class="bg-white">
+      <div class="relative h-44 sm:h-52">
+        <div class="shimmer absolute inset-0"></div>
+        <img src="${vCover}" class="h-full w-full object-cover relative z-[1]" onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
+        <div class="absolute bottom-0 left-0 right-0 h-24 z-[2]" style="background:linear-gradient(to bottom,transparent 0%,rgba(255,255,255,0.7) 50%,#fff 100%)"></div>
+      </div>
+      <div class="relative z-[5] -mt-10 px-3">
+        <div class="absolute z-[20]" style="top:-36px;right:12px;">
+          <div class="h-[72px] w-[72px] rounded-full bg-white p-[3px] shadow-xl relative">
+            <div class="shimmer absolute inset-[3px] rounded-full"></div>
+            <img src="${vAvatar}" class="h-full w-full rounded-full object-cover relative z-[1]"
+              onload="this.previousElementSibling&&this.previousElementSibling.remove()"
+              onerror="this.src='https://images.unsplash.com/photo-1511367461989-f85a21fda167?w=400&auto=format&fit=crop';var e=this.previousElementSibling;if(e)e.remove();" />
+          </div>
+        </div>
+        <div class="rounded-[22px] bg-white border border-zinc-200/60 pt-12 pb-4 px-4 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
+          <div class="text-right">
+            <div class="flex items-center justify-between">
+              <button onclick="history.back()" class="flex items-center gap-1 text-[13px] font-bold text-zinc-500 hover:text-zinc-900">
+                <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+                رجوع
+              </button>
+            </div>
+            <h2 class="text-[20px] font-extrabold mt-1">${vp.name||state._viewingUsername}</h2>
+            <p class="text-[12px] text-zinc-400">@${vp.username||state._viewingUsername}</p>
+            ${vp.bio ? `<p class="mt-2 text-[12px] leading-[1.7] text-zinc-500">${vp.bio}</p>` : ''}
+          </div>
+          <div class="mt-4 grid grid-cols-${(vp.role==='teacher'||vp.type==='teacher'||vp.accountType==='teacher'||vp.role==='institution'||vp.type==='institution')?'3':'2'} gap-2">
+            <div class="flex h-10 items-center justify-center rounded-full bg-zinc-900 text-[13px] font-bold text-white cursor-pointer">
+              <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current mr-1" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              رسالة
+            </div>
+            <div class="flex h-10 items-center justify-center rounded-full bg-blue-500 text-[13px] font-bold text-white cursor-pointer">+ متابعة</div>
+            ${(vp.role==='teacher'||vp.type==='teacher'||vp.accountType==='teacher'||vp.role==='institution'||vp.type==='institution')
+              ? `<div onclick="openExercisesModal()" class="flex h-10 items-center justify-center rounded-full text-[13px] font-bold text-white cursor-pointer" style="background:#7c3aed;">تمارين / اختبارات</div>`
+              : ''}
+          </div>
+          <div class="mt-4 border-t border-zinc-200">
+            <div class="flex items-center justify-between pt-0">
+              ${tabs.map(tab=>`
+              <button onclick="setVisitorTab('${tab.id}')" id="vtab-${tab.id}" class="relative flex h-12 flex-1 items-center justify-center gap-1.5 text-[13px] font-extrabold ${tab.id==='posts'?'text-zinc-900':'text-zinc-400'}">
+                ${tab.id==='posts'?'<span class="absolute inset-x-0 bottom-0 h-[2.5px] rounded-full bg-zinc-900"></span>':''}
+                <span>${tab.label}</span>
+                <span class="text-[12px] font-black">${tab.count}</span>
+              </button>`).join('')}
+            </div>
+          </div>
+          <div id="visitor-tab-content" class="pt-4">${renderVisitorTabContent('posts', vPosts)}</div>
+        </div>
+      </div>
+    </div>`;
+    return;
+  }
+
+  // ── جلب البيانات الحقيقية للمستخدم من localStorage مباشرة ──
+  const ru = (typeof getRealUser === 'function') ? getRealUser() : {};
+  // دائماً استخدم بيانات المستخدم الحالي من localStorage
+  const prof = {
+    name:     localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || ru.name || 'مستخدم',
+    username: localStorage.getItem('yadwor-username') || ru.username || 'user',
+    avatar:   localStorage.getItem('yadwor-avatar-preview') || ru.avatar || '',
+    cover:    localStorage.getItem('yadwor-cover-preview')  || ru.cover  || 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1400&auto=format&fit=crop',
+    bio:      localStorage.getItem('yadwor-bio') || ru.bio || '',
+    location: localStorage.getItem('yadwor-location') || ru.location || '',
+    followers: ru.followers || 0,
+    following: ru.following || 0,
+    verified:  ru.verified  || false,
+    institution: ru.institution || ''
+  };
+
+  const tabs = getProfileTabs();
+  const typeIcons = {
+    institution: "M3 21h18M4 21V7l8-4 8 4v14M9 11h6M9 15h6",
+    teacher: "M12 14l9-5-9-5-9 5 9 5ZM12 14v7M9 18h6",
+    student: "M5 17a5 5 0 0 1 10 0M12 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6M16 11h3l1 7H4l1-7h3",
+    user: "M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
+    influencer: "M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+  }[state.profileType] || "M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8";
+
+  const tl = {institution:"مؤسسة تعليمية",teacher:"أستاذ",student:"تلميذ",user:"مستخدم",influencer:"مؤثر تعليمي"}[state.profileType] || "مؤثر تعليمي";
+  const stat3 = state.profileType==='institution' ? (prof.teachers||0) : state.profileType==='teacher' ? 0 : state.profileType==='student' ? 0 : 0;
+  const stat4 = state.profileType==='institution' ? formatNumber(prof.students||0) : 0;
+  const stat3label = state.profileType==='institution' ? 'أستاذ' : state.profileType==='teacher' ? 'تلاميذ' : state.profileType==='student' ? 'أساتذة' : 'منشورات';
+  const stat4label = state.profileType==='institution' ? 'تلميذ' : state.profileType==='teacher' ? 'كتب' : state.profileType==='student' ? 'ألقاب' : 'وسائط';
+  const displayName = prof.name || state.settingsName || 'مستخدم';
+  const followBtn = state.isFollowing
+    ? `<button onclick="toggleFollow()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-2 text-[11px] font-bold border border-blue-300 bg-blue-50 text-blue-700">✓ تتابع</button>`
+    : `<button onclick="toggleFollow()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-2 text-[11px] font-bold text-white" style="background:#60a5fa;">+ متابعة</button>`;
+  // زر التمارين/الاختبارات للأستاذ
+  const exercisesBtn = state.profileType === 'teacher'
+    ? `<button onclick="openExercisesModal()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-1 text-[11px] font-bold text-white" style="background:#7c3aed;">
+        <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+        تمارين / اختبارات
+      </button>`
+    : state.profileType === 'institution'
+      ? (state.joinedInstitution
+          ? `<button onclick="openExercisesModal()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-1 text-[11px] font-bold text-white" style="background:#7c3aed;">
+              <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+              تمارين / اختبارات
+            </button>`
+          : `<button onclick="openJoinModal()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-2 text-[11px] font-bold text-white" style="background:#fb923c;">انضمام</button>`)
+      : `<div class="h-8 w-full"></div>`;
+
+  document.getElementById('profile-content').innerHTML = `
+    <div class="bg-white">
+      <!-- Cover photo with fade-out bottom -->
+      <div class="relative h-44 sm:h-52">
+        <div class="shimmer absolute inset-0"></div>
+        <img src="${prof.cover}" class="h-full w-full object-cover relative z-[1]"
+          onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
+        <!-- Fade gradient bottom -->
+        <div class="absolute bottom-0 left-0 right-0 h-24 z-[2]"
+          style="background: linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.7) 50%, #fff 100%)"></div>
+      </div>
+
+      <!-- Profile card floats up over cover bottom -->
+      <div class="relative z-[5] -mt-10 px-3">
+
+        <!-- Avatar on original RIGHT position + badges in a row beside it -->
+        <div class="absolute z-[20]" style="top:-36px; right:12px; left:12px; direction:ltr;">
+          <div class="flex items-end justify-end gap-2">
+            <!-- Badges row -->
+            <div class="flex items-center gap-1.5 pb-2">
+              <span class="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2 py-1 shadow-sm">
+                <svg viewBox="0 0 24 24" class="h-2.5 w-2.5 fill-none stroke-white" stroke-width="2.2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                <span class="text-[9.5px] font-extrabold text-white">#${String(prof.username).replace(/[^0-9]/g,'').slice(0,6)||'575476'}</span>
+              </span>
+              <span class="inline-flex items-center gap-1 rounded-lg bg-sky-500 px-2 py-1 shadow-sm">
+                <svg viewBox="0 0 24 24" class="h-2.5 w-2.5 fill-none stroke-white" stroke-width="2.2" stroke-linecap="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>
+                <span class="text-[9.5px] font-extrabold text-white">${(prof.location||'الدار البيضاء، المغرب').split('،')[0]?.trim()||'الدار البيضاء'}</span>
+              </span>
+              <span class="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2 py-1 shadow-sm">
+                <svg viewBox="0 0 24 24" class="h-2.5 w-2.5 fill-none stroke-white" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 1 8 8c0 5.25-8 13-8 13S4 15.25 4 10a8 8 0 0 1 8-8z"/></svg>
+                <span class="text-[9.5px] font-extrabold text-white">${(prof.location||'المغرب، الدار البيضاء').split('،')[1]?.trim()||'المغرب'}</span>
+              </span>
+            </div>
+            <!-- Avatar last = rightmost in LTR -->
+            <div class="relative shrink-0">
+              <div class="h-[72px] w-[72px] rounded-full bg-white p-[3px] shadow-xl">
+                <div class="shimmer absolute inset-[3px] rounded-full"></div>
+                <img src="${prof.avatar}" class="h-full w-full rounded-full object-cover relative z-[1]"
+                  onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
+              </div>
+              ${prof.verified ? `<div class="absolute bottom-0.5 left-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 ring-2 ring-white z-[3]"><svg viewBox="0 0 24 24" class="h-3 w-3 fill-white"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>` : ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- Info card -->
+        <div class="rounded-[22px] bg-white border border-zinc-200/60 pt-12 pb-4 px-4 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
+          <div class="text-right">
+            <!-- Name -->
+            <h2 class="text-[20px] font-extrabold tracking-tight leading-snug">${displayName}</h2>
+            <!-- Account type badge + username LEFT aligned under name -->
+            <div class="mt-1.5 flex items-center gap-2 justify-start">
+              <span class="inline-flex items-center gap-1 rounded-full bg-zinc-900 px-2.5 py-1 text-[10px] font-bold text-white">
+                <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="${typeIcons}"/></svg>
+                ${tl}
+              </span>
+              <span class="text-[11px] text-zinc-400 font-medium">@${prof.username}</span>
+            </div>
+            ${prof.institution ? `<p class="mt-1.5 text-[11px] font-bold text-violet-600">${prof.institution}</p>` : ''}
+            <p class="mt-2 text-[12px] leading-[1.7] text-zinc-500">${prof.bio}</p>
+          </div>
+          <div class="mt-4 grid grid-cols-3 gap-2">
+            <button onclick="goToChat()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-1 text-[11px] font-bold text-white" style="background:#3f3f46;">
+              <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              رسالة
+            </button>
+            ${followBtn}
+            ${exercisesBtn}
+          </div>
+          <div class="mt-3 grid grid-cols-4 divide-x divide-x-reverse divide-zinc-100">
+            <div class="text-center px-1"><div class="text-[14px] font-extrabold">${formatNumber(prof.followers)}</div><div class="text-[9px] text-zinc-500 font-bold mt-0.5">متابع</div></div>
+            <div class="text-center px-1"><div class="text-[14px] font-extrabold">${formatNumber(prof.following)}</div><div class="text-[9px] text-zinc-500 font-bold mt-0.5">يتابع</div></div>
+            <div class="text-center px-1"><div class="text-[14px] font-extrabold" style="color:#1e40af;">${stat3}</div><div class="text-[9px] font-bold mt-0.5" style="color:#4b5563;">${stat3label}</div></div>
+            <div class="text-center px-1"><div class="text-[14px] font-extrabold" style="color:#1e40af;">${stat4}</div><div class="text-[9px] font-bold mt-0.5" style="color:#4b5563;">${stat4label}</div></div>
+          </div>
+        </div>
+        <div class="mt-4 border-t border-zinc-200">
+          <div class="flex flex-nowrap items-center justify-between overflow-x-auto gap-0 pt-0">
+            ${tabs.map(tab => `
+              <button onclick="setProfileTab('${tab.id}')" id="ptab-${tab.id}" class="relative flex h-12 flex-1 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap px-2 text-[13px] font-extrabold transition ${state.activeTab===tab.id?'text-zinc-900':'text-zinc-400'}">
+                ${state.activeTab===tab.id?`<span class="absolute inset-x-0 bottom-0 h-[2.5px] rounded-full bg-zinc-900"></span>`:''}
+                <span>${tab.label}</span>
+                ${tab.count!==undefined?`<span class="text-[12px] font-black ${state.activeTab===tab.id?'text-zinc-900':'text-zinc-400'}">${tab.count}</span>`:''}
+              </button>`).join('')}
+          </div>
+        </div>
+        <div id="profile-tab-content" class="pt-4">${renderProfileTabContent()}</div>
+      </div>
+    </div>`;
+}
+
+function getProfileTabs() {
+  // فقط منشوراتي بالـ uid
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  const myPosts = state.posts.filter(p => myUid && p.uid && String(p.uid) === String(myUid));
+  const myMedia = myPosts.filter(p => p.images && p.images.length && p.type !== 'video');
+  if(state.profileType==='institution') return [{id:'teachers',label:'الأساتذة',count:profiles.institution.teachers||0},{id:'students',label:'التلاميذ',count:profiles.institution.students||0},{id:'posts',label:'المنشورات',count:myPosts.length}];
+  if(state.profileType==='teacher')    return [{id:'students',label:'تلاميذي',count:0},{id:'books',label:'الكتب',count:0},{id:'posts',label:'المنشورات',count:myPosts.length}];
+  if(state.profileType==='student')    return [{id:'teachers',label:'أساتذتي',count:0},{id:'badges',label:'الألقاب',count:0},{id:'certificates',label:'الشواهد',count:0}];
+  if(state.profileType==='influencer') return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'media',label:'الوسائط',count:myMedia.length}];
+  return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'media',label:'الوسائط',count:myMedia.length}];
+}
+
+function setProfileTab(id) {
+  state.activeTab = id;
+  document.getElementById('profile-tab-content').innerHTML = renderProfileTabContent();
+  getProfileTabs().forEach(tab => {
+    const btn = document.getElementById('ptab-'+tab.id);
+    if(!btn) return;
+    const isActive = id===tab.id;
+    btn.className = `relative flex h-12 flex-1 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap px-2 text-[13px] font-extrabold transition ${isActive?'text-zinc-900':'text-zinc-400'}`;
+    const indicator = btn.querySelector('span.absolute');
+    if(isActive && !indicator) btn.insertAdjacentHTML('beforeend','<span class="absolute inset-x-0 bottom-0 h-[2.5px] rounded-full bg-zinc-900"></span>');
+    else if(!isActive && indicator) indicator.remove();
+    // update count color
+    const countEl = btn.querySelectorAll('span:not(.absolute)')[1];
+    if(countEl) countEl.className = `text-[12px] font-black ${isActive?'text-zinc-900':'text-zinc-400'}`;
+  });
+}
+
+function renderProfileTabContent() {
+  const t = state.profileType, tab = state.activeTab;
+
+  // ── دالة مساعدة: بطاقة شخص قابلة للنقر ──
+  function personCard(name, sub, imgIdx, role) {
+    const href = `profile.html?type=${role}`;
+    return `<a href="${href}" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition">
+      <div class="relative h-11 w-11 shrink-0 rounded-full overflow-hidden">
+        <div class="shimmer absolute inset-0"></div>
+        <img src="https://i.pravatar.cc/200?img=${imgIdx}" class="h-11 w-11 rounded-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
+      </div>
+      <div class="flex-1 min-w-0">
+        <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${name}</h3>
+        <p class="text-[11px] text-zinc-400 font-medium truncate">${sub}</p>
+      </div>
+      <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-50 border border-zinc-200">
+        <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-500" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+    </a>`;
+  }
+
+  // ── حالة فارغة ──
+  function emptyState(icon, msg) {
+    return `<div class="flex flex-col items-center justify-center py-14 text-center gap-3">
+      <div class="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-7 w-7 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round">${icon}</svg>
+      </div>
+      <p class="text-[14px] font-bold text-zinc-400">${msg}</p>
+    </div>`;
+  }
+
+  // ── مؤسسة: الأساتذة ──
+  if(t==='institution' && tab==='teachers') {
+    const accepted = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted');
+    if(!accepted.length) return emptyState('<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>', 'لم ينضم أي أستاذ بعد');
+    return `<div class="grid gap-2">${accepted.map((r,i)=>personCard(r.fullName||'أستاذ', r.subjects?.map(s=>s.name).join('، ')||'', 10+i, 'teacher')).join('')}</div>`;
+  }
+
+  // ── مؤسسة: التلاميذ ──
+  if(t==='institution' && tab==='students') {
+    const accepted = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted');
+    if(!accepted.length) return emptyState('<circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/>', 'لم ينضم أي تلميذ بعد');
+    return `<div class="grid gap-2">${accepted.map((r,i)=>personCard(r.fullName||'تلميذ', r.levelName||'', 30+i, 'student')).join('')}</div>`;
+  }
+
+  // ── مؤسسة / أستاذ / مؤثر: المنشورات ──
+  if(tab==='posts') {
+    // فقط منشوراتي بالـ uid — لا تعرض منشورات الآخرين
+    const myUid = localStorage.getItem('yadwor-uid') || '';
+    const posts = (state.posts||[]).filter(p => myUid && p.uid && String(p.uid) === String(myUid));
+    if(!posts.length) return emptyState('<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M8 8h5"/>', 'لا توجد منشورات بعد');
+    return `<div class="space-y-4">${posts.map(p=>renderPostCard(p)).join('')}</div>`;
+  }
+
+  // ── مؤثر: الوسائط ──
+  if(tab==='media') {
+    const myUid2 = localStorage.getItem('yadwor-uid') || '';
+    const myPosts = (state.posts||[]).filter(p => myUid2 && p.uid && String(p.uid) === String(myUid2));
+    // جمع كل الصور من المنشورات
+    const mediaItems = [];
+    myPosts.forEach(p => {
+      if(p.images && p.images.length && p.type !== 'video') {
+        p.images.forEach((img, imgIdx) => {
+          mediaItems.push({ postId: p.id, imgIdx, url: img });
+        });
+      }
+    });
+    if(!mediaItems.length) return emptyState(
+      '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>',
+      'لا توجد وسائط بعد'
+    );
+    return `
+    <style>
+      .media-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:2px; }
+      .media-grid-item { position:relative; aspect-ratio:1/1; overflow:hidden; cursor:pointer; background:#f4f4f5; }
+      .media-grid-item img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .2s; }
+      .media-grid-item:hover img { transform:scale(1.04); }
+      .media-grid-item .shimmer-cover { position:absolute; inset:0; }
+    </style>
+    <div class="media-grid">
+      ${mediaItems.map((item, i) => `
+        <div class="media-grid-item" onclick="openProfileMediaViewer(${i})">
+          <div class="shimmer shimmer-cover" id="mgsh_${i}"></div>
+          <img src="${item.url}" alt="" onload="document.getElementById('mgsh_${i}')&&document.getElementById('mgsh_${i}').remove()" onerror="document.getElementById('mgsh_${i}')&&document.getElementById('mgsh_${i}').remove()" />
+        </div>
+      `).join('')}
+    </div>
+    <div id="profile-media-viewer" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);flex-direction:column;align-items:center;justify-content:center;" onclick="closeProfileMediaViewer(event)">
+      <button onclick="closeProfileMediaViewer()" style="position:absolute;top:16px;left:16px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:white;stroke-width:2.2;stroke-linecap:round;"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+      <button onclick="profileMediaPrev(event)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:white;stroke-width:2.4;stroke-linecap:round;"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+      <button onclick="profileMediaNext(event)" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:white;stroke-width:2.4;stroke-linecap:round;"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <img id="profile-media-viewer-img" src="" style="max-width:95vw;max-height:88vh;object-fit:contain;border-radius:12px;" />
+      <div id="profile-media-viewer-counter" style="color:rgba(255,255,255,0.7);font-size:13px;font-weight:700;margin-top:12px;"></div>
+    </div>
+    <script>
+    var _profileMediaItems = ${JSON.stringify(mediaItems.map(m=>m.url))};
+    var _profileMediaIdx = 0;
+    function openProfileMediaViewer(idx) {
+      _profileMediaIdx = idx;
+      var v = document.getElementById('profile-media-viewer');
+      if(v) { v.style.display='flex'; _updateProfileMediaViewer(); }
+    }
+    function closeProfileMediaViewer(e) {
+      if(e && e.target && e.target.tagName==='IMG') return;
+      var v = document.getElementById('profile-media-viewer');
+      if(v) v.style.display='none';
+    }
+    function _updateProfileMediaViewer() {
+      var img = document.getElementById('profile-media-viewer-img');
+      var ctr = document.getElementById('profile-media-viewer-counter');
+      if(img) img.src = _profileMediaItems[_profileMediaIdx]||'';
+      if(ctr) ctr.textContent = (_profileMediaIdx+1) + ' / ' + _profileMediaItems.length;
+    }
+    function profileMediaPrev(e) { e&&e.stopPropagation(); _profileMediaIdx=(_profileMediaIdx===0?_profileMediaItems.length-1:_profileMediaIdx-1); _updateProfileMediaViewer(); }
+    function profileMediaNext(e) { e&&e.stopPropagation(); _profileMediaIdx=(_profileMediaIdx===_profileMediaItems.length-1?0:_profileMediaIdx+1); _updateProfileMediaViewer(); }
+    document.addEventListener('keydown',function(e){
+      var v=document.getElementById('profile-media-viewer');
+      if(!v||v.style.display==='none') return;
+      if(e.key==='ArrowRight') profileMediaPrev();
+      else if(e.key==='ArrowLeft') profileMediaNext();
+      else if(e.key==='Escape') closeProfileMediaViewer();
+    });
+    <\/script>`;
+  }
+
+  // ── أستاذ: تلاميذه ──
+  if(t==='teacher' && tab==='students') {
+    return emptyState('<circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/>', 'لا يوجد تلاميذ بعد');
+  }
+
+  // ── أستاذ: كتبه ──
+  if(t==='teacher' && tab==='books') {
+    const books=[{title:"كتاب الرياضيات الكامل",subject:"الرياضيات",kind:"كتاب",image:"https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=900&auto=format&fit=crop"},{title:"فرض محروس رقم 1",subject:"الرياضيات",kind:"فرض",image:"https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=900&auto=format&fit=crop"},{title:"ملخص النهايات",subject:"الرياضيات",kind:"ملخص",image:"https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=900&auto=format&fit=crop"},{title:"كتاب الفيزياء المبسط",subject:"الفيزياء",kind:"كتاب",image:"https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=900&auto=format&fit=crop"}];
+    return `<div class="grid grid-cols-3 gap-2">${books.map(b=>`<div class="relative h-40 overflow-hidden rounded-[12px] border border-zinc-200"><div class="shimmer absolute inset-0"></div><img src="${b.image}" class="h-full w-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" /><div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-[2]"></div><div class="absolute inset-x-0 bottom-0 p-2 text-white z-[3]"><div class="mb-1 flex items-center justify-between gap-1"><span class="rounded-full bg-white/15 px-2 py-1 text-[9px] font-bold">${b.kind}</span><span class="rounded-full bg-violet-500/90 px-2 py-1 text-[9px] font-bold">${b.subject}</span></div><h3 class="line-clamp-2 text-[12px] font-extrabold leading-5">${b.title}</h3></div></div>`).join('')}</div>`;
+  }
+
+  // ── تلميذ: أساتذته ──
+  if(t==='student' && tab==='teachers') {
+    return emptyState('<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>', 'لا يوجد أساتذة بعد');
+  }
+
+  // ── تلميذ: الألقاب ──
+  if(t==='student' && tab==='badges') {
+    const badges=["مجتهد سنة 2022","الأول في فرض الرياضيات 2025/06","المثابر في الفيزياء","أفضل مشاركة في القسم","المتفوق في الدورة الأولى","الأول في الامتحان الموحد","مبدع في الأنشطة","الأسرع في حل التمارين","منظم السنة الدراسية","متعاون مع الزملاء"];
+    return `<div class="flex flex-wrap gap-3">${badges.map(b=>`<div class="rounded-[18px] border border-violet-200 bg-violet-50 px-4 py-3 text-[13px] font-bold text-violet-800">${b}</div>`).join('')}</div>`;
+  }
+
+  // ── تلميذ: الشواهد ──
+  if(t==='student' && tab==='certificates') {
+    const certs=[{title:"شهادة التفوق",type:"image",preview:"https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=900&auto=format&fit=crop"},{title:"شهادة المشاركة",type:"pdf",preview:"https://images.unsplash.com/photo-1517842645767-c639042777db?w=900&auto=format&fit=crop"},{title:"شهادة إتمام دورة",type:"image",preview:"https://images.unsplash.com/photo-1455390582262-044cdead277a?w=900&auto=format&fit=crop"},{title:"شهادة التميز",type:"pdf",preview:"https://images.unsplash.com/photo-1503676382389-4809596d5290?w=900&auto=format&fit=crop"}];
+    return `<div class="grid grid-cols-2 gap-3 md:grid-cols-3">${certs.map(c=>`<button onclick="openCertViewer('${c.title}','${c.type}','${c.preview}')" class="overflow-hidden rounded-[22px] border border-zinc-200 bg-white text-right shadow-sm"><div class="relative h-36 bg-zinc-100"><div class="shimmer absolute inset-0"></div><img src="${c.preview}" class="h-full w-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" /></div><div class="p-3"><div class="flex items-center justify-between gap-2"><h3 class="text-[14px] font-extrabold">${c.title}</h3><span class="rounded-full bg-zinc-900 px-2 py-1 text-[10px] font-bold text-white">${c.type.toUpperCase()}</span></div></div></button>`).join('')}</div>`;
+  }
+
+  return emptyState('<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M8 8h5"/>', 'لا توجد بيانات بعد');
+}
+
+function toggleFollow() {
+  state.isFollowing = !state.isFollowing;
+  renderProfile();
+}
+
+// ====================== EXERCISES MODAL ======================
+function openExercisesModal() {
+  // Find active exams for this teacher/institution
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  const exams = JSON.parse(localStorage.getItem('yadwor-exams') || '[]');
+  const activeExams = exams.filter(e => Date.now() < e.expiresAt);
+
+  const modal = document.getElementById('exercises-modal');
+  const content = document.getElementById('exercises-modal-content');
+
+  if (!activeExams.length) {
+    content.innerHTML = `
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
+      <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
+      <div class="h-16 w-16 rounded-full bg-zinc-100 flex items-center justify-center">
+        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.5" stroke-linecap="round">
+          <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/>
+        </svg>
+      </div>
+      <p class="text-[15px] font-bold text-zinc-800">لا يوجد اختبار أو تمرين حالياً</p>
+      <p class="text-[13px] text-zinc-400">لم يقم الأستاذ بنشر أي اختبار أو تمرين بعد.<br>تابع الصفحة لتصلك الاختبارات القادمة.</p>
+    </div>`;
+  } else {
+    content.innerHTML = `
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
+      <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="space-y-3">
+      ${activeExams.map(e => {
+        const totalPts = e.questions.reduce((s,q)=>s+(q.points||1),0);
+        const remaining = Math.max(0, e.expiresAt - Date.now());
+        const remH = Math.floor(remaining/3600000);
+        const remM = Math.floor((remaining%3600000)/60000);
+        const timeStr = remH > 0 ? `${remH}س ${remM}د` : `${remM} دقيقة`;
+        return `
+        <div class="rounded-[18px] border border-zinc-100 bg-zinc-50 p-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[11px] font-bold bg-violet-100 text-violet-700 rounded-full px-2.5 py-1">${e.type}</span>
+            <span class="text-[11px] text-orange-500 font-bold">⏳ ${timeStr}</span>
+          </div>
+          <h4 class="text-[15px] font-extrabold text-zinc-900 mb-1">${e.title}</h4>
+          <div class="flex items-center gap-3 text-[12px] text-zinc-400 mb-3">
+            <span>📝 ${e.questions.length} سؤال</span>
+            <span>⭐ ${totalPts} نقطة</span>
+          </div>
+          <div class="rounded-[12px] bg-amber-50 border border-amber-200 p-3 mb-3">
+            <p class="text-[12px] text-amber-700 font-bold leading-relaxed">
+              ⚠️ استعد جيداً! لكل سؤال وقت محدد ولا يمكن تخطي الأسئلة.
+            </p>
+          </div>
+          <button onclick="startExamFromProfile(${e.id})"
+            class="h-11 w-full rounded-[14px] bg-zinc-900 text-[14px] font-extrabold text-white">
+            بدء الآن ←
+          </button>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  modal.classList.remove('hidden');
+}
+
+function closeExercisesModal() {
+  document.getElementById('exercises-modal').classList.add('hidden');
+}
+
+function startExamFromProfile(examId) {
+  closeExercisesModal();
+  window.location.href = `quiz.html?exam=${examId}`;
+}
+
+
+function openJoinModal() {
+  state.joinStep = 1; state.joinRole = null;
+  renderJoinModalContent();
+  document.getElementById('join-modal').classList.remove('hidden');
+}
+function closeJoinModal() { document.getElementById('join-modal').classList.add('hidden'); }
+
+function calcJoinTotal() {
+  const catV3 = JSON.parse(localStorage.getItem('yadwor-catalog-v3') || '{}');
+  const lvlData = catV3[state.selectedLevel] || {};
+  return (state.selectedSubjects || []).reduce((sum, s) => {
+    const v3s = (lvlData.subjects || []).find(x => x.name === s);
+    const p = v3s || state.institutionCatalog[s] || {free:true,price:'0'};
+    return sum + (p.free !== false ? 0 : Number(p.price || 0));
+  }, 0);
+}
+
+function buildSubjectsHTML(availSubjects, total, levelId) {
+  const isTeacher = state.joinRole === 'teacher';
+  const catalogData = JSON.parse(localStorage.getItem('yadwor-catalog-v2') || '{}');
+  const catV3 = JSON.parse(localStorage.getItem('yadwor-catalog-v3') || '{}');
+  const customSubs = JSON.parse(localStorage.getItem('yadwor-custom-subjects') || '[]');
+  const activeLvlId = levelId || state.selectedLevel;
+
+  const subjectBtns = availSubjects.map(function(s) {
+    const checked = state.selectedSubjects.includes(s);
+    const key = activeLvlId + '_' + s;
+    // المصدر الرئيسي: catalog-v3
+    const v3Subj = catV3[activeLvlId]?.subjects?.find(x => x.name === s);
+    const customEntry = customSubs.find(c => c.name === s && c.levelId === activeLvlId);
+    const pricing = v3Subj || customEntry || catalogData[key] || state.institutionCatalog[s] || {free: true, price: '0'};
+    let priceHTML = '';
+    if (!isTeacher) {
+      priceHTML = pricing.free
+        ? '<span style="font-size:10px;font-weight:800;color:#065f46;margin-right:4px;">مجاني</span>'
+        : '<span style="font-size:10px;font-weight:800;color:#065f46;margin-right:4px;">' + pricing.price + ' ' + appCurrency + '</span>';
+    }
+    const cardClass = checked ? 'bg-white text-zinc-900' : 'bg-white text-zinc-700';
+    const cardStyle = checked ? 'border:1.5px solid #93c5fd;border-radius:8px;background:#f8fbff;' : 'border:1px solid #e9eef5;border-radius:8px;background:#fafbfc;';
+    const iconHTML = checked
+      ? '<span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] bg-blue-500 border border-blue-500"><svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg></span>'
+      : '<span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] border border-zinc-200 bg-white"></span>';
+    return '<button type="button" onclick="toggleJoinSubject(\'' + s + '\',' + String(!checked) + ')" class="flex items-center justify-between p-2.5 text-right w-full transition ' + cardClass + '" style="' + cardStyle + '">'
+      + '<span class="text-[13px] font-bold">' + s + '</span>'
+      + '<div class="flex items-center gap-1 shrink-0 mr-1">' + priceHTML + iconHTML + '</div></button>';
+  }).join('');
+
+  // ── صندوق موحد: المجموع + المواد المختارة ──
+  let selectedHTML = '';
+  let totalHTML = '';
+
+  if (state.selectedSubjects.length > 0) {
+    // chips — اسم المادة فقط بدون ثمن
+    const chips = state.selectedSubjects.map(function(s) {
+      return '<span style="display:inline-flex;align-items:center;background:white;color:#0f172a;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;">'
+        + s + '</span>';
+    }).join('');
+
+    if (!isTeacher) {
+      // تلميذ: صندوق أسود — مجموع صحيح + مواد
+      const realTotal = calcJoinTotal();
+      const totalTxt = realTotal > 0
+        ? '<span style="font-size:20px;font-weight:900;color:#4ade80;">' + realTotal + ' ' + appCurrency + '</span>'
+        : '<span style="font-size:20px;font-weight:900;color:#4ade80;">مجاناً</span>';
+      totalHTML = '<div class="mb-4" style="background:#0f172a;border-radius:14px;padding:14px 16px;">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+        + totalTxt
+        + '<span style="font-size:12px;color:#94a3b8;font-weight:600;">المجموع الإجمالي</span>'
+        + '</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:6px;">' + chips + '</div>'
+        + '</div>';
+    } else {
+      // أستاذ: صندوق أسود مع المواد فقط
+      totalHTML = '<div class="mb-4" style="background:#0f172a;border-radius:14px;padding:14px 16px;">'
+        + '<p style="font-size:11px;color:#94a3b8;font-weight:600;margin:0 0 8px;">المواد المختارة</p>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:6px;">' + chips + '</div>'
+        + '</div>';
+    }
+  } else if (!isTeacher) {
+    // لم يختر أي مادة بعد — صندوق أسود فارغ
+    totalHTML = '<div class="mb-4" style="background:#0f172a;border-radius:14px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;">'
+      + '<span style="font-size:20px;font-weight:900;color:#4ade80;">0 ' + appCurrency + '</span>'
+      + '<span style="font-size:12px;color:#94a3b8;font-weight:600;">المجموع الإجمالي</span>'
+      + '</div>';
+  }
+
+  return '<div class="mb-4">'
+    + '<p class="mb-2 text-[13px] font-extrabold text-zinc-700">اختيار المواد</p>'
+    + '<div class="rounded-[18px] border border-zinc-200 bg-zinc-50 p-3">'
+    + '<div class="grid grid-cols-2 gap-2">' + subjectBtns + '</div>'
+    + '</div></div>'
+    + selectedHTML
+    + totalHTML;
+}
+
+function renderJoinModalContent() {
+  const content = document.getElementById('join-modal-content');
+  if(state.joinStep === 1) {
+    content.innerHTML = `
+      <div class="mb-5 flex items-center justify-between">
+        <div><h3 class="text-[20px] font-extrabold">الانضمام للمؤسسة</h3><p class="mt-1 text-[13px] text-zinc-500">اختر نوع الانضمام ثم أرسل الطلب</p></div>
+        <button onclick="closeJoinModal()" class="flex h-10 w-10 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-500">
+          <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="grid grid-cols-2 gap-3 mt-3">
+
+        <!-- تلميذ -->
+        <button onclick="selectJoinRole('student')"
+          style="border:1.5px solid #e2e8f0;border-radius:12px;background:#fff;padding:12px 8px;text-align:center;cursor:pointer;transition:border-color .15s,box-shadow .15s;font-family:Tajawal,sans-serif;box-shadow:none;"
+          onmouseenter="this.style.borderColor='#1d4ed8';this.style.boxShadow='0 0 0 2px #bfdbfe'"
+          onmouseleave="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'">
+          <div style="margin:0 auto 8px;width:38px;height:38px;border-radius:8px;background:#1e3a5f;display:flex;align-items:center;justify-content:center;">
+            <svg viewBox="0 0 24 24" style="width:19px;height:19px;" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="7.5" r="2.5"/>
+              <path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/>
+            </svg>
+          </div>
+          <h4 style="font-size:13px;font-weight:800;color:#0f172a;margin:0 0 1px;">تلميذ</h4>
+          <p style="font-size:10px;color:#94a3b8;margin:0;">للدراسة</p>
+        </button>
+
+        <!-- أستاذ -->
+        <button onclick="selectJoinRole('teacher')"
+          style="border:1.5px solid #e2e8f0;border-radius:12px;background:#fff;padding:12px 8px;text-align:center;cursor:pointer;transition:border-color .15s,box-shadow .15s;font-family:Tajawal,sans-serif;box-shadow:none;"
+          onmouseenter="this.style.borderColor='#1d4ed8';this.style.boxShadow='0 0 0 2px #bfdbfe'"
+          onmouseleave="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'">
+          <div style="margin:0 auto 8px;width:38px;height:38px;border-radius:8px;background:#1e3a5f;display:flex;align-items:center;justify-content:center;">
+            <svg viewBox="0 0 24 24" style="width:19px;height:19px;" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+              <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+            </svg>
+          </div>
+          <h4 style="font-size:13px;font-weight:800;color:#0f172a;margin:0 0 1px;">أستاذ</h4>
+          <p style="font-size:10px;color:#94a3b8;margin:0;">للتدريس</p>
+        </button>
+
+      </div>`;
+  } else {
+    // جلب المستويات المفعّلة من localStorage
+    const catalogData = JSON.parse(localStorage.getItem('yadwor-catalog-v2') || '{}');
+    const enabledLevelIds = JSON.parse(localStorage.getItem('yadwor-enabled-levels') || 'null');
+    const customLevels = JSON.parse(localStorage.getItem('yadwor-custom-levels') || '[]');
+    const allLevels = [...moroccanLevels, ...customLevels];
+
+    // المستويات المفعّلة فقط (إذا null = لا شيء)
+    const availableLevels = enabledLevelIds !== null
+      ? allLevels.filter(l => enabledLevelIds.includes(l.id))
+      : [];
+
+    // المواد المفعّلة للمستوى المختار — المصدر الرئيسي هو catalog-v3
+    let availSubjects = [];
+    if (state.selectedLevel) {
+      const catV3 = JSON.parse(localStorage.getItem('yadwor-catalog-v3') || '{}');
+      const lvlV3 = catV3[state.selectedLevel];
+      if (lvlV3 && lvlV3.subjects && lvlV3.subjects.length > 0) {
+        // استخدم catalog-v3 مباشرةً — أحدث وأدق
+        availSubjects = lvlV3.subjects
+          .filter(s => s.enabled !== false)
+          .map(s => s.name);
+      } else {
+        // إجراء احتياطي: استخدم catalog-v2
+        const lvl = allLevels.find(l => l.id === state.selectedLevel);
+        const cycleSubjects = lvl ? (subjectsByCycle[lvl.cycle] || []) : [];
+        const customSubs = JSON.parse(localStorage.getItem('yadwor-custom-subjects') || '[]')
+          .filter(s => s.levelId === state.selectedLevel && s.enabled !== false);
+        const customSubNames = customSubs.map(s => s.name);
+        const presetEnabled = cycleSubjects.filter(s => {
+          const key = state.selectedLevel + '_' + s;
+          const entry = catalogData[key];
+          return entry && entry.enabled === true;
+        });
+        const seen = new Set(presetEnabled);
+        customSubNames.forEach(n => { if (!seen.has(n)) seen.add(n); });
+        availSubjects = [...seen];
+      }
+    }
+
+    const total = calcJoinTotal();
+    const roleLabel = state.joinRole === 'student' ? 'تلميذ' : 'أستاذ';
+    // أيقونة SVG كاملة موحدة مع بطاقة الاختيار
+    const roleIconSVG = state.joinRole === 'student'
+      ? '<svg viewBox="0 0 24 24" style="width:19px;height:19px;" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/></svg>'
+      : '<svg viewBox="0 0 24 24" style="width:19px;height:19px;" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>';
+
+    const noLevels = availableLevels.length === 0;
+    const noSubjects = state.selectedLevel && availSubjects.length === 0;
+    // إظهار الهاتف والزر فقط إذا اختار مستوى وتوجد مواد
+    const showForm = state.selectedLevel && availSubjects.length > 0;
+
+    // بناء قائمة المستويات
+    let levelsBody = '';
+    if (noLevels) {
+      levelsBody = `<div class="rounded-[14px] px-4 py-5 text-center" style="background:#0f172a;border:2px solid #1e3a5f;">
+        <svg viewBox="0 0 24 24" class="mx-auto mb-2 h-8 w-8" fill="none" stroke="#60a5fa" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+        <p class="text-[14px] font-extrabold" style="color:#93c5fd;">لم تُفعّل المؤسسة أي مستوى دراسي بعد</p>
+        <p class="text-[12px] mt-1" style="color:#60a5fa;">يرجى التواصل مع إدارة المؤسسة</p>
+      </div>`;
+    } else {
+      const cycles = {};
+      availableLevels.forEach(l => { if(!cycles[l.cycle]) cycles[l.cycle]=[]; cycles[l.cycle].push(l); });
+      levelsBody = Object.entries(cycles).map(([cycle, lvls]) => `
+        <div class="mb-2">
+          <p class="text-[10px] font-bold text-zinc-400 mb-1.5 px-1">${cycle}</p>
+          <div class="grid grid-cols-2 gap-2">
+            ${lvls.map(l=>`<button onclick="state.selectedLevel='${l.id}';state.selectedSubjects=[];renderJoinModalContent()" style="border-radius:10px;padding:9px 12px;text-align:right;font-size:13px;font-weight:700;transition:all .15s;width:100%;border:${state.selectedLevel===l.id?'1.5px solid #93c5fd':'1px solid #e9eef5'};background:${state.selectedLevel===l.id?'#eff6ff':'#fafbfc'};color:${state.selectedLevel===l.id?'#1d4ed8':'#374151'};display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <span style="flex:1;text-align:right;">${l.name}</span>
+              <span style="width:18px;height:18px;border-radius:50%;border:1.5px solid ${state.selectedLevel===l.id?'#3b82f6':'#d1dae6'};background:${state.selectedLevel===l.id?'#3b82f6':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;">
+                ${state.selectedLevel===l.id?'<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>':''}
+              </span>
+            </button>`).join('')}
+          </div>
+        </div>`).join('');
+    }
+
+    // رسالة لا توجد مواد
+    let subjectsSection = '';
+    if (state.selectedLevel) {
+      if (noSubjects) {
+        subjectsSection = `<div class="mb-4 rounded-[14px] px-4 py-5 text-center" style="background:#0f172a;border:2px solid #1e3a5f;">
+          <svg viewBox="0 0 24 24" class="mx-auto mb-2 h-8 w-8" fill="none" stroke="#60a5fa" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <p class="text-[14px] font-extrabold" style="color:#93c5fd;">لم تُفعّل المؤسسة أي مادة لهذا المستوى</p>
+          <p class="text-[12px] mt-1" style="color:#60a5fa;">يرجى التواصل مع إدارة المؤسسة</p>
+        </div>`;
+      } else {
+        subjectsSection = buildSubjectsHTML(availSubjects, total, state.selectedLevel);
+      }
+    }
+
+    content.innerHTML = `
+      <div class="mb-4 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div style="width:36px;height:36px;border-radius:8px;background:#1e3a5f;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            ${roleIconSVG}
+          </div>
+          <div>
+            <h3 class="text-[18px] font-extrabold">طلب انضمام</h3>
+            <span style="color:#1e3a5f;font-size:12px;font-weight:800;">${roleLabel}</span>
+          </div>
+        </div>
+        <button onclick="closeJoinModal()" class="flex h-10 w-10 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-500">
+          <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <button onclick="state.joinStep=1;renderJoinModalContent()" class="mb-4 flex items-center gap-1 text-[13px] font-bold text-zinc-500 hover:text-zinc-900 transition">
+        <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        رجوع
+      </button>
+
+      <!-- Level selector -->
+      <div class="mb-4">
+        <p class="mb-2 text-[13px] font-extrabold text-zinc-700">المستوى الدراسي</p>
+        <div class="rounded-[16px] border border-zinc-200 bg-white p-3">${levelsBody}</div>
+      </div>
+
+      ${subjectsSection}
+
+      ${showForm ? `
+      <!-- Phone input -->
+      <div class="mb-4">
+        <p class="mb-2 text-[13px] font-extrabold text-zinc-700">رقم الهاتف (واتساب)</p>
+        <div class="flex items-center gap-2 rounded-[16px] border-2 border-zinc-200 bg-white px-4 py-3 focus-within:border-zinc-900 transition">
+          <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-zinc-400" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+          <input id="join-phone" placeholder="+212 6XX XXX XXX" class="flex-1 bg-transparent text-[14px] font-medium" style="direction:ltr; text-align:right;" />
+        </div>
+      </div>
+      <button onclick="submitJoinRequest()" style="width:100%;border-radius:14px;background:#16a34a;border:none;padding:14px;font-size:15px;font-weight:800;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .15s;font-family:Tajawal,sans-serif;" onmouseenter="this.style.opacity='.88'" onmouseleave="this.style.opacity='1'">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        إرسال طلب الانضمام
+      </button>` : ''}`;
+  }
+}
+function selectJoinRole(role) { state.joinRole = role; state.joinStep = 2; state.selectedSubjects = []; renderJoinModalContent(); }
+function toggleJoinSubject(subject, checked) {
+  if(checked) {
+    if(!state.selectedSubjects.includes(subject)) state.selectedSubjects.push(subject);
+  } else {
+    state.selectedSubjects = state.selectedSubjects.filter(s=>s!==subject);
+  }
+  renderJoinModalContent();
+}
+async function submitJoinRequest() {
+  if(!state.selectedLevel || !state.selectedSubjects.length) { showToast('يرجى اختيار المستوى والمواد'); return; }
+  const phone = document.getElementById('join-phone')?.value || '';
+  if (!phone.trim()) { showToast('يرجى إدخال رقم الهاتف'); return; }
+  // البحث في المستويات المعيارية أولاً، ثم في كتالوج المؤسسة (المستويات المخصصة)
+  let level = moroccanLevels.find(l=>l.id===state.selectedLevel);
+  if (!level) {
+    const catalogV3 = JSON.parse(localStorage.getItem('yadwor-catalog-v3') || '{}');
+    const catalogEntry = catalogV3[state.selectedLevel];
+    if (catalogEntry) level = { id: state.selectedLevel, name: catalogEntry.name, cycle: catalogEntry.cycle };
+  }
+  if (!level) { showToast('المستوى غير موجود'); return; }
+  // جلب أسعار المواد من catalog-v3 (المصدر الرئيسي) أو catalog-v2 كإجراء احتياطي
+  const catV3 = JSON.parse(localStorage.getItem('yadwor-catalog-v3') || '{}');
+  const catV2 = JSON.parse(localStorage.getItem('yadwor-catalog-v2') || '{}');
+  const customSubsList = JSON.parse(localStorage.getItem('yadwor-custom-subjects') || '[]');
+  const subjects = state.selectedSubjects.map(s => {
+    // ابحث في catalog-v3
+    const lvlData = catV3[state.selectedLevel];
+    const v3Subj = lvlData?.subjects?.find(x => x.name === s);
+    if (v3Subj) return {name:s, free:v3Subj.free !== false, price:Number(v3Subj.price||0)};
+    // ابحث في المواد المخصصة
+    const customS = customSubsList.find(c => c.name === s && c.levelId === state.selectedLevel);
+    if (customS) return {name:s, free:customS.free !== false, price:Number(customS.price||0)};
+    // ابحث في catalog-v2
+    const v2key = state.selectedLevel + '_' + s;
+    const v2 = catV2[v2key];
+    if (v2) return {name:s, free:v2.free !== false, price:Number(v2.price||0)};
+    // افتراضي مجاني
+    return {name:s, free:true, price:0};
+  });
+  const total = subjects.reduce((sum,s)=>sum+(s.free?0:s.price),0);
+  const req = {
+    id: Date.now(),
+    role: state.joinRole,
+    fullName: state.settingsName,
+    levelId: state.selectedLevel,
+    levelName: level.name,
+    cycle: level.cycle,
+    phone,
+    subjects,
+    total,
+    currency: appCurrency,
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  };
+  state.joinRequests.push(req);
+  
+  // Save to localStorage so join-requests.html can read it
+  try {
+    localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests));
+  } catch(e) { console.warn('localStorage save failed:', e); }
+  
+  // Save to Firebase
+  try {
+    await fetch(FB_DB_URL + '/joinRequests/' + req.id + '.json?auth=' + FB_API_KEY, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(req)
+    });
+    showToast('تم إرسال طلب الانضمام بنجاح');
+  } catch(e) {
+    console.warn('Firebase join request save failed:', e);
+    showToast('تم إرسال طلب الانضمام بنجاح ✓');
+  }
+  
+  closeJoinModal();
+}
+
+// ====================== VISITOR TABS ======================
+function setVisitorTab(tabId) {
+  const vPosts = getVisitorPosts();
+  document.getElementById('visitor-tab-content').innerHTML = renderVisitorTabContent(tabId, vPosts);
+  ['posts','media'].forEach(id => {
+    const btn = document.getElementById('vtab-'+id);
+    if(!btn) return;
+    const isActive = id === tabId;
+    btn.className = `relative flex h-12 flex-1 items-center justify-center gap-1.5 text-[13px] font-extrabold ${isActive?'text-zinc-900':'text-zinc-400'}`;
+    const ind = btn.querySelector('span.absolute');
+    if(isActive && !ind) btn.insertAdjacentHTML('beforeend','<span class="absolute inset-x-0 bottom-0 h-[2.5px] rounded-full bg-zinc-900"></span>');
+    else if(!isActive && ind) ind.remove();
+  });
+}
+
+// تحديث فلترة منشورات الزائر بشكل صحيح عند تبديل التبويب
+function getVisitorPosts() {
+  if (state._viewingUid) {
+    return state.posts.filter(p => p.uid && String(p.uid) === String(state._viewingUid));
+  }
+  if (state._viewingUsername) {
+    return state.posts.filter(p => p.username && p.username === state._viewingUsername);
+  }
+  return [];
+}
+
+function renderVisitorTabContent(tabId, vPosts) {
+  function emptyState(msg) {
+    return `<div class="flex flex-col items-center justify-center py-14 text-center gap-3">
+      <p class="text-[14px] font-bold text-zinc-400">${msg}</p>
+    </div>`;
+  }
+  if(tabId === 'posts') {
+    if(!vPosts.length) return emptyState('لا توجد منشورات بعد');
+    return `<div class="space-y-4">${vPosts.map(p=>renderPostCard(p)).join('')}</div>`;
+  }
+  if(tabId === 'media') {
+    const mediaItems = [];
+    vPosts.forEach(p => {
+      if(p.images && p.images.length && p.type !== 'video') {
+        p.images.forEach((img, idx) => mediaItems.push({ postId: p.id, idx, url: img }));
+      }
+    });
+    if(!mediaItems.length) return emptyState('لا توجد وسائط بعد');
+    return `
+    <style>.vmg{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}.vmg-i{position:relative;aspect-ratio:1/1;overflow:hidden;cursor:pointer;background:#f4f4f5}.vmg-i img{width:100%;height:100%;object-fit:cover;display:block}</style>
+    <div class="vmg">${mediaItems.map((item,i)=>`<div class="vmg-i" onclick="openImageViewer(${item.postId},${item.idx})"><img src="${item.url}" /></div>`).join('')}</div>`;
+  }
+  return '';
+}
+
+// ====================== VISITOR PROFILE FROM URL ======================
+const _urlParams = new URLSearchParams(window.location.search);
+const _visitorUsername = _urlParams.get('username') || '';
+const _visitorUid      = _urlParams.get('uid')      || '';
+let _visitorProfile = null;
+
+async function loadVisitorProfile(username, uid) {
+  // 1) جلب من Firebase بالـ uid
+  if (uid) {
+    try {
+      const res = await fetch(`${FB_DB_URL}/users/${uid}.json?auth=${FB_API_KEY}`);
+      if (res.ok) { const d = await res.json(); if (d && (d.name || d.avatar)) return d; }
+    } catch(e) {}
+  }
+  // 2) بحث بالـ username في Firebase
+  if (username) {
+    try {
+      const res = await fetch(`${FB_DB_URL}/users.json?auth=${FB_API_KEY}`);
+      if (res.ok) {
+        const all = await res.json();
+        if (all) {
+          const found = Object.values(all).find(u => u && u.username === username);
+          if (found && (found.name || found.avatar)) return found;
+        }
+      }
+    } catch(e) {}
+  }
+  // 3) fallback: بناء من المنشورات
+  const matchPost = state.posts.find(p =>
+    (uid && p.uid === uid) || (username && p.username === username)
+  );
+  if (matchPost) {
+    return {
+      name:     matchPost.author   || username || 'مستخدم',
+      username: matchPost.username || username || 'user',
+      avatar:   matchPost.avatar   || '',
+      bio: '', cover: '', followers: 0, following: 0, verified: false
+    };
+  }
+  return null;
+}
+
+// Init
+(async function() {
+  const myUid      = localStorage.getItem('yadwor-uid')      || '';
+  const myUsername = localStorage.getItem('yadwor-username') || '';
+
+  // تحديد هل نعرض ملف شخص آخر أم ملفي أنا
+  // الاعتماد على uid الفريد أولاً — إذا uid مختلف فهو شخص آخر
+  const isVisitor = (_visitorUid && _visitorUid !== myUid)
+                 || (!_visitorUid && _visitorUsername && _visitorUsername !== myUsername);
+
+  if (isVisitor) {
+    // ملف شخص آخر — حفظ uid للفلترة الدقيقة
+    state._viewingUid      = _visitorUid;
+    state._viewingUsername = _visitorUsername || _visitorUid;
+    await syncPostsFromFirebase();
+    _visitorProfile = await loadVisitorProfile(_visitorUsername, _visitorUid);
+  } else {
+    // ملفي أنا — لا يوجد viewing
+    state._viewingUid      = null;
+    state._viewingUsername = null;
+    await syncPostsFromFirebase();
+  }
+
+  renderProfile();
+  updateSidebarButtons();
+})();
+</script>
+<script src="floating-room.js"></script>
+</body>
+</html>

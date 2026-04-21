@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>YADWOR – الاختبار</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Tajawal', system-ui, sans-serif;
+    background: #0f0f0f;
+    color: #f4f4f5;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+  /* Full screen overlay */
+  #quiz-screen {
+    position: fixed;
+    inset: 0;
+    background: #0f0f0f;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Sticky top bar */
+  #quiz-topbar {
+    background: rgba(15,15,15,0.98);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    flex-shrink: 0;
+  }
+
+  .q-counter {
+    font-size: 14px;
+    font-weight: 800;
+    color: #a1a1aa;
+  }
+  .q-counter strong { color: #fff; }
+
+  #quiz-timer {
+    font-size: 22px;
+    font-weight: 900;
+    color: #fff;
+    min-width: 60px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  #quiz-timer.warning { color: #ef4444; animation: pulse .6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* Timer ring */
+  #timer-ring { transform: rotate(-90deg); }
+  #timer-ring-bg { stroke: rgba(255,255,255,0.1); }
+  #timer-ring-fill { stroke: #3b82f6; stroke-linecap: round; transition: stroke-dashoffset .9s linear, stroke .3s; }
+  #timer-ring-fill.warning { stroke: #ef4444; }
+
+  /* Question area */
+  #quiz-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 16px 100px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .question-text {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.6;
+    color: #f4f4f5;
+    margin-bottom: 24px;
+    text-align: right;
+  }
+
+  /* Answer options */
+  .option-btn {
+    width: 100%;
+    border-radius: 16px;
+    border: 2px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: #e4e4e7;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 16px 20px;
+    text-align: right;
+    cursor: pointer;
+    transition: all .15s;
+    font-family: 'Tajawal', sans-serif;
+    margin-bottom: 10px;
+    display: block;
+  }
+  .option-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); }
+  .option-btn.selected { border-color: #3b82f6; background: rgba(59,130,246,0.15); color: #93c5fd; }
+  .option-btn.correct { border-color: #10b981; background: rgba(16,185,129,0.15); color: #6ee7b7; }
+  .option-btn.wrong { border-color: #ef4444; background: rgba(239,68,68,0.12); color: #fca5a5; }
+
+  /* True/False big buttons */
+  .tf-btn {
+    flex: 1;
+    padding: 28px 20px;
+    border-radius: 20px;
+    border: 2px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: #e4e4e7;
+    font-size: 22px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: all .15s;
+    font-family: 'Tajawal', sans-serif;
+    text-align: center;
+  }
+  .tf-btn:hover { background: rgba(255,255,255,0.08); }
+  .tf-btn.selected { border-color: #3b82f6; background: rgba(59,130,246,0.2); }
+  .tf-btn.correct { border-color: #10b981; background: rgba(16,185,129,0.2); }
+  .tf-btn.wrong { border-color: #ef4444; background: rgba(239,68,68,0.15); }
+
+  /* Fill input */
+  .fill-input {
+    width: 100%;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    color: #f4f4f5;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 16px 20px;
+    font-family: 'Tajawal', sans-serif;
+    text-align: right;
+  }
+  .fill-input:focus { outline: none; border-color: #3b82f6; }
+
+  /* Submit button */
+  #quiz-submit-btn {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 14px 20px;
+    background: rgba(15,15,15,0.98);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    z-index: 11;
+  }
+  #quiz-submit-btn button {
+    width: 100%;
+    height: 52px;
+    border-radius: 16px;
+    background: #3b82f6;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 800;
+    border: none;
+    cursor: pointer;
+    font-family: 'Tajawal', sans-serif;
+    transition: background .15s;
+  }
+  #quiz-submit-btn button:hover { background: #2563eb; }
+  #quiz-submit-btn button:disabled { background: #27272a; color: #71717a; cursor: not-allowed; }
+
+  /* Match connector */
+  .match-col { display: flex; flex-direction: column; gap: 8px; }
+  .match-item {
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 2px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    font-size: 14px;
+    font-weight: 700;
+    color: #e4e4e7;
+    cursor: pointer;
+    transition: all .15s;
+    text-align: center;
+  }
+  .match-item.sel-left { border-color: #3b82f6; background: rgba(59,130,246,0.2); color: #93c5fd; }
+  .match-item.matched { border-color: #10b981; background: rgba(16,185,129,0.15); color: #6ee7b7; }
+
+  /* Question image */
+  .q-image { width: 100%; max-height: 220px; object-fit: contain; border-radius: 16px; margin-bottom: 16px; background: rgba(255,255,255,0.05); }
+
+  /* Results screen */
+  #results-screen {
+    position: fixed;
+    inset: 0;
+    background: #0f0f0f;
+    z-index: 9999;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    overflow-y: auto;
+    padding: 40px 20px 80px;
+  }
+  #results-screen.show { display: flex; }
+
+  .score-circle {
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    border: 6px solid #3b82f6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 20px 0;
+    background: rgba(59,130,246,0.1);
+  }
+
+  /* Intro screen */
+  #intro-screen {
+    position: fixed;
+    inset: 0;
+    background: #0f0f0f;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+  }
+
+  /* Transition animation */
+  .fade-in { animation: fadeIn .3s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+</style>
+</head>
+<body>
+
+<!-- INTRO SCREEN -->
+<div id="intro-screen" class="fade-in">
+  <div style="width:80px;height:80px;border-radius:50%;background:rgba(59,130,246,0.15);border:3px solid #3b82f6;display:flex;align-items:center;justify-content:center;margin-bottom:24px;">
+    <svg viewBox="0 0 24 24" style="width:36px;height:36px;fill:none;stroke:#3b82f6;stroke-width:1.8;stroke-linecap:round;">
+      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/>
+    </svg>
+  </div>
+  <h1 id="intro-title" style="font-size:22px;font-weight:900;color:#f4f4f5;margin-bottom:8px;"></h1>
+  <p id="intro-type" style="font-size:13px;color:#71717a;font-weight:700;margin-bottom:24px;"></p>
+  
+  <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:20px;width:100%;max-width:380px;margin-bottom:28px;text-align:right;">
+    <p style="font-size:14px;font-weight:700;color:#a1a1aa;margin-bottom:16px;">تعليمات مهمة:</p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <span style="font-size:18px;flex-shrink:0;">⏱</span>
+        <p style="font-size:13px;color:#d4d4d8;line-height:1.6;">كل سؤال له وقت محدد. إذا انتهى الوقت، تنتقل تلقائياً للسؤال التالي.</p>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <span style="font-size:18px;flex-shrink:0;">🎯</span>
+        <p style="font-size:13px;color:#d4d4d8;line-height:1.6;">ركّز جيداً في كل سؤال للحصول على أعلى نقطة.</p>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <span style="font-size:18px;flex-shrink:0;">🚫</span>
+        <p style="font-size:13px;color:#d4d4d8;line-height:1.6;">لا يوجد زر تخطي. الإجابة نهائية بعد الضغط على "تم الإجابة".</p>
+      </div>
+    </div>
+  </div>
+  <div id="intro-stats" style="display:flex;gap:16px;margin-bottom:32px;"></div>
+  <button onclick="startQuiz()" style="width:100%;max-width:380px;height:54px;border-radius:16px;background:#3b82f6;color:#fff;font-size:17px;font-weight:900;border:none;cursor:pointer;font-family:'Tajawal',sans-serif;transition:background .15s;">
+    بدء الآن
+  </button>
+  <button onclick="goBack()" style="margin-top:12px;background:none;border:none;color:#71717a;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;">
+    العودة
+  </button>
+</div>
+
+<!-- QUIZ SCREEN (hidden until start) -->
+<div id="quiz-screen" style="display:none;">
+  <!-- Top bar -->
+  <div id="quiz-topbar">
+    <span class="q-counter"><strong id="q-current">1</strong> / <span id="q-total">10</span></span>
+    
+    <!-- Timer with ring -->
+    <div style="position:relative;display:flex;align-items:center;justify-content:center;width:64px;height:64px;">
+      <svg width="64" height="64" id="timer-ring" style="position:absolute;">
+        <circle id="timer-ring-bg" cx="32" cy="32" r="26" fill="none" stroke-width="4"/>
+        <circle id="timer-ring-fill" cx="32" cy="32" r="26" fill="none" stroke-width="4"
+          stroke-dasharray="163.4" stroke-dashoffset="0"/>
+      </svg>
+      <div id="quiz-timer">30</div>
+    </div>
+
+    <div style="width:60px;text-align:left;">
+      <span id="q-score-label" style="font-size:11px;color:#71717a;font-weight:700;"></span>
+    </div>
+  </div>
+
+  <!-- Question body -->
+  <div id="quiz-body"></div>
+
+  <!-- Submit -->
+  <div id="quiz-submit-btn">
+    <button id="submit-btn" onclick="submitAnswer()">تم الإجابة ✓</button>
+  </div>
+</div>
+
+<!-- RESULTS SCREEN -->
+<div id="results-screen">
+  <h2 style="font-size:20px;font-weight:900;color:#f4f4f5;margin-bottom:4px;">انتهى الاختبار!</h2>
+  <p id="results-exam-title" style="font-size:13px;color:#71717a;font-weight:700;"></p>
+  
+  <div class="score-circle">
+    <div id="results-pct" style="font-size:28px;font-weight:900;color:#3b82f6;"></div>
+    <div id="results-pts" style="font-size:13px;color:#71717a;font-weight:700;"></div>
+  </div>
+
+  <div id="results-breakdown" style="width:100%;max-width:420px;display:flex;flex-direction:column;gap:10px;margin-top:8px;"></div>
+
+  <button onclick="goBack()" style="margin-top:28px;width:100%;max-width:420px;height:52px;border-radius:16px;background:#18181b;border:1px solid rgba(255,255,255,0.1);color:#f4f4f5;font-size:15px;font-weight:800;cursor:pointer;font-family:'Tajawal',sans-serif;">
+    العودة للملف الشخصي
+  </button>
+</div>
+
+<script>
+// ---- Load exam from URL ----
+const urlParams = new URLSearchParams(window.location.search);
+const examId = parseInt(urlParams.get('exam'));
+const teacherUid = urlParams.get('teacher') || '';
+
+function getExam() {
+  const exams = JSON.parse(localStorage.getItem('yadwor-exams') || '[]');
+  return exams.find(e => e.id === examId) || null;
+}
+
+const exam = getExam();
+
+if (!exam) {
+  document.getElementById('intro-screen').innerHTML = `
+  <div style="text-align:center;padding:40px 20px;">
+    <p style="font-size:18px;font-weight:800;color:#f4f4f5;margin-bottom:16px;">لا يوجد اختبار نشط حالياً</p>
+    <p style="font-size:14px;color:#71717a;margin-bottom:24px;">لم يقم الأستاذ بنشر أي اختبار أو تمرين بعد.</p>
+    <button onclick="goBack()" style="height:48px;padding:0 32px;border-radius:14px;background:#18181b;border:1px solid rgba(255,255,255,0.1);color:#f4f4f5;font-size:14px;font-weight:800;cursor:pointer;font-family:'Tajawal',sans-serif;">
+      العودة
+    </button>
+  </div>`;
+} else if (Date.now() > exam.expiresAt) {
+  document.getElementById('intro-screen').innerHTML = `
+  <div style="text-align:center;padding:40px 20px;">
+    <div style="font-size:48px;margin-bottom:16px;">⏰</div>
+    <p style="font-size:18px;font-weight:800;color:#f4f4f5;margin-bottom:12px;">انتهى وقت الاختبار</p>
+    <p style="font-size:14px;color:#71717a;margin-bottom:24px;">انتهت مدة هذا الاختبار ولم يعد متاحاً.</p>
+    <button onclick="goBack()" style="height:48px;padding:0 32px;border-radius:14px;background:#18181b;border:1px solid rgba(255,255,255,0.1);color:#f4f4f5;font-size:14px;font-weight:800;cursor:pointer;font-family:'Tajawal',sans-serif;">
+      العودة
+    </button>
+  </div>`;
+} else {
+  // Populate intro
+  document.getElementById('intro-title').textContent = exam.title;
+  document.getElementById('intro-type').textContent = exam.type;
+  const totalPts = exam.questions.reduce((s, q) => s + (q.points || 1), 0);
+  const totalTime = exam.questions.reduce((s, q) => s + (q.time || 30), 0);
+  document.getElementById('intro-stats').innerHTML = `
+    <div style="background:rgba(255,255,255,0.05);border-radius:14px;padding:14px 20px;text-align:center;min-width:80px;">
+      <div style="font-size:22px;font-weight:900;color:#f4f4f5;">${exam.questions.length}</div>
+      <div style="font-size:11px;color:#71717a;font-weight:700;">سؤال</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.05);border-radius:14px;padding:14px 20px;text-align:center;min-width:80px;">
+      <div style="font-size:22px;font-weight:900;color:#f4f4f5;">${totalPts}</div>
+      <div style="font-size:11px;color:#71717a;font-weight:700;">نقطة</div>
+    </div>
+    <div style="background:rgba(255,255,255,0.05);border-radius:14px;padding:14px 20px;text-align:center;min-width:80px;">
+      <div style="font-size:22px;font-weight:900;color:#f4f4f5;">${Math.ceil(totalTime/60)}</div>
+      <div style="font-size:11px;color:#71717a;font-weight:700;">دقيقة تقريباً</div>
+    </div>`;
+}
+
+function goBack() {
+  if (document.referrer) history.back();
+  else window.location.href = 'profile.html';
+}
+
+// ---- Quiz Logic ----
+let currentQIdx = 0;
+let answers = [];
+let timerInterval = null;
+let timeLeft = 0;
+let totalCircumference = 163.4; // 2 * PI * 26
+
+function startQuiz() {
+  if (!exam) return;
+  document.getElementById('intro-screen').style.display = 'none';
+  document.getElementById('quiz-screen').style.display = 'flex';
+  showQuestion(0);
+}
+
+function showQuestion(idx) {
+  currentQIdx = idx;
+  const q = exam.questions[idx];
+  
+  // Update counter
+  document.getElementById('q-current').textContent = idx + 1;
+  document.getElementById('q-total').textContent = exam.questions.length;
+  document.getElementById('q-score-label').textContent = `⭐${q.points||1}`;
+  
+  // Render question
+  renderQuestion(q);
+  
+  // Start timer
+  startTimer(q.time || 30);
+}
+
+function renderQuestion(q) {
+  const body = document.getElementById('quiz-body');
+  body.innerHTML = '';
+  body.classList.add('fade-in');
+  setTimeout(() => body.classList.remove('fade-in'), 400);
+
+  let html = '';
+
+  if (q.qtype === 'truefalse') {
+    html = `
+    <p class="question-text">${q.text}</p>
+    <div style="display:flex;gap:12px;">
+      <button class="tf-btn" id="tf-true" onclick="selectTF(true)">✓ صحيح</button>
+      <button class="tf-btn" id="tf-false" onclick="selectTF(false)">✗ خطأ</button>
+    </div>`;
+  }
+  else if (q.qtype === 'multichoice') {
+    const opts = q.choices.filter(c => c.trim());
+    html = `
+    <p class="question-text">${q.text}</p>
+    ${opts.map((c, i) => `
+      <button class="option-btn" id="opt-${i}" onclick="selectChoice(${i})">${String.fromCharCode(0x0041+i)}) ${c}</button>
+    `).join('')}`;
+  }
+  else if (q.qtype === 'fill') {
+    html = `
+    <p class="question-text">${q.text}</p>
+    <input class="fill-input" id="fill-input" type="text" placeholder="اكتب إجابتك هنا..." autocomplete="off" />`;
+  }
+  else if (q.qtype === 'match') {
+    const leftItems = q.matchLeft.filter(x => x.trim());
+    const rightItems = [...q.matchRight.filter(x => x.trim())].sort(() => Math.random() - 0.5);
+    html = `
+    <p class="question-text">${q.text}</p>
+    <p style="font-size:12px;color:#71717a;font-weight:700;margin-bottom:12px;">اختر عنصراً من اليسار ثم عنصراً من اليمين لربطهما</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" id="match-container">
+      <div class="match-col" id="left-col">
+        ${leftItems.map((v, i) => `<div class="match-item" id="left-${i}" onclick="selectLeft(${i})" data-val="${v}">${v}</div>`).join('')}
+      </div>
+      <div class="match-col" id="right-col">
+        ${rightItems.map((v, i) => `<div class="match-item" id="right-${i}" onclick="selectRight('${v}', ${i})" data-val="${v}">${v}</div>`).join('')}
+      </div>
+    </div>
+    <div id="match-pairs" style="margin-top:12px;display:flex;flex-direction:column;gap:6px;"></div>`;
+  }
+  else if (q.qtype === 'image') {
+    html = `
+    ${q.imageSrc ? `<img src="${q.imageSrc}" class="q-image" />` : ''}
+    <p class="question-text">${q.text || 'ماذا تلاحظ في هذه الصورة؟'}</p>
+    ${q.imageMode === 'choice'
+      ? (q.imageChoices || []).filter(c => c.trim()).map((c, i) => `
+          <button class="option-btn" id="opt-${i}" onclick="selectChoice(${i})">${String.fromCharCode(0x0041+i)}) ${c}</button>
+        `).join('')
+      : `<textarea class="fill-input" id="fill-input" rows="4" placeholder="اكتب إجابتك هنا..." style="resize:none;height:120px;"></textarea>`
+    }`;
+  }
+
+  body.innerHTML = html;
+  window.matchState = { selectedLeft: null, pairs: [] };
+}
+
+// ---- Answer selection ----
+let selectedAnswer = null;
+
+function selectTF(val) {
+  selectedAnswer = val;
+  document.getElementById('tf-true').classList.toggle('selected', val === true);
+  document.getElementById('tf-false').classList.toggle('selected', val === false);
+}
+
+function selectChoice(i) {
+  selectedAnswer = i;
+  document.querySelectorAll('.option-btn').forEach((b, idx) => {
+    b.classList.toggle('selected', idx === i);
+  });
+}
+
+function selectLeft(i) {
+  window.matchState.selectedLeft = i;
+  document.querySelectorAll('[id^="left-"]').forEach(b => b.classList.remove('sel-left'));
+  const el = document.getElementById('left-' + i);
+  if (el && !el.classList.contains('matched')) el.classList.add('sel-left');
+}
+
+function selectRight(val, i) {
+  if (window.matchState.selectedLeft === null) return;
+  const leftIdx = window.matchState.selectedLeft;
+  const leftEl = document.getElementById('left-' + leftIdx);
+  const rightEl = document.getElementById('right-' + i);
+  if (!leftEl || !rightEl) return;
+  if (leftEl.classList.contains('matched') || rightEl.classList.contains('matched')) return;
+
+  const leftVal = leftEl.dataset.val;
+  window.matchState.pairs.push({ left: leftVal, right: val });
+  leftEl.classList.remove('sel-left');
+  leftEl.classList.add('matched');
+  rightEl.classList.add('matched');
+  window.matchState.selectedLeft = null;
+
+  // Show pairs
+  const pairsEl = document.getElementById('match-pairs');
+  if (pairsEl) {
+    pairsEl.innerHTML = window.matchState.pairs.map(p =>
+      `<div style="display:flex;align-items:center;gap:8px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;color:#6ee7b7;">
+        <span>${p.left}</span>
+        <span style="color:#71717a;">↔</span>
+        <span>${p.right}</span>
+      </div>`
+    ).join('');
+  }
+}
+
+// ---- Timer ----
+function startTimer(seconds) {
+  clearInterval(timerInterval);
+  timeLeft = seconds;
+  selectedAnswer = null;
+  if (window.matchState) window.matchState = { selectedLeft: null, pairs: [] };
+
+  const timerEl = document.getElementById('quiz-timer');
+  const ringFill = document.getElementById('timer-ring-fill');
+  const submitBtn = document.getElementById('submit-btn');
+  if (submitBtn) submitBtn.disabled = false;
+
+  updateTimerDisplay(seconds, seconds);
+
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    updateTimerDisplay(timeLeft, seconds);
+
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      autoSubmit();
+    }
+  }, 1000);
+}
+
+function updateTimerDisplay(left, total) {
+  const timerEl = document.getElementById('quiz-timer');
+  const ringFill = document.getElementById('timer-ring-fill');
+
+  if (timerEl) {
+    timerEl.textContent = left;
+    timerEl.classList.toggle('warning', left <= 5);
+  }
+  if (ringFill) {
+    const offset = totalCircumference * (1 - left / total);
+    ringFill.style.strokeDashoffset = offset;
+    ringFill.classList.toggle('warning', left <= 5);
+  }
+}
+
+function autoSubmit() {
+  // Submit with whatever was selected (or null)
+  recordAnswer(selectedAnswer);
+  nextQuestion();
+}
+
+function submitAnswer() {
+  clearInterval(timerInterval);
+  const q = exam.questions[currentQIdx];
+
+  // Get answer from UI
+  let ans = selectedAnswer;
+  if (q.qtype === 'fill' || (q.qtype === 'image' && q.imageMode !== 'choice')) {
+    const inp = document.getElementById('fill-input');
+    ans = inp ? inp.value.trim() : '';
+  }
+  if (q.qtype === 'match') {
+    ans = window.matchState ? window.matchState.pairs : [];
+  }
+
+  recordAnswer(ans);
+  nextQuestion();
+}
+
+function recordAnswer(ans) {
+  answers[currentQIdx] = ans;
+}
+
+function nextQuestion() {
+  if (currentQIdx + 1 < exam.questions.length) {
+    showQuestion(currentQIdx + 1);
+  } else {
+    showResults();
+  }
+}
+
+// ---- Results ----
+function showResults() {
+  document.getElementById('quiz-screen').style.display = 'none';
+  const resultsEl = document.getElementById('results-screen');
+  resultsEl.classList.add('show');
+
+  const totalPts = exam.questions.reduce((s, q) => s + (q.points || 1), 0);
+  let score = 0;
+  const breakdown = exam.questions.map((q, i) => {
+    const ans = answers[i];
+    const correct = checkAnswer(q, ans);
+    if (correct) score += (q.points || 1);
+    return { q, ans, correct };
+  });
+
+  const pct = Math.round(score / totalPts * 100);
+
+  document.getElementById('results-exam-title').textContent = exam.title;
+  document.getElementById('results-pct').textContent = pct + '%';
+  document.getElementById('results-pts').textContent = `${score} / ${totalPts} نقطة`;
+
+  // Update ring color based on score
+  const scoreCircle = document.querySelector('.score-circle');
+  if (scoreCircle) {
+    scoreCircle.style.borderColor = pct >= 70 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+  }
+  document.getElementById('results-pct').style.color = pct >= 70 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+
+  document.getElementById('results-breakdown').innerHTML = breakdown.map(({q, ans, correct}, i) => `
+    <div style="background:rgba(255,255,255,0.04);border:1px solid ${correct?'rgba(16,185,129,0.3)':'rgba(239,68,68,0.3)'};border-radius:14px;padding:12px 14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:11px;color:#71717a;font-weight:700;">سؤال ${i+1}</span>
+        <span style="font-size:12px;font-weight:800;color:${correct?'#10b981':'#ef4444'};">${correct?'✓ صحيح':'✗ خطأ'} (${q.points||1} نقطة)</span>
+      </div>
+      <p style="font-size:13px;font-weight:700;color:#d4d4d8;">${q.text||'سؤال صورة'}</p>
+    </div>`).join('');
+
+  // Save result
+  const studentName = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'تلميذ';
+  const studentUid = localStorage.getItem('yadwor-uid') || 'student';
+  const result = {
+    id: Date.now(),
+    examId: exam.id,
+    studentName,
+    studentUid,
+    score,
+    totalPts,
+    answers,
+    completedAt: Date.now()
+  };
+  const results = JSON.parse(localStorage.getItem('yadwor-results') || '[]');
+  results.push(result);
+  localStorage.setItem('yadwor-results', JSON.stringify(results));
+}
+
+function checkAnswer(q, ans) {
+  if (ans === null || ans === undefined || ans === '') return false;
+  if (q.qtype === 'truefalse') return ans === q.correctAnswer;
+  if (q.qtype === 'multichoice') return ans === q.correctAnswer;
+  if (q.qtype === 'fill') return String(ans).trim().toLowerCase() === String(q.fillAnswer||'').trim().toLowerCase();
+  if (q.qtype === 'image') {
+    if (q.imageMode === 'choice') return ans === q.imageCorrect;
+    return ans.length > 2; // free write: any non-empty answer
+  }
+  if (q.qtype === 'match') {
+    if (!Array.isArray(ans)) return false;
+    // Check all pairs match correctly (left[i] <-> right[i])
+    if (ans.length !== q.matchLeft.filter(x=>x.trim()).length) return false;
+    return ans.every(p => {
+      const leftIdx = q.matchLeft.indexOf(p.left);
+      return leftIdx !== -1 && q.matchRight[leftIdx] === p.right;
+    });
+  }
+  return false;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>YADWOR – الرسائل</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
+  input:focus { outline: none; }
+  .shimmer { animation: shimmer 1.5s infinite; background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%); background-size: 200% 100%; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .truncate { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+</style>
+</head>
+<body>
+
+<!-- MESSAGES LIST VIEW -->
+<div id="messages-list-view">
+  <header class="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/95 backdrop-blur-xl">
+    <div class="mx-auto flex h-11 max-w-[1100px] items-center justify-between px-3">
+      <a href="home.html" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      </a>
+      <h1 class="text-[15px] font-extrabold tracking-tight">الرسائل</h1>
+      <div class="h-9 w-9"></div>
+    </div>
+  </header>
+  <main id="chats-list" class="mx-auto max-w-[760px] px-4 py-4 space-y-2 pb-24"></main>
+</div>
+
+<!-- CHAT VIEW (hidden by default) -->
+<div id="messages-chat-view" style="display:none" class="flex flex-col min-h-screen bg-white">
+  <header class="sticky top-0 z-30 flex items-center gap-3 border-b border-zinc-200 bg-white px-4 py-3">
+    <button onclick="closeChatView()" class="text-zinc-900">
+      <svg viewBox="0 0 24 24" class="h-7 w-7 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div class="relative h-10 w-10 rounded-full overflow-hidden">
+      <div class="shimmer absolute inset-0"></div>
+      <img id="chat-avatar" src="" alt="" class="h-10 w-10 rounded-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
+    </div>
+    <div>
+      <h3 id="chat-name" class="text-[14px] font-extrabold"></h3>
+      <p class="text-[12px] text-zinc-500">محادثة مباشرة</p>
+    </div>
+  </header>
+  <div id="chat-messages" class="flex-1 space-y-3 px-4 py-4 pb-24"></div>
+  <div class="border-t border-zinc-200 bg-white p-3 sticky bottom-0">
+    <div class="flex items-center gap-2 rounded-[14px] bg-zinc-100 p-2">
+      <input id="chat-input" placeholder="اكتب رسالتك..." class="w-full bg-transparent px-2 text-[14px]" onkeydown="if(event.key==='Enter')sendMessage()" />
+      <button onclick="sendMessage()" class="rounded-[12px] bg-zinc-900 px-4 py-2 text-[13px] font-bold text-white">إرسال</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-[0_-6px_20px_rgba(0,0,0,0.04)]">
+  <div class="mx-auto grid max-w-[480px] grid-cols-5 px-2 py-2 gap-1">
+    <a href="profile.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>
+      الملف
+    </a>
+    <a href="messages.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold bg-zinc-900 text-white">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      الرسائل
+    </a>
+    <a href="roomhom.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+      الغرف
+    </a>
+    <a href="search.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16"/></svg>
+      البحث
+    </a>
+    <a href="home.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>
+      الرئيسية
+    </a>
+  </div>
+</nav>
+
+<script src="shared.js"></script>
+<script>
+const chats = [
+  { name: "أ. سارة المهدي", avatar: profiles.teacher.avatar, last: "أرسلت لك الملخص الجديد للرياضيات", time: "الآن" },
+  { name: "مؤسسة الريادة للتعليم", avatar: profiles.institution.avatar, last: "تم استقبال طلبك بنجاح", time: "12:30" },
+  { name: "يوسف أمين", avatar: profiles.student.avatar, last: "شكراً أستاذة على التوضيح", time: "أمس" }
+];
+
+function renderMessages() {
+  const list = document.getElementById('chats-list');
+  // Shimmer
+  list.innerHTML = [1,2,3].map(() => `
+    <div class="flex items-center gap-3 rounded-[14px] border border-zinc-200 bg-white px-3 py-3">
+      <div class="shimmer h-12 w-12 rounded-full shrink-0"></div>
+      <div class="flex-1 space-y-2">
+        <div class="flex justify-between">
+          <div class="shimmer h-3.5 w-32 rounded-full"></div>
+          <div class="shimmer h-3 w-10 rounded-full"></div>
+        </div>
+        <div class="shimmer h-3 w-4/5 rounded-full"></div>
+      </div>
+    </div>`).join('');
+
+  setTimeout(() => {
+    list.innerHTML = chats.map(c => `
+      <button onclick="openChatUI('${c.name.replace(/'/g,"\\'")}','${c.avatar}')" class="flex w-full items-center gap-3 rounded-[14px] border border-zinc-200 bg-white px-3 py-3 text-right">
+        <div class="relative h-12 w-12 shrink-0 rounded-full overflow-hidden">
+          <div class="shimmer absolute inset-0"></div>
+          <img src="${c.avatar}" class="h-12 w-12 rounded-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="truncate text-[14px] font-extrabold">${c.name}</h3>
+            <span class="text-[11px] text-zinc-400">${c.time}</span>
+          </div>
+          <p class="mt-1 truncate text-[12px] text-zinc-500">${c.last}</p>
+        </div>
+      </button>`).join('');
+  }, 500);
+}
+
+function openChatUI(name, avatar) {
+  state.activeChat = { name, avatar };
+  document.getElementById('chat-avatar').src = avatar;
+  document.getElementById('chat-name').textContent = name;
+  document.getElementById('messages-list-view').style.display = 'none';
+  document.getElementById('messages-chat-view').style.display = 'flex';
+  document.getElementById('bottom-nav').style.display = 'none';
+  renderChatMessages();
+}
+function closeChatView() {
+  document.getElementById('messages-list-view').style.display = 'block';
+  document.getElementById('messages-chat-view').style.display = 'none';
+  document.getElementById('bottom-nav').style.display = 'block';
+}
+function renderChatMessages() {
+  document.getElementById('chat-messages').innerHTML = state.chatMessages.map(m => `
+    <div class="flex ${m.fromMe?'justify-start':'justify-end'}">
+      <div class="max-w-[80%] rounded-[14px] px-4 py-3 text-[14px] ${m.fromMe?'bg-zinc-900 text-white':'bg-zinc-100 text-zinc-800'}">${m.text}</div>
+    </div>`).join('');
+}
+function sendMessage() {
+  const input = document.getElementById('chat-input');
+  if(!input.value.trim()) return;
+  state.chatMessages.push({ fromMe: true, text: input.value.trim() });
+  input.value = '';
+  renderChatMessages();
+  // Scroll to bottom
+  const msgs = document.getElementById('chat-messages');
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// Check if coming from a direct chat link
+const urlParams = new URLSearchParams(window.location.search);
+const chatName = urlParams.get('chat');
+const chatAvatar = urlParams.get('avatar');
+if (chatName && chatAvatar) {
+  openChatUI(decodeURIComponent(chatName), decodeURIComponent(chatAvatar));
+} else {
+  renderMessages();
+}
+</script>
+<script src="floating-room.js"></script>
+</body>
+</html>

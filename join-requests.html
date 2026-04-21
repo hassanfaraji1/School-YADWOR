@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>YADWOR – طلبات الانضمام</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
+  input:focus { outline: none; }
+  .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#18181b; color:white; padding:8px 18px; border-radius:999px; font-size:13px; font-weight:700; z-index:999; pointer-events:none; opacity:0; transition:opacity .2s; }
+  .toast.show { opacity:1; }
+  .tab-active { background:#18181b; color:#fff; }
+  .tab-inactive { background:#f4f4f5; color:#71717a; }
+  .member-filter-active { background:#18181b; color:#fff; }
+  .member-filter-inactive { background:#f4f4f5; color:#71717a; }
+</style>
+</head>
+<body class="pb-24">
+<div id="toast" class="toast"></div>
+
+<!-- HEADER -->
+<header class="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/95 backdrop-blur-xl">
+  <div class="mx-auto flex h-11 max-w-[760px] items-center justify-between px-4">
+    <a href="profile.html" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    </a>
+    <h1 class="text-[15px] font-extrabold tracking-tight">طلبات الانضمام</h1>
+    <div class="w-9"></div>
+  </div>
+</header>
+
+<!-- MAIN TAB SWITCHER -->
+<div class="mx-auto max-w-[760px] px-4 pt-4">
+  <div class="flex gap-2 rounded-[16px] bg-zinc-100 p-1">
+    <button onclick="setMainTab('pending')" id="main-tab-pending" class="flex-1 rounded-[12px] py-2.5 text-[13px] font-bold transition tab-active">
+      ⏳ الطلبات الجديدة <span id="pending-badge" class="mr-1 rounded-full bg-rose-500 text-white px-1.5 py-0.5 text-[10px]">0</span>
+    </button>
+    <button onclick="setMainTab('members')" id="main-tab-members" class="flex-1 rounded-[12px] py-2.5 text-[13px] font-bold transition tab-inactive">
+      ✅ الأعضاء المقبولون
+    </button>
+  </div>
+</div>
+
+<!-- PENDING REQUESTS TAB -->
+<div id="tab-pending" class="mx-auto max-w-[760px] px-4 pt-4">
+  <div id="pending-list" class="space-y-3"></div>
+</div>
+
+<!-- MEMBERS TAB (hidden by default) -->
+<div id="tab-members" class="hidden mx-auto max-w-[760px] px-4 pt-4">
+  <!-- Filter -->
+  <div class="mb-4 flex gap-2">
+    <button onclick="setMemberFilter('students')" id="mf-students" class="flex-1 rounded-[14px] py-2.5 text-[13px] font-bold transition member-filter-active">🎒 التلاميذ</button>
+    <button onclick="setMemberFilter('teachers')" id="mf-teachers" class="flex-1 rounded-[14px] py-2.5 text-[13px] font-bold transition member-filter-inactive">📚 الأساتذة</button>
+  </div>
+  <div id="members-list" class="space-y-3"></div>
+</div>
+
+<!-- REQUEST DETAIL MODAL -->
+<div id="request-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+  <div class="absolute inset-0" onclick="closeRequestModal()"></div>
+  <div id="request-modal-content" class="relative w-full max-h-[85vh] overflow-auto rounded-t-[28px] bg-white p-5 shadow-2xl md:max-w-[560px]"></div>
+</div>
+
+<!-- MEMBER DETAIL MODAL -->
+<div id="member-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+  <div class="absolute inset-0" onclick="closeMemberModal()"></div>
+  <div id="member-modal-content" class="relative w-full max-h-[85vh] overflow-auto rounded-t-[28px] bg-white p-5 shadow-2xl md:max-w-[560px]"></div>
+</div>
+
+<!-- INSTITUTION CANNOT JOIN MODAL -->
+<div id="inst-block-modal" class="hidden fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4">
+  <div class="relative w-full max-w-[380px] rounded-[24px] bg-white p-6 text-center shadow-2xl">
+    <div class="text-5xl mb-3">🏛️</div>
+    <h3 class="text-[18px] font-extrabold mb-2">لا يمكن الانضمام</h3>
+    <p class="text-[13px] text-zinc-500 mb-5 leading-6">لا يمكن لحساب مؤسسة أن ينضم إلى مؤسسة أخرى. هذه الميزة متاحة للمؤثرين التعليميين فقط.</p>
+    <button onclick="document.getElementById('inst-block-modal').classList.add('hidden')" class="w-full rounded-[14px] bg-zinc-900 py-3 text-[14px] font-extrabold text-white">حسناً</button>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-[0_-6px_20px_rgba(0,0,0,0.04)]">
+  <div class="mx-auto grid max-w-[480px] grid-cols-5 px-2 py-2 gap-1">
+    <a href="profile.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>
+      الملف
+    </a>
+    <a href="messages.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      الرسائل
+    </a>
+    <a href="roomhom.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+      الغرف
+    </a>
+    <a href="search.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16"/></svg>
+      البحث
+    </a>
+    <a href="home.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>
+      الرئيسية
+    </a>
+  </div>
+</nav>
+
+<script src="shared.js"></script>
+<script>
+
+const FB_JR_URL = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
+const FB_JR_KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+
+// تحقق إذا كان المستخدم الحالي مؤسسة
+function isCurrentUserInstitution() {
+  return (localStorage.getItem('yadwor-account-type') || 'influencer') === 'institution';
+}
+
+// دالة تحويل نوع الحساب تلقائياً عند قبول الطلب
+async function applyAccountTypeOnAcceptance(request) {
+  const uid = localStorage.getItem('yadwor-uid');
+  const isCurrentUser = uid && request.uid && request.uid === uid;
+
+  if (!isCurrentUser) return; // ليس حساب المستخدم الحالي
+
+  const newType = request.role === 'teacher' ? 'teacher' : 'student';
+
+  // تحديث localStorage
+  localStorage.setItem('yadwor-account-type', newType);
+  state.profileType = newType;
+  state.settingsAccountType = newType;
+
+  // تحديث بيانات المستخدم
+  try {
+    const ru = getRealUser();
+    ru.accountType = newType;
+    localStorage.setItem('yadwor-user-data', JSON.stringify(ru));
+  } catch(e) { console.warn(e); }
+
+  // تحديث Firebase
+  if (uid) {
+    try {
+      await fetch(`${FB_JR_URL}/users/${uid}.json?auth=${FB_JR_KEY}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ accountType: newType, updatedAt: Date.now() })
+      });
+    } catch(e) { console.warn('Firebase accountType update failed:', e); }
+  }
+}
+
+// حفظ طلب الانضمام في Firebase
+async function saveJoinRequestToFirebase(request) {
+  try {
+    await fetch(`${FB_JR_URL}/joinRequests/${request.id}.json?auth=${FB_JR_KEY}`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(request)
+    });
+  } catch(e) { console.warn('Firebase joinRequest save failed:', e); }
+}
+
+// تحديث حالة الطلب في Firebase
+async function updateJoinRequestStatusInFirebase(id, status) {
+  try {
+    await fetch(`${FB_JR_URL}/joinRequests/${id}.json?auth=${FB_JR_KEY}`, {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ status: status, updatedAt: Date.now() })
+    });
+  } catch(e) { console.warn('Firebase joinRequest update failed:', e); }
+}
+
+// جلب طلبات الانضمام من Firebase
+async function loadJoinRequestsFromFirebase() {
+  try {
+    const res = await fetch(`${FB_JR_URL}/joinRequests.json?auth=${FB_JR_KEY}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data) return [];
+    return Object.values(data);
+  } catch(e) {
+    console.warn('Firebase joinRequests load failed:', e);
+    return null;
+  }
+}
+
+// تحميل الطلبات الحقيقية — لا تُضاف بيانات تجريبية إذا كانت localStorage تحتوي طلبات
+function ensureDemoRequests() {
+  // أولاً: جرب تحميل الطلبات الحقيقية من localStorage
+  try {
+    const saved = localStorage.getItem('yadwor-join-requests');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        state.joinRequests = parsed;
+        return; // وُجدت طلبات حقيقية، لا حاجة للبيانات التجريبية
+      }
+    }
+  } catch(e) { console.warn('Could not load saved requests:', e); }
+
+  // ثانياً: إذا لم توجد طلبات حقيقية — لا تعرض بيانات وهمية، اترك القائمة فارغة
+  // state.joinRequests سيظل [] وستظهر رسالة "لا توجد طلبات جديدة"
+}
+
+let mainTab = 'pending';
+let memberFilter = 'students';
+let selectedRequestId = null;
+let selectedMemberId = null;
+
+function setMainTab(tab) {
+  mainTab = tab;
+  document.getElementById('tab-pending').classList.toggle('hidden', tab !== 'pending');
+  document.getElementById('tab-members').classList.toggle('hidden', tab !== 'members');
+  document.getElementById('main-tab-pending').className = `flex-1 rounded-[12px] py-2.5 text-[13px] font-bold transition ${tab==='pending'?'tab-active':'tab-inactive'}`;
+  document.getElementById('main-tab-members').className = `flex-1 rounded-[12px] py-2.5 text-[13px] font-bold transition ${tab==='members'?'tab-active':'tab-inactive'}`;
+  if (tab === 'members') renderMembers();
+  else renderPending();
+}
+
+function setMemberFilter(filter) {
+  memberFilter = filter;
+  document.getElementById('mf-students').className = `flex-1 rounded-[14px] py-2.5 text-[13px] font-bold transition ${filter==='students'?'member-filter-active':'member-filter-inactive'}`;
+  document.getElementById('mf-teachers').className = `flex-1 rounded-[14px] py-2.5 text-[13px] font-bold transition ${filter==='teachers'?'member-filter-active':'member-filter-inactive'}`;
+  renderMembers();
+}
+
+function renderPending() {
+  const pending = state.joinRequests.filter(r => r.status === 'pending');
+  const badge = document.getElementById('pending-badge');
+  if (badge) badge.textContent = pending.length;
+
+  const list = document.getElementById('pending-list');
+  if (!pending.length) {
+    list.innerHTML = `<div class="rounded-[22px] border border-dashed border-zinc-300 bg-white p-10 text-center">
+      <div class="text-4xl mb-3">📭</div>
+      <p class="font-bold text-zinc-700">لا توجد طلبات جديدة</p>
+      <p class="text-[13px] text-zinc-500 mt-1">ستظهر هنا الطلبات الجديدة عند إرسالها</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = pending.map(r => {
+    const isTeacher = r.role === 'teacher';
+    const roleColor = isTeacher ? 'emerald' : 'violet';
+    const roleEmoji = isTeacher ? '📚' : '🎒';
+    const roleLabel = isTeacher ? 'أستاذ' : 'تلميذ';
+    return `<div onclick="openRequestModal(${r.id})" class="cursor-pointer rounded-[22px] bg-white border border-zinc-200 p-4 shadow-sm hover:shadow-md hover:border-zinc-400 transition-all">
+      <div class="flex items-center gap-3">
+        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-${roleColor}-100 text-2xl">${roleEmoji}</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-0.5">
+            <h3 class="font-extrabold text-[15px] truncate">${r.fullName}</h3>
+            <span class="shrink-0 rounded-full bg-${roleColor}-100 text-${roleColor}-700 px-2 py-0.5 text-[10px] font-bold">${roleLabel}</span>
+          </div>
+          <p class="text-[12px] text-zinc-500">${r.levelName} • ${r.cycle}</p>
+          <p class="text-[12px] text-zinc-600 mt-0.5">${r.subjects.length} مادة • ${r.total > 0 ? r.total + ' ' + (r.currency || currency) : 'مجاناً'}</p>
+        </div>
+        <div class="shrink-0">
+          <span class="rounded-full bg-amber-100 text-amber-700 px-2 py-1 text-[11px] font-bold">في الانتظار</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderMembers() {
+  const accepted = state.joinRequests.filter(r => r.status === 'accepted' && (memberFilter === 'teachers' ? r.role === 'teacher' : r.role === 'student'));
+  const list = document.getElementById('members-list');
+
+  if (!accepted.length) {
+    list.innerHTML = `<div class="rounded-[22px] border border-dashed border-zinc-300 bg-white p-10 text-center">
+      <div class="text-4xl mb-3">👥</div>
+      <p class="font-bold text-zinc-700">لا يوجد أعضاء مقبولون بعد</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = accepted.map(r => {
+    const isTeacher = r.role === 'teacher';
+    const roleEmoji = isTeacher ? '📚' : '🎒';
+    const roleLabel = isTeacher ? 'أستاذ' : 'تلميذ';
+    return `<div onclick="openMemberModal(${r.id})" class="cursor-pointer rounded-[22px] bg-white border border-zinc-200 p-4 shadow-sm hover:shadow-md hover:border-zinc-400 transition-all">
+      <div class="flex items-center gap-3">
+        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-2xl">${roleEmoji}</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-0.5">
+            <h3 class="font-extrabold text-[15px] truncate">${r.fullName}</h3>
+            <span class="shrink-0 rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-[10px] font-bold">عضو</span>
+          </div>
+          <p class="text-[12px] text-zinc-500">${r.levelName} • ${r.cycle}</p>
+          <p class="text-[12px] text-zinc-600 mt-0.5">${r.subjects.length} مادة</p>
+        </div>
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-zinc-400" stroke-width="1.8" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openRequestModal(id) {
+  selectedRequestId = id;
+  const r = state.joinRequests.find(x => x.id === id);
+  if (!r) return;
+  const isTeacher = r.role === 'teacher';
+  const roleColor = isTeacher ? 'emerald' : 'violet';
+  const roleEmoji = isTeacher ? '📚' : '🎒';
+  const roleLabel = isTeacher ? 'أستاذ' : 'تلميذ';
+
+  document.getElementById('request-modal-content').innerHTML = `
+    <div class="mb-5 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">${roleEmoji}</span>
+        <div>
+          <h3 class="text-[18px] font-extrabold">${r.fullName}</h3>
+          <span class="rounded-full bg-${roleColor}-100 text-${roleColor}-700 px-2 py-0.5 text-[11px] font-bold">${roleLabel}</span>
+        </div>
+      </div>
+      <button onclick="closeRequestModal()" class="flex h-10 w-10 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-500 text-[18px]">✕</button>
+    </div>
+
+    <!-- Info grid -->
+    <div class="grid grid-cols-2 gap-3 mb-4">
+      <div class="rounded-[16px] bg-zinc-50 border border-zinc-200 p-3">
+        <p class="text-[10px] font-bold text-zinc-500 mb-1">المستوى</p>
+        <p class="text-[13px] font-extrabold">${r.levelName}</p>
+        <p class="text-[11px] text-zinc-500">${r.cycle}</p>
+      </div>
+      <div class="rounded-[16px] bg-zinc-50 border border-zinc-200 p-3">
+        <p class="text-[10px] font-bold text-zinc-500 mb-1">المجموع</p>
+        <p class="text-[15px] font-extrabold">${r.total > 0 ? r.total + ' ' + (r.currency || currency) : 'مجاناً 🎉'}</p>
+      </div>
+    </div>
+
+    <!-- Subjects -->
+    <div class="mb-4">
+      <p class="mb-2 text-[13px] font-extrabold">المواد المختارة (${r.subjects.length})</p>
+      <div class="grid grid-cols-2 gap-2">
+        ${r.subjects.map(s => `<div class="rounded-[12px] border border-zinc-200 bg-white px-3 py-2 flex items-center justify-between gap-1">
+          <span class="text-[12px] font-bold truncate">${s.name}</span>
+          <span class="shrink-0 rounded-full ${s.free ? 'bg-emerald-100 text-emerald-700' : 'bg-violet-100 text-violet-700'} px-1.5 py-0.5 text-[10px] font-bold">${s.free ? 'مجاني' : s.price + ' ' + (r.currency || currency)}</span>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- Phone -->
+    <div class="mb-5 flex items-center justify-between rounded-[16px] border border-zinc-200 bg-zinc-50 px-4 py-3">
+      <div>
+        <p class="text-[10px] font-bold text-zinc-500">رقم الهاتف (واتساب)</p>
+        <p class="text-[14px] font-extrabold" style="direction:ltr;">${r.phone || 'غير محدد'}</p>
+      </div>
+      ${r.phone ? `<button onclick="copyPhone('${r.phone}')" class="rounded-full bg-zinc-900 text-white px-3 py-2 text-[12px] font-bold">📋 نسخ</button>` : ''}
+    </div>
+
+    <!-- Action buttons -->
+    <div class="grid grid-cols-3 gap-2 mb-3">
+      <button onclick="acceptRequest(${r.id})" class="rounded-[14px] bg-emerald-500 text-white py-3 text-[13px] font-extrabold">✓ قبول</button>
+      <button onclick="rejectRequest(${r.id})" class="rounded-[14px] bg-red-500 text-white py-3 text-[13px] font-extrabold">✕ رفض</button>
+      <a href="messages.html" class="rounded-[14px] bg-zinc-900 text-white py-3 text-[13px] font-extrabold flex items-center justify-center">💬 مراسلة</a>
+    </div>
+  `;
+  document.getElementById('request-modal').classList.remove('hidden');
+}
+
+function closeRequestModal() {
+  document.getElementById('request-modal').classList.add('hidden');
+  selectedRequestId = null;
+}
+
+function openMemberModal(id) {
+  selectedMemberId = id;
+  const r = state.joinRequests.find(x => x.id === id);
+  if (!r) return;
+  const isTeacher = r.role === 'teacher';
+  const roleEmoji = isTeacher ? '📚' : '🎒';
+  const roleLabel = isTeacher ? 'أستاذ' : 'تلميذ';
+
+  document.getElementById('member-modal-content').innerHTML = `
+    <div class="mb-5 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">${roleEmoji}</span>
+        <div>
+          <h3 class="text-[18px] font-extrabold">${r.fullName}</h3>
+          <span class="rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-[11px] font-bold">${roleLabel} مقبول</span>
+        </div>
+      </div>
+      <button onclick="closeMemberModal()" class="flex h-10 w-10 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-500 text-[18px]">✕</button>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 mb-4">
+      <div class="rounded-[16px] bg-zinc-50 border border-zinc-200 p-3">
+        <p class="text-[10px] font-bold text-zinc-500 mb-1">المستوى</p>
+        <p class="text-[13px] font-extrabold">${r.levelName}</p>
+        <p class="text-[11px] text-zinc-500">${r.cycle}</p>
+      </div>
+      <div class="rounded-[16px] bg-zinc-50 border border-zinc-200 p-3">
+        <p class="text-[10px] font-bold text-zinc-500 mb-1">المواد</p>
+        <p class="text-[15px] font-extrabold">${r.subjects.length} مادة</p>
+      </div>
+    </div>
+
+    <!-- Subjects list -->
+    <div class="mb-4">
+      <div class="flex flex-wrap gap-2">
+        ${r.subjects.map(s => `<span class="rounded-full bg-zinc-900 text-white px-3 py-1 text-[12px] font-bold">${s.name}</span>`).join('')}
+      </div>
+    </div>
+
+    <!-- Phone -->
+    <div class="mb-5 flex items-center justify-between rounded-[16px] border border-zinc-200 bg-zinc-50 px-4 py-3">
+      <div>
+        <p class="text-[10px] font-bold text-zinc-500">رقم الهاتف</p>
+        <p class="text-[14px] font-extrabold" style="direction:ltr;">${r.phone || 'غير محدد'}</p>
+      </div>
+      ${r.phone ? `<button onclick="copyPhone('${r.phone}')" class="rounded-full bg-zinc-900 text-white px-3 py-2 text-[12px] font-bold">📋 نسخ</button>` : ''}
+    </div>
+
+    <!-- Actions -->
+    <div class="grid grid-cols-2 gap-3 mb-3">
+      <a href="messages.html" class="rounded-[14px] bg-zinc-900 text-white py-3 text-[13px] font-extrabold flex items-center justify-center gap-1">💬 مراسلة</a>
+      <button onclick="banMember(${r.id})" class="rounded-[14px] border-2 border-orange-400 text-orange-600 py-3 text-[13px] font-extrabold">🚫 حظر مؤقت</button>
+    </div>
+    <button onclick="removeMember(${r.id})" class="w-full rounded-[14px] border-2 border-red-400 text-red-600 py-3 text-[13px] font-extrabold">🗑️ إزالة من المؤسسة</button>
+  `;
+  document.getElementById('member-modal').classList.remove('hidden');
+}
+
+function closeMemberModal() {
+  document.getElementById('member-modal').classList.add('hidden');
+  selectedMemberId = null;
+}
+
+async function acceptRequest(id) {
+  const r = state.joinRequests.find(x => x.id === id);
+  if (r) {
+    r.status = 'accepted';
+    // تحويل نوع حساب المستخدم المقبول إذا كان هو نفسه المستخدم الحالي
+    await applyAccountTypeOnAcceptance(r);
+  }
+  try { localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests)); } catch(e) {}
+  // حفظ في Firebase
+  await updateJoinRequestStatusInFirebase(id, 'accepted');
+  closeRequestModal();
+  showToast('✓ تم قبول الطلب بنجاح');
+  renderPending();
+}
+
+async function rejectRequest(id) {
+  state.joinRequests = state.joinRequests.filter(x => x.id !== id);
+  try { localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests)); } catch(e) {}
+  // حذف من Firebase
+  try {
+    await fetch(`${FB_JR_URL}/joinRequests/${id}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' });
+  } catch(e) { console.warn(e); }
+  closeRequestModal();
+  showToast('تم رفض الطلب');
+  renderPending();
+}
+
+async function removeMember(id) {
+  if (!confirm('هل تريد إزالة هذا العضو من المؤسسة؟')) return;
+  state.joinRequests = state.joinRequests.filter(x => x.id !== id);
+  try { localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests)); } catch(e) {}
+  try {
+    await fetch(`${FB_JR_URL}/joinRequests/${id}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' });
+  } catch(e) { console.warn(e); }
+  closeMemberModal();
+  showToast('تم إزالة العضو من المؤسسة');
+  renderMembers();
+}
+
+async function banMember(id) {
+  const r = state.joinRequests.find(x => x.id === id);
+  if (r) r.status = 'banned';
+  try { localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests)); } catch(e) {}
+  await updateJoinRequestStatusInFirebase(id, 'banned');
+  closeMemberModal();
+  showToast('تم حظر العضو مؤقتاً');
+  renderMembers();
+}
+
+function copyPhone(phone) {
+  navigator.clipboard.writeText(phone).then(() => showToast('تم نسخ رقم الهاتف ✓')).catch(() => showToast('تعذر النسخ'));
+}
+
+// Check if institution account — only institutions see this page
+function checkAccess() {
+  if (state.profileType !== 'institution') {
+    document.getElementById('tab-pending').innerHTML = `<div class="rounded-[22px] border border-zinc-200 bg-white p-8 text-center mt-4">
+      <div class="text-5xl mb-4">🔒</div>
+      <h3 class="text-[17px] font-extrabold mb-2">هذه الصفحة للمؤسسات فقط</h3>
+      <p class="text-[13px] text-zinc-500 mb-4">يجب أن يكون نوع حسابك "مؤسسة" لعرض طلبات الانضمام</p>
+      <a href="profile.html" class="inline-block rounded-[14px] bg-zinc-900 text-white px-6 py-2.5 text-[13px] font-bold">العودة للملف الشخصي</a>
+    </div>`;
+  }
+}
+
+// دالة يستدعيها profile.html عند ضغط زر "انضمام" لحساب مؤسسة
+window.checkIfInstitutionCanJoin = function() {
+  if (isCurrentUserInstitution()) {
+    document.getElementById('inst-block-modal').classList.remove('hidden');
+    return false; // منع الانضمام
+  }
+  return true; // السماح بالانضمام
+};
+
+// جلب الطلبات عند التحميل
+async function initPage() {
+  // 1. تحميل من localStorage أولاً (طلبات المستخدم الحقيقية)
+  ensureDemoRequests();
+  checkAccess();
+
+  // 2. محاولة جلب طلبات من Firebase ودمجها
+  const firebaseRequests = await loadJoinRequestsFromFirebase();
+  if (firebaseRequests && firebaseRequests.length > 0) {
+    const existingIds = new Set(state.joinRequests.map(r => r.id));
+    firebaseRequests.forEach(r => {
+      if (!existingIds.has(r.id)) {
+        state.joinRequests.push(r);
+      } else {
+        // تحديث حالة الطلب الموجود بالحالة من Firebase
+        const existing = state.joinRequests.find(x => x.id === r.id);
+        if (existing) existing.status = r.status;
+      }
+    });
+    // حفظ الدمج في localStorage
+    try { localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests)); } catch(e) {}
+  }
+
+  renderPending();
+  renderMembers();
+}
+
+// Init
+initPage();
+</script>
+<script src="floating-room.js"></script>
+</body>
+</html>

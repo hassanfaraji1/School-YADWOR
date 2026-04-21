@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>YADWOR – الإعدادات</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
+  input:focus, select:focus, textarea:focus { outline: none; }
+  .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#18181b; color:white; padding:8px 18px; border-radius:999px; font-size:13px; font-weight:700; z-index:999; pointer-events:none; opacity:0; transition:opacity .2s; }
+  .toast.show { opacity:1; }
+  .shimmer { animation: shimmer 1.5s infinite; background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%); background-size: 200% 100%; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+</style>
+</head>
+<body class="pb-24">
+<div id="toast" class="toast"></div>
+
+<!-- HEADER -->
+<header class="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/95 backdrop-blur-xl">
+  <div class="mx-auto flex h-11 max-w-[700px] items-center justify-between px-4">
+    <a href="profile.html" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    </a>
+    <h1 class="text-[15px] font-extrabold tracking-tight">الإعدادات</h1>
+    <div class="w-9"></div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-[700px] px-4 py-5 space-y-5">
+
+  <!-- ===== COVER + AVATAR section ===== -->
+  <div class="rounded-[24px] bg-white border border-zinc-200 overflow-hidden shadow-sm">
+    <!-- Cover image -->
+    <div class="relative h-32 bg-zinc-200 cursor-pointer group" onclick="document.getElementById('cover-input').click()">
+      <img id="cover-preview-img" src="" class="w-full h-full object-cover" />
+      <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-active:opacity-100 transition">
+        <div class="flex items-center gap-2 bg-black/50 rounded-full px-3 py-1.5">
+          <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-white" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <span class="text-white font-bold text-[12px]">تغيير الغلاف</span>
+        </div>
+      </div>
+      <input type="file" id="cover-input" accept="image/*" class="hidden" onchange="handleCoverChange(this)" />
+    </div>
+
+    <!-- Avatar + name row (below cover, not overlapping) -->
+    <div class="px-4 pt-3 pb-4">
+      <div class="flex items-center gap-3 mb-3">
+        <!-- Avatar -->
+        <div class="relative shrink-0 cursor-pointer group" onclick="document.getElementById('avatar-input').click()">
+          <img id="avatar-preview-img" src="" class="h-16 w-16 rounded-full object-cover border-[3px] border-zinc-100 shadow-md" />
+          <div class="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-active:opacity-100 transition">
+            <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-white" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </div>
+          <div class="absolute -bottom-0.5 -left-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-800 ring-2 ring-white">
+            <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-white" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </div>
+          <input type="file" id="avatar-input" accept="image/*" class="hidden" onchange="handleAvatarChange(this)" />
+        </div>
+        <!-- Name & type -->
+        <div class="flex-1 min-w-0">
+          <p class="text-[15px] font-extrabold truncate" id="settings-name-display"></p>
+          <p class="text-[12px] text-zinc-500 mt-0.5" id="settings-type-display"></p>
+        </div>
+      </div>
+      <p class="mb-2 text-[11px] text-zinc-400 text-center">اضغط على الصورة أو الغلاف لتغييرهما</p>
+      <!-- Save photos button -->
+      <button id="save-photos-btn" onclick="savePhotos()" class="hidden w-full rounded-[14px] bg-zinc-900 py-2.5 text-[13px] font-extrabold text-white">
+        <svg viewBox="0 0 24 24" class="inline h-4 w-4 mr-1 fill-none stroke-current mb-0.5" stroke-width="2" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        حفظ الصور
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== Display Name ===== -->
+  <div class="rounded-[24px] bg-white border border-zinc-200 p-4 shadow-sm">
+    <p class="mb-3 text-[14px] font-extrabold">الاسم المعروض</p>
+    <input id="settings-name-input" class="h-12 w-full rounded-[14px] border border-zinc-200 bg-zinc-50 px-4 text-[14px] font-medium focus:border-zinc-900 transition" placeholder="اسمك أو اسم مؤسستك" />
+    <button onclick="saveName()" class="mt-3 w-full rounded-[14px] bg-zinc-900 py-2.5 text-[13px] font-extrabold text-white">حفظ الاسم</button>
+  </div>
+
+  <!-- ===== Account Type ===== -->
+  <div class="rounded-[24px] bg-white border border-zinc-200 p-4 shadow-sm">
+    <p class="mb-1 text-[14px] font-extrabold">نوع الحساب</p>
+    <p class="mb-3 text-[12px] text-zinc-500">يُستخدم لتخصيص واجهة التطبيق وإظهار الميزات المناسبة</p>
+
+    <!-- تنبيه: أستاذ وتلميذ يُعيّنان تلقائياً عند الانضمام لمؤسسة -->
+    <div class="mb-3 rounded-[14px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-800">
+      <svg viewBox="0 0 24 24" class="inline h-3.5 w-3.5 mr-1 fill-none stroke-current mb-0.5" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+      نوعا "أستاذ" و"تلميذ" يُعيّنان تلقائياً عند قبول طلب انضمامك لمؤسسة.
+    </div>
+
+    <div class="grid grid-cols-2 gap-2">
+      <button onclick="selectAccountType('institution')" id="atype-institution" class="rounded-[14px] border-2 py-3 text-[13px] font-bold transition">
+        <svg viewBox="0 0 24 24" class="inline h-4 w-4 mr-1 fill-none stroke-current mb-0.5" stroke-width="1.8" stroke-linecap="round"><path d="M3 21h18M4 21V7l8-4 8 4v14M9 11h6M9 15h6"/></svg>
+        مؤسسة
+      </button>
+      <button onclick="selectAccountType('influencer')" id="atype-influencer" class="rounded-[14px] border-2 py-3 text-[13px] font-bold transition">
+        <svg viewBox="0 0 24 24" class="inline h-4 w-4 mr-1 fill-none stroke-current mb-0.5" stroke-width="1.8" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        مؤثر تعليمي
+      </button>
+    </div>
+
+    <!-- زر الحفظ — يظهر فقط عند تغيير النوع -->
+    <button id="save-account-type-btn" onclick="saveAccountType()" class="hidden mt-3 w-full rounded-[14px] bg-zinc-900 py-2.5 text-[13px] font-extrabold text-white">
+      <svg viewBox="0 0 24 24" class="inline h-4 w-4 mr-1 fill-none stroke-current mb-0.5" stroke-width="2" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      حفظ نوع الحساب
+    </button>
+  </div>
+
+  <!-- ===== Language ===== -->
+  <div class="rounded-[24px] bg-white border border-zinc-200 p-4 shadow-sm">
+    <p class="mb-3 text-[14px] font-extrabold">اللغة</p>
+    <div class="grid grid-cols-3 gap-2">
+      <button onclick="setLanguage('ar')" id="lang-ar" class="rounded-[14px] border-2 py-3 text-[13px] font-bold transition">
+        العربية
+      </button>
+      <button onclick="setLanguage('fr')" id="lang-fr" class="rounded-[14px] border-2 py-3 text-[13px] font-bold transition">
+        Français
+      </button>
+      <button onclick="setLanguage('en')" id="lang-en" class="rounded-[14px] border-2 py-3 text-[13px] font-bold transition">
+        English
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== Notifications ===== -->
+  <div class="rounded-[24px] bg-white border border-zinc-200 p-4 shadow-sm">
+    <p class="mb-3 text-[14px] font-extrabold">الإشعارات</p>
+    <div class="space-y-3">
+      <label class="flex items-center justify-between cursor-pointer">
+        <span class="text-[13px] font-medium text-zinc-700">إشعارات التعليقات</span>
+        <input type="checkbox" id="notif-comments" checked onchange="saveNotifSettings()" class="w-5 h-5 accent-zinc-900" />
+      </label>
+      <label class="flex items-center justify-between cursor-pointer">
+        <span class="text-[13px] font-medium text-zinc-700">إشعارات المتابعين الجدد</span>
+        <input type="checkbox" id="notif-followers" checked onchange="saveNotifSettings()" class="w-5 h-5 accent-zinc-900" />
+      </label>
+      <label class="flex items-center justify-between cursor-pointer">
+        <span class="text-[13px] font-medium text-zinc-700">إشعارات الرسائل</span>
+        <input type="checkbox" id="notif-messages" checked onchange="saveNotifSettings()" class="w-5 h-5 accent-zinc-900" />
+      </label>
+      <label class="flex items-center justify-between cursor-pointer">
+        <span class="text-[13px] font-medium text-zinc-700">إشعارات طلبات الانضمام</span>
+        <input type="checkbox" id="notif-join" checked onchange="saveNotifSettings()" class="w-5 h-5 accent-zinc-900" />
+      </label>
+    </div>
+  </div>
+
+  <!-- ===== Privacy ===== -->
+  <div class="rounded-[24px] bg-white border border-zinc-200 p-4 shadow-sm">
+    <p class="mb-3 text-[14px] font-extrabold">الخصوصية</p>
+    <div class="space-y-3">
+      <label class="flex items-center justify-between cursor-pointer">
+        <span class="text-[13px] font-medium text-zinc-700">حساب خاص</span>
+        <input type="checkbox" id="privacy-private" onchange="savePrivacySettings()" class="w-5 h-5 accent-zinc-900" />
+      </label>
+      <label class="flex items-center justify-between cursor-pointer">
+        <span class="text-[13px] font-medium text-zinc-700">إخفاء عدد المتابعين</span>
+        <input type="checkbox" id="privacy-hide-followers" onchange="savePrivacySettings()" class="w-5 h-5 accent-zinc-900" />
+      </label>
+    </div>
+  </div>
+
+  <!-- ===== Danger zone ===== -->
+  <div class="rounded-[24px] border border-red-200 bg-red-50 p-4">
+    <p class="mb-3 text-[14px] font-extrabold text-red-700">منطقة الخطر</p>
+    <button onclick="doLogout()" class="block w-full rounded-[14px] border border-red-300 bg-white py-2.5 text-center text-[13px] font-extrabold text-red-600 mb-2">
+      تسجيل الخروج
+    </button>
+  </div>
+
+</main>
+
+<!-- BOTTOM NAV -->
+<nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-[0_-6px_20px_rgba(0,0,0,0.04)]">
+  <div class="mx-auto grid max-w-[480px] grid-cols-5 px-2 py-2 gap-1">
+    <a href="profile.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>
+      الملف
+    </a>
+    <a href="messages.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      الرسائل
+    </a>
+    <a href="roomhom.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+      الغرف
+    </a>
+    <a href="search.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16"/></svg>
+      البحث
+    </a>
+    <a href="home.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>
+      الرئيسية
+    </a>
+  </div>
+</nav>
+
+<script src="shared.js"></script>
+<script>
+const FB_DB_URL_S = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
+const FB_API_KEY_S = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+
+let pendingAvatarSrc = null;
+let pendingCoverSrc = null;
+
+// نوع الحساب المحدد مؤقتاً (قبل الحفظ)
+let pendingAccountType = null;
+
+function initSettings() {
+  // Load current values
+  document.getElementById('avatar-preview-img').src = state.settingsAvatarPreview;
+  document.getElementById('cover-preview-img').src = state.settingsCoverPreview;
+  document.getElementById('settings-name-input').value = state.settingsName;
+  document.getElementById('settings-name-display').textContent = state.settingsName;
+
+  const typeLabels = {institution:'مؤسسة تعليمية', influencer:'مؤثر تعليمي', teacher:'أستاذ', student:'تلميذ'};
+  const accType = localStorage.getItem('yadwor-account-type') || 'influencer';
+  document.getElementById('settings-type-display').textContent = typeLabels[accType] || 'مؤثر تعليمي';
+
+  // Set account type buttons (only institution + influencer visible)
+  updateAccountTypeButtons(accType);
+
+  // Set language
+  const lang = localStorage.getItem('yadwor-language') || 'ar';
+  updateLangButtons(lang);
+
+  // Load notif settings
+  const notifSettings = JSON.parse(localStorage.getItem('yadwor-notif-settings') || '{"comments":true,"followers":true,"messages":true,"join":true}');
+  document.getElementById('notif-comments').checked = notifSettings.comments !== false;
+  document.getElementById('notif-followers').checked = notifSettings.followers !== false;
+  document.getElementById('notif-messages').checked = notifSettings.messages !== false;
+  document.getElementById('notif-join').checked = notifSettings.join !== false;
+
+  // Load privacy settings
+  const privSettings = JSON.parse(localStorage.getItem('yadwor-privacy-settings') || '{}');
+  document.getElementById('privacy-private').checked = privSettings.private || false;
+  document.getElementById('privacy-hide-followers').checked = privSettings.hideFollowers || false;
+}
+
+function handleAvatarChange(input) {
+  const file = input.files[0]; if(!file) return;
+  state._pendingAvatarFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    pendingAvatarSrc = e.target.result;
+    document.getElementById('avatar-preview-img').src = pendingAvatarSrc;
+    document.getElementById('save-photos-btn').classList.remove('hidden');
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleCoverChange(input) {
+  const file = input.files[0]; if(!file) return;
+  state._pendingCoverFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    pendingCoverSrc = e.target.result;
+    document.getElementById('cover-preview-img').src = pendingCoverSrc;
+    document.getElementById('save-photos-btn').classList.remove('hidden');
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadToCloudinary(dataUrlOrFile) {
+  const CLOUD_NAME = 'dlujoziwz';
+  const UPLOAD_PRESET = 'my_app_upload';
+  const form = new FormData();
+  if (dataUrlOrFile instanceof File || dataUrlOrFile instanceof Blob) {
+    form.append('file', dataUrlOrFile);
+  } else {
+    const blob = await fetch(dataUrlOrFile).then(r => r.blob());
+    form.append('file', blob);
+  }
+  form.append('upload_preset', UPLOAD_PRESET);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: 'POST', body: form });
+  if (!res.ok) throw new Error('Upload HTTP error: ' + res.status);
+  const data = await res.json();
+  if (!data.secure_url) throw new Error('No URL in response');
+  return data.secure_url;
+}
+
+async function savePhotos() {
+  const btn = document.getElementById('save-photos-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="inline h-4 w-4 mr-1 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> جاري الرفع...';
+  
+  const t = state.profileType;
+  const resetBtn = () => {
+    btn.disabled = false;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" class="inline h-4 w-4 mr-1 fill-none stroke-current mb-0.5" stroke-width="2" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> حفظ الصور';
+  };
+  
+  const commitUrls = async (avatarUrl, coverUrl) => {
+    if (avatarUrl) {
+      // حدّث localStorage أولاً
+      state.settingsAvatarPreview = avatarUrl;
+      localStorage.setItem('yadwor-avatar-preview', avatarUrl);
+      // حدّث profiles
+      const t = state.profileType;
+      if (profiles[t]) profiles[t].avatar = avatarUrl;
+
+      // حدّث صورة المستخدم في جميع منشوراته محلياً
+      state.posts = state.posts.map(p => _isMine(p) ? Object.assign({},p,{avatar:avatarUrl}) : p);
+      localStorage.setItem('yadwor-posts', JSON.stringify(state.posts));
+
+      // حدّث في Firebase في الخلفية
+      updateMyPostsAvatarInFirebase(avatarUrl);
+    }
+    if (coverUrl) {
+      state.settingsCoverPreview = coverUrl;
+      localStorage.setItem('yadwor-cover-preview', coverUrl);
+      const t = state.profileType;
+      if (profiles[t]) profiles[t].cover = coverUrl;
+    }
+    pendingAvatarSrc = null; pendingCoverSrc = null;
+    state._pendingAvatarFile = null; state._pendingCoverFile = null;
+    btn.classList.add('hidden');
+    saveData();
+    saveUserProfileToFirebase(); // حدّث بيانات المستخدم في Firebase
+    resetBtn();
+  };
+  
+  try {
+    let avatarUrl = null, coverUrl = null;
+    if (pendingAvatarSrc) {
+      avatarUrl = state._pendingAvatarFile
+        ? await uploadToCloudinary(state._pendingAvatarFile)
+        : await uploadToCloudinary(pendingAvatarSrc);
+    }
+    if (pendingCoverSrc) {
+      coverUrl = state._pendingCoverFile
+        ? await uploadToCloudinary(state._pendingCoverFile)
+        : await uploadToCloudinary(pendingCoverSrc);
+    }
+    commitUrls(avatarUrl, coverUrl);
+    showToast('تم حفظ الصور بنجاح');
+  } catch(e) {
+    console.warn('Cloudinary upload failed:', e);
+    // Fallback: use local data URLs
+    commitUrls(pendingAvatarSrc, pendingCoverSrc);
+    showToast('تم الحفظ (تعذر الرفع للسحابة)');
+  }
+}
+
+async function saveUserProfileToFirebaseSettings() {
+  const uid = localStorage.getItem('yadwor-uid');
+  if (!uid) return;
+  const t = state.profileType;
+  const prof = profiles[t];
+  const data = {
+    name: state.settingsName,
+    avatar: prof ? prof.avatar : state.settingsAvatarPreview,
+    cover: prof ? prof.cover : state.settingsCoverPreview,
+    accountType: localStorage.getItem('yadwor-account-type') || 'influencer',
+    updatedAt: Date.now()
+  };
+  try {
+    await fetch(`${FB_DB_URL_S}/users/${uid}.json?auth=${FB_API_KEY_S}`, {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    });
+  } catch(e) { console.warn('Firebase profile save failed:', e); }
+}
+
+function saveName() {
+  const name = document.getElementById('settings-name-input').value.trim();
+  if (!name) { showToast('يرجى إدخال اسم'); return; }
+  state.settingsName = name;
+  // حفظ في جميع المفاتيح الممكنة لضمان التوافق
+  localStorage.setItem('yadwor-settings-name', name);
+  localStorage.setItem('yadwor-user-name', name);
+  document.getElementById('settings-name-display').textContent = name;
+  saveData();
+  saveUserProfileToFirebaseSettings();
+  showToast('تم حفظ الاسم');
+}
+
+// عند اختيار نوع حساب — يظهر زر الحفظ فقط إذا تغيّر النوع
+function selectAccountType(type) {
+  const currentType = localStorage.getItem('yadwor-account-type') || 'influencer';
+  pendingAccountType = type;
+  updateAccountTypeButtons(type);
+  // أظهر زر الحفظ فقط إذا النوع الجديد مختلف عن الحالي
+  const saveBtn = document.getElementById('save-account-type-btn');
+  if (type !== currentType) {
+    saveBtn.classList.remove('hidden');
+  } else {
+    saveBtn.classList.add('hidden');
+    pendingAccountType = null;
+  }
+}
+
+// حفظ نوع الحساب فعلياً في Firebase و localStorage
+async function saveAccountType() {
+  if (!pendingAccountType) return;
+  const type = pendingAccountType;
+  const saveBtn = document.getElementById('save-account-type-btn');
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = '<svg class="inline h-4 w-4 mr-1 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> جاري الحفظ...';
+
+  // حفظ في localStorage
+  localStorage.setItem('yadwor-account-type', type);
+  localStorage.setItem('yadwor-profile-type', type);  // مزامنة ضرورية
+  state.profileType = type;
+  state.settingsAccountType = type;
+
+  // تحديث اسم النوع في الواجهة
+  const typeLabels = {institution:'مؤسسة تعليمية', influencer:'مؤثر تعليمي', teacher:'أستاذ', student:'تلميذ'};
+  document.getElementById('settings-type-display').textContent = typeLabels[type] || '';
+
+  // تحديث بيانات المستخدم الحقيقي
+  try {
+    const ru = getRealUser();
+    ru.accountType = type;
+    localStorage.setItem('yadwor-user-data', JSON.stringify(ru));
+  } catch(e) { console.warn(e); }
+
+  // حفظ في Firebase
+  const uid = localStorage.getItem('yadwor-uid');
+  if (uid) {
+    try {
+      await fetch(`${FB_DB_URL_S}/users/${uid}.json?auth=${FB_API_KEY_S}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ accountType: type, updatedAt: Date.now() })
+      });
+    } catch(e) { console.warn('Firebase accountType save failed:', e); }
+  }
+
+  saveData();
+  pendingAccountType = null;
+  saveBtn.classList.add('hidden');
+  saveBtn.disabled = false;
+  saveBtn.innerHTML = '<svg viewBox="0 0 24 24" class="inline h-4 w-4 mr-1 fill-none stroke-current mb-0.5" stroke-width="2" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> حفظ نوع الحساب';
+  showToast('تم تحديث نوع الحساب بنجاح ✓');
+}
+
+function updateAccountTypeButtons(active) {
+  // فقط institution و influencer تظهر في صفحة الإعدادات
+  ['institution','influencer'].forEach(t => {
+    const btn = document.getElementById('atype-' + t);
+    if (!btn) return;
+    btn.className = `rounded-[14px] border-2 py-3 text-[13px] font-bold transition ${t === active ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400'}`;
+  });
+}
+
+function setLanguage(lang) {
+  localStorage.setItem('yadwor-language', lang);
+  updateLangButtons(lang);
+  showToast('تم تغيير اللغة');
+}
+
+function updateLangButtons(active) {
+  ['ar','fr','en'].forEach(l => {
+    const btn = document.getElementById('lang-' + l);
+    if (!btn) return;
+    btn.className = `rounded-[14px] border-2 py-3 text-[13px] font-bold transition ${l === active ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400'}`;
+  });
+}
+
+function saveNotifSettings() {
+  const settings = {
+    comments: document.getElementById('notif-comments').checked,
+    followers: document.getElementById('notif-followers').checked,
+    messages: document.getElementById('notif-messages').checked,
+    join: document.getElementById('notif-join').checked,
+  };
+  localStorage.setItem('yadwor-notif-settings', JSON.stringify(settings));
+  showToast('تم حفظ إعدادات الإشعارات');
+}
+
+function savePrivacySettings() {
+  const settings = {
+    private: document.getElementById('privacy-private').checked,
+    hideFollowers: document.getElementById('privacy-hide-followers').checked,
+  };
+  localStorage.setItem('yadwor-privacy-settings', JSON.stringify(settings));
+  showToast('تم حفظ إعدادات الخصوصية');
+}
+
+function doLogout() {
+  localStorage.removeItem('yadwor-logged-in');
+  window.location.replace('index.html');
+}
+
+initSettings();
+</script>
+<script src="floating-room.js"></script>
+</body>
+</html>

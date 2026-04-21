@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>YADWOR – التمارين والاختبارات</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Tajawal', system-ui, sans-serif; background: #faf8f6; color: #18181b; }
+  input:focus, select:focus, textarea:focus { outline: none; }
+  .shimmer { animation: shimmer 1.5s infinite; background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%); background-size: 200% 100%; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#18181b; color:white; padding:8px 18px; border-radius:999px; font-size:13px; font-weight:700; z-index:9999; pointer-events:none; opacity:0; transition:opacity .2s; }
+  .toast.show { opacity:1; }
+  #sidebar-panel { transition: transform .25s cubic-bezier(.4,0,.2,1); transform: translateX(100%); }
+  #sidebar-panel.open { transform: translateX(0); }
+
+  /* Tab styles */
+  .tab-btn { transition: all .2s; }
+  .tab-btn.active { background: #18181b; color: #fff; }
+  .tab-btn:not(.active) { background: #f4f4f5; color: #71717a; }
+
+  /* Question type selector */
+  .qtype-btn { transition: all .15s; cursor: pointer; }
+  .qtype-btn.selected { border-color: #18181b !important; background: #18181b !important; color: #fff !important; }
+
+  /* Draggable connector */
+  .connect-item { user-select: none; cursor: pointer; }
+  .connect-item.selected-left { background: #3b82f6 !important; color: white !important; }
+  .connect-item.selected-right { background: #10b981 !important; color: white !important; }
+
+  /* Quiz fullscreen overlay */
+  #quiz-overlay { z-index: 9998; }
+
+  /* Timer animation */
+  @keyframes timerPulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .timer-warning { animation: timerPulse .8s infinite; color: #ef4444 !important; }
+
+  /* Results chart bar */
+  .result-bar { transition: width .6s cubic-bezier(.4,0,.2,1); }
+
+  /* Smooth page transitions */
+  .page-enter { animation: fadeIn .25s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+</style>
+</head>
+<body>
+<div id="toast" class="toast"></div>
+
+<!-- HEADER -->
+<header class="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/95 backdrop-blur-xl">
+  <div class="mx-auto flex h-11 max-w-[1100px] items-center justify-between px-3">
+    <button onclick="openSidebar()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round">
+        <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+    <h1 class="text-[15px] font-extrabold tracking-tight">التمارين والاختبارات</h1>
+    <a href="notifications.html" class="relative flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    </a>
+  </div>
+</header>
+
+<!-- MAIN TABS -->
+<div class="sticky top-11 z-30 bg-white border-b border-zinc-100 px-4 pt-3 pb-0">
+  <div class="flex gap-2 mx-auto max-w-[760px]">
+    <button onclick="setMainTab('create')" id="mtab-create" class="tab-btn active rounded-[12px] px-4 py-2.5 text-[13px] font-bold flex-1">إنشاء</button>
+    <button onclick="setMainTab('publish')" id="mtab-publish" class="tab-btn rounded-[12px] px-4 py-2.5 text-[13px] font-bold flex-1">نشر <span id="pending-count-badge" class="text-[11px]"></span></button>
+    <button onclick="setMainTab('edit')" id="mtab-edit" class="tab-btn rounded-[12px] px-4 py-2.5 text-[13px] font-bold flex-1">تعديل</button>
+  </div>
+</div>
+
+<main id="main-content" class="mx-auto max-w-[760px] px-3 pb-28 pt-4"></main>
+
+<!-- BOTTOM NAV -->
+<nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-[0_-6px_20px_rgba(0,0,0,0.04)]">
+  <div class="mx-auto grid max-w-[480px] grid-cols-5 px-2 py-2 gap-1">
+    <a href="profile.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>الملف
+    </a>
+    <a href="messages.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>الرسائل
+    </a>
+    <a href="roomhom.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>الغرف
+    </a>
+    <a href="search.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16"/></svg>البحث
+    </a>
+    <a href="home.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>الرئيسية
+    </a>
+  </div>
+</nav>
+
+<!-- SIDEBAR OVERLAY -->
+<div id="sidebar-overlay" class="hidden fixed inset-0 z-50 bg-black/40" onclick="closeSidebar()"></div>
+<!-- SIDEBAR PANEL -->
+<div id="sidebar-panel" class="fixed top-0 right-0 z-50 h-full w-[82vw] max-w-[320px] bg-white shadow-2xl overflow-y-auto flex flex-col">
+  <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+    <h2 class="text-[18px] font-extrabold">القائمة</h2>
+    <button onclick="closeSidebar()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <nav class="flex-1 px-3 py-3 space-y-1">
+    <a href="home.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg><span>الرئيسية</span>
+    </a>
+    <a href="profile.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg><span>الملف الشخصي</span>
+    </a>
+    <a href="search.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg><span>البحث</span>
+    </a>
+    <a href="exercises.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg><span>التمارين والاختبارات</span>
+    </a>
+    <a href="results.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg><span>نتائج الاختبارات</span>
+    </a>
+    <a href="settings.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg><span>الإعدادات</span>
+    </a>
+    <button onclick="doLogout()" class="flex w-full items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold text-red-600">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg><span>تسجيل الخروج</span>
+    </button>
+  </nav>
+</div>
+
+<script>
+// ============================================================
+//  YADWOR – إدارة التمارين والاختبارات
+// ============================================================
+
+// ---- State ----
+let mainTab = 'create';
+let currentExam = {
+  type: 'تمرين',
+  title: '',
+  duration: '24h',
+  questions: []
+};
+let currentQuestion = {
+  qtype: 'truefalse',
+  text: '',
+  correctAnswer: null,
+  choices: ['', '', '', ''],
+  fillAnswer: '',
+  matchLeft: ['', '', ''],
+  matchRight: ['', '', ''],
+  matchPairs: [],
+  imageSrc: null,
+  imageQuestion: '',
+  imageMode: 'choice',
+  imageChoices: ['', '', ''],
+  imageCorrect: null,
+  points: 1,
+  time: 30
+};
+
+// ---- Local data ----
+function getExams() {
+  try { return JSON.parse(localStorage.getItem('yadwor-exams') || '[]'); } catch(e) { return []; }
+}
+function saveExams(list) {
+  localStorage.setItem('yadwor-exams', JSON.stringify(list));
+}
+function getPendingQuestions() {
+  try { return JSON.parse(localStorage.getItem('yadwor-pending-questions') || '[]'); } catch(e) { return []; }
+}
+function savePendingQuestions(list) {
+  localStorage.setItem('yadwor-pending-questions', JSON.stringify(list));
+  updatePendingBadge();
+}
+function getResults() {
+  try { return JSON.parse(localStorage.getItem('yadwor-results') || '[]'); } catch(e) { return []; }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function updatePendingBadge() {
+  const pq = getPendingQuestions();
+  const badge = document.getElementById('pending-count-badge');
+  if (badge) badge.textContent = pq.length > 0 ? `(${pq.length})` : '';
+}
+
+// ---- Sidebar ----
+function openSidebar() {
+  document.getElementById('sidebar-overlay').classList.remove('hidden');
+  document.getElementById('sidebar-panel').classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar-overlay').classList.add('hidden');
+  document.getElementById('sidebar-panel').classList.remove('open');
+}
+function doLogout() {
+  localStorage.removeItem('yadwor-logged-in');
+  window.location.replace('index.html');
+}
+
+// ---- Main Tab ----
+function setMainTab(tab) {
+  mainTab = tab;
+  ['create','publish','edit'].forEach(t => {
+    const btn = document.getElementById('mtab-' + t);
+    if (btn) {
+      btn.classList.toggle('active', t === tab);
+    }
+  });
+  renderMainContent();
+}
+
+function renderMainContent() {
+  const el = document.getElementById('main-content');
+  el.innerHTML = '';
+  el.className = 'mx-auto max-w-[760px] px-3 pb-28 pt-4 page-enter';
+  if (mainTab === 'create') renderCreate();
+  else if (mainTab === 'publish') renderPublish();
+  else renderEdit();
+}
+
+// ============================================================
+//  TAB 1: إنشاء
+// ============================================================
+function renderCreate() {
+  const el = document.getElementById('main-content');
+  el.innerHTML = `
+  <div class="space-y-4">
+    <!-- بيانات الاختبار/التمرين -->
+    <div class="rounded-[20px] bg-white border border-zinc-100 shadow-sm p-4 space-y-3">
+      <h2 class="text-[16px] font-extrabold">بيانات الاختبار / التمرين</h2>
+
+      <!-- النوع -->
+      <div>
+        <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">النوع</label>
+        <div class="flex gap-2">
+          <button onclick="setExamType('تمرين')" id="etype-exercise"
+            class="qtype-btn flex-1 rounded-[12px] border-2 border-zinc-200 py-2.5 text-[13px] font-bold transition
+            ${currentExam.type==='تمرين'?'selected':''}">تمرين</button>
+          <button onclick="setExamType('اختبار')" id="etype-test"
+            class="qtype-btn flex-1 rounded-[12px] border-2 border-zinc-200 py-2.5 text-[13px] font-bold transition
+            ${currentExam.type==='اختبار'?'selected':''}">اختبار</button>
+        </div>
+      </div>
+
+      <!-- العنوان -->
+      <div>
+        <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">العنوان (اختياري)</label>
+        <input id="exam-title" value="${currentExam.title}" placeholder="مثال: اختبار المستوى الثالث – عمليات الضرب"
+          oninput="currentExam.title=this.value"
+          class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]" />
+      </div>
+
+      <!-- مدة النشر -->
+      <div>
+        <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">مدة النشر (بعدها يختفي الاختبار)</label>
+        <select id="exam-duration" onchange="currentExam.duration=this.value"
+          class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]">
+          ${['1h','2h','4h','8h','12h','24h','48h','72h','1w'].map(v=>`
+            <option value="${v}" ${currentExam.duration===v?'selected':''}>
+              ${{'1h':'ساعة واحدة','2h':'ساعتان','4h':'4 ساعات','8h':'8 ساعات','12h':'12 ساعة','24h':'يوم واحد','48h':'يومان','72h':'3 أيام','1w':'أسبوع'}[v]}
+            </option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <!-- إضافة سؤال -->
+    <div class="rounded-[20px] bg-white border border-zinc-100 shadow-sm p-4 space-y-4">
+      <h2 class="text-[16px] font-extrabold">إضافة سؤال</h2>
+
+      <!-- نوع السؤال -->
+      <div>
+        <label class="text-[12px] font-bold text-zinc-500 mb-2 block">نوع السؤال</label>
+        <div class="grid grid-cols-3 gap-2">
+          ${[
+            {id:'truefalse', label:'صح / خطأ', icon:'M9 12l2 2 4-4M20.618 5.984A11.955 11.955 0 0 1 12 2.944a11.955 11.955 0 0 0-8.618 3.04A12.02 12.02 0 0 0 3 9c0 5.591 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.623 0-1.031-.138-2.056-.382-3.016z'},
+            {id:'multichoice', label:'اختيار متعدد', icon:'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2'},
+            {id:'fill', label:'ملء الفراغ', icon:'M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z'},
+            {id:'match', label:'ربط بسهم', icon:'M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4'},
+            {id:'image', label:'صورة', icon:'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8'}
+          ].map(q=>`
+            <button onclick="setQType('${q.id}')" id="qbtn-${q.id}"
+              class="qtype-btn rounded-[12px] border-2 border-zinc-200 p-3 flex flex-col items-center gap-1 transition
+              ${currentQuestion.qtype===q.id?'selected':''}">
+              <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="${q.icon}"/></svg>
+              <span class="text-[11px] font-bold">${q.label}</span>
+            </button>`).join('')}
+        </div>
+      </div>
+
+      <!-- محتوى السؤال حسب النوع -->
+      <div id="question-form"></div>
+
+      <!-- النقطة والتوقيت -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">النقطة</label>
+          <input type="number" id="q-points" value="${currentQuestion.points}" min="0.5" max="20" step="0.5"
+            oninput="currentQuestion.points=parseFloat(this.value)||1"
+            class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]" />
+        </div>
+        <div>
+          <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">الوقت (ثانية)</label>
+          <input type="number" id="q-time" value="${currentQuestion.time}" min="10" max="18000"
+            oninput="currentQuestion.time=parseInt(this.value)||30"
+            class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]" />
+        </div>
+      </div>
+
+      <button onclick="addQuestion()"
+        class="h-12 w-full rounded-[14px] bg-zinc-900 text-[14px] font-bold text-white">
+        + إضافة السؤال
+      </button>
+    </div>
+  </div>`;
+
+  renderQuestionForm();
+  updatePendingBadge();
+}
+
+function setExamType(type) {
+  currentExam.type = type;
+  ['تمرين','اختبار'].forEach(t => {
+    const id = t === 'تمرين' ? 'etype-exercise' : 'etype-test';
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.toggle('selected', t === type);
+  });
+}
+
+function setQType(type) {
+  currentQuestion.qtype = type;
+  document.querySelectorAll('[id^="qbtn-"]').forEach(b => b.classList.remove('selected'));
+  const btn = document.getElementById('qbtn-' + type);
+  if (btn) btn.classList.add('selected');
+  renderQuestionForm();
+}
+
+function renderQuestionForm() {
+  const f = document.getElementById('question-form');
+  if (!f) return;
+  const qt = currentQuestion.qtype;
+
+  if (qt === 'truefalse') {
+    f.innerHTML = `
+    <div>
+      <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">نص السؤال</label>
+      <textarea id="q-text" rows="3" placeholder="اكتب السؤال هنا..."
+        oninput="currentQuestion.text=this.value"
+        class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]">${currentQuestion.text}</textarea>
+    </div>
+    <div>
+      <label class="text-[12px] font-bold text-zinc-500 mb-2 block">الجواب الصحيح</label>
+      <div class="flex gap-3">
+        <button onclick="setTFAnswer(true)" id="tf-true"
+          class="qtype-btn flex-1 rounded-[12px] border-2 border-zinc-200 py-3 text-[13px] font-bold transition
+          ${currentQuestion.correctAnswer===true?'selected':''}">✓ صحيح</button>
+        <button onclick="setTFAnswer(false)" id="tf-false"
+          class="qtype-btn flex-1 rounded-[12px] border-2 border-zinc-200 py-3 text-[13px] font-bold transition
+          ${currentQuestion.correctAnswer===false?'selected':''}">✗ خطأ</button>
+      </div>
+    </div>`;
+  }
+
+  else if (qt === 'multichoice') {
+    const choicesHtml = currentQuestion.choices.map((c, i) => `
+      <div class="flex items-center gap-2">
+        <button onclick="setCorrectChoice(${i})"
+          class="h-8 w-8 shrink-0 rounded-full border-2 transition
+          ${currentQuestion.correctAnswer===i?'border-emerald-500 bg-emerald-500 text-white':'border-zinc-300 bg-white'}
+          flex items-center justify-center text-[12px] font-bold">
+          ${currentQuestion.correctAnswer===i?'✓':String.fromCharCode(65+i)}
+        </button>
+        <input value="${c}" placeholder="الخيار ${String.fromCharCode(0x0041+i)}"
+          oninput="currentQuestion.choices[${i}]=this.value"
+          class="flex-1 rounded-[10px] border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-[14px]" />
+      </div>`).join('');
+    f.innerHTML = `
+    <div>
+      <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">نص السؤال</label>
+      <textarea id="q-text" rows="2" placeholder="اكتب السؤال هنا..."
+        oninput="currentQuestion.text=this.value"
+        class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]">${currentQuestion.text}</textarea>
+    </div>
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <label class="text-[12px] font-bold text-zinc-500">الخيارات (اضغط الدائرة للتحديد كإجابة صحيحة)</label>
+        <button onclick="addChoice()" class="text-[12px] font-bold text-blue-500">+ خيار</button>
+      </div>
+      <div id="choices-list" class="space-y-2">${choicesHtml}</div>
+    </div>`;
+  }
+
+  else if (qt === 'fill') {
+    f.innerHTML = `
+    <div>
+      <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">نص السؤال (اكتب ___ مكان الفراغ)</label>
+      <textarea id="q-text" rows="3" placeholder="مثال: عاصمة المغرب هي ___"
+        oninput="currentQuestion.text=this.value"
+        class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]">${currentQuestion.text}</textarea>
+    </div>
+    <div>
+      <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">الجواب الصحيح</label>
+      <input id="q-fill-answer" value="${currentQuestion.fillAnswer}" placeholder="اكتب الجواب الصحيح..."
+        oninput="currentQuestion.fillAnswer=this.value"
+        class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]" />
+    </div>`;
+  }
+
+  else if (qt === 'match') {
+    const leftHtml = currentQuestion.matchLeft.map((v, i) => `
+      <input value="${v}" placeholder="عنصر ${i+1}" oninput="currentQuestion.matchLeft[${i}]=this.value"
+        class="w-full rounded-[10px] border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-[14px]" />`).join('');
+    const rightHtml = currentQuestion.matchRight.map((v, i) => `
+      <input value="${v}" placeholder="تطابق ${i+1}" oninput="currentQuestion.matchRight[${i}]=this.value"
+        class="w-full rounded-[10px] border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-[14px]" />`).join('');
+    f.innerHTML = `
+    <div>
+      <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">نص السؤال</label>
+      <textarea id="q-text" rows="2" placeholder="مثال: اربط كل عنصر بما يناسبه"
+        oninput="currentQuestion.text=this.value"
+        class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]">${currentQuestion.text}</textarea>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div class="space-y-2"><label class="text-[12px] font-bold text-zinc-500">العمود الأيسر</label>${leftHtml}
+        <button onclick="addMatchRow()" class="text-[12px] font-bold text-blue-500">+ إضافة صف</button>
+      </div>
+      <div class="space-y-2"><label class="text-[12px] font-bold text-zinc-500">العمود الأيمن</label>${rightHtml}</div>
+    </div>
+    <p class="text-[11px] text-zinc-400 bg-zinc-50 rounded-[10px] p-2">
+      💡 التطابق الصحيح: كل عنصر في العمود الأيسر يقابل نفس الرقم في العمود الأيمن
+    </p>`;
+  }
+
+  else if (qt === 'image') {
+    f.innerHTML = `
+    <div>
+      <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">رفع الصورة</label>
+      <label class="flex flex-col items-center justify-center rounded-[12px] border-2 border-dashed border-zinc-300 bg-zinc-50 p-6 cursor-pointer hover:border-zinc-400 transition">
+        ${currentQuestion.imageSrc
+          ? `<img src="${currentQuestion.imageSrc}" class="max-h-40 object-contain rounded-[8px]" />`
+          : `<svg viewBox="0 0 24 24" class="h-10 w-10 fill-none stroke-zinc-400" stroke-width="1.5" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>
+             <span class="mt-2 text-[12px] text-zinc-400 font-bold">اضغط لاختيار صورة</span>`}
+        <input type="file" accept="image/*" class="hidden" onchange="handleQuestionImage(this)" />
+      </label>
+    </div>
+    <div>
+      <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">السؤال عن الصورة</label>
+      <textarea id="q-text" rows="2" placeholder="ماذا تلاحظ في الصورة؟"
+        oninput="currentQuestion.text=this.value"
+        class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]">${currentQuestion.text}</textarea>
+    </div>
+    <div>
+      <label class="text-[12px] font-bold text-zinc-500 mb-2 block">نوع الإجابة</label>
+      <div class="flex gap-2">
+        <button onclick="setImageMode('choice')" id="imgmode-choice"
+          class="qtype-btn flex-1 rounded-[12px] border-2 border-zinc-200 py-2.5 text-[13px] font-bold transition
+          ${currentQuestion.imageMode==='choice'?'selected':''}">اختيار متعدد</button>
+        <button onclick="setImageMode('write')" id="imgmode-write"
+          class="qtype-btn flex-1 rounded-[12px] border-2 border-zinc-200 py-2.5 text-[13px] font-bold transition
+          ${currentQuestion.imageMode==='write'?'selected':''}">كتابة حرة</button>
+      </div>
+    </div>
+    ${currentQuestion.imageMode === 'choice' ? `
+    <div class="space-y-2">
+      ${currentQuestion.imageChoices.map((c, i) => `
+      <div class="flex items-center gap-2">
+        <button onclick="setImageCorrect(${i})"
+          class="h-8 w-8 shrink-0 rounded-full border-2 transition flex items-center justify-center text-[12px] font-bold
+          ${currentQuestion.imageCorrect===i?'border-emerald-500 bg-emerald-500 text-white':'border-zinc-300 bg-white'}">
+          ${currentQuestion.imageCorrect===i?'✓':String.fromCharCode(65+i)}
+        </button>
+        <input value="${c}" placeholder="الخيار ${i+1}"
+          oninput="currentQuestion.imageChoices[${i}]=this.value"
+          class="flex-1 rounded-[10px] border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-[14px]" />
+      </div>`).join('')}
+    </div>` : `<p class="text-[12px] text-zinc-400 bg-zinc-50 rounded-[10px] p-3">سيكتب التلميذ إجابته بحرية</p>`}`;
+  }
+}
+
+// Helpers
+function setTFAnswer(val) {
+  currentQuestion.correctAnswer = val;
+  ['true','false'].forEach(k => {
+    const btn = document.getElementById('tf-'+k);
+    if (btn) btn.classList.toggle('selected', (k==='true') === val);
+  });
+}
+function setCorrectChoice(i) {
+  currentQuestion.correctAnswer = i;
+  renderQuestionForm();
+}
+function addChoice() {
+  currentQuestion.choices.push('');
+  renderQuestionForm();
+}
+function addMatchRow() {
+  currentQuestion.matchLeft.push('');
+  currentQuestion.matchRight.push('');
+  renderQuestionForm();
+}
+function setImageMode(mode) {
+  currentQuestion.imageMode = mode;
+  renderQuestionForm();
+}
+function setImageCorrect(i) {
+  currentQuestion.imageCorrect = i;
+  renderQuestionForm();
+}
+function handleQuestionImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    currentQuestion.imageSrc = e.target.result;
+    renderQuestionForm();
+  };
+  reader.readAsDataURL(file);
+}
+
+function addQuestion() {
+  const qt = currentQuestion.qtype;
+  if (!currentQuestion.text.trim() && qt !== 'image') { showToast('اكتب نص السؤال'); return; }
+  if (qt === 'truefalse' && currentQuestion.correctAnswer === null) { showToast('حدد الجواب الصحيح (صح أو خطأ)'); return; }
+  if (qt === 'multichoice') {
+    const filled = currentQuestion.choices.filter(c => c.trim());
+    if (filled.length < 2) { showToast('أضف خيارين على الأقل'); return; }
+    if (currentQuestion.correctAnswer === null) { showToast('حدد الخيار الصحيح'); return; }
+  }
+  if (qt === 'fill' && !currentQuestion.fillAnswer.trim()) { showToast('أدخل الجواب الصحيح'); return; }
+  if (qt === 'image' && !currentQuestion.imageSrc) { showToast('أرفق صورة للسؤال'); return; }
+
+  const pq = getPendingQuestions();
+  pq.push({ ...JSON.parse(JSON.stringify(currentQuestion)), id: Date.now() });
+  savePendingQuestions(pq);
+
+  // Reset question
+  currentQuestion = { qtype: 'truefalse', text: '', correctAnswer: null, choices: ['','','',''],
+    fillAnswer: '', matchLeft: ['','',''], matchRight: ['','',''], matchPairs: [],
+    imageSrc: null, imageQuestion: '', imageMode: 'choice', imageChoices: ['','',''],
+    imageCorrect: null, points: 1, time: 30 };
+
+  showToast('✓ تم إضافة السؤال');
+  renderCreate();
+}
+
+// ============================================================
+//  TAB 2: نشر
+// ============================================================
+function renderPublish() {
+  const el = document.getElementById('main-content');
+  const pq = getPendingQuestions();
+
+  if (!pq.length) {
+    el.innerHTML = `
+    <div class="flex flex-col items-center justify-center py-20 text-center gap-3">
+      <div class="h-16 w-16 rounded-full bg-zinc-100 flex items-center justify-center">
+        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round">
+          <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/>
+        </svg>
+      </div>
+      <p class="text-[14px] font-bold text-zinc-400">لا توجد أسئلة بعد</p>
+      <p class="text-[12px] text-zinc-400">أضف أسئلة من تبويب "إنشاء" ثم انشرها هنا</p>
+      <button onclick="setMainTab('create')" class="mt-2 rounded-[12px] bg-zinc-900 px-6 py-3 text-[13px] font-bold text-white">إنشاء سؤال</button>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = `
+  <div class="space-y-3">
+    <div class="rounded-[16px] bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
+      <span class="text-lg">📋</span>
+      <p class="text-[12px] text-amber-700 font-bold leading-relaxed">
+        لديك ${pq.length} سؤال جاهز. راجعها ثم اضغط "نشر الاختبار" لإرساله للتلاميذ.
+      </p>
+    </div>
+    ${pq.map((q, i) => renderQuestionPreviewCard(q, i)).join('')}
+    <button onclick="publishExam()" class="h-14 w-full rounded-[16px] bg-zinc-900 text-[15px] font-extrabold text-white shadow-lg mt-2">
+      🚀 نشر الاختبار (${pq.length} سؤال)
+    </button>
+    <button onclick="clearPending()" class="h-10 w-full rounded-[14px] bg-red-50 text-[13px] font-bold text-red-600 border border-red-200">
+      🗑 حذف جميع الأسئلة
+    </button>
+  </div>`;
+}
+
+function renderQuestionPreviewCard(q, i) {
+  const typeLabels = { truefalse:'صح/خطأ', multichoice:'اختيار متعدد', fill:'ملء الفراغ', match:'ربط', image:'صورة' };
+  return `
+  <div class="rounded-[16px] bg-white border border-zinc-100 shadow-sm p-4">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-[10px] font-bold text-zinc-400 bg-zinc-100 rounded-full px-2 py-1">${typeLabels[q.qtype]||q.qtype}</span>
+      <div class="flex items-center gap-3">
+        <span class="text-[11px] text-zinc-400">⏱ ${q.time}ث</span>
+        <span class="text-[11px] text-zinc-400">⭐ ${q.points} نقطة</span>
+        <button onclick="removeQuestion(${i})" class="text-red-400 text-[11px] font-bold">حذف</button>
+      </div>
+    </div>
+    <p class="text-[14px] font-bold leading-relaxed text-zinc-800">${q.text || '(سؤال صورة)'}</p>
+    ${q.qtype==='image' && q.imageSrc ? `<img src="${q.imageSrc}" class="mt-2 h-24 object-contain rounded-[8px]" />` : ''}
+  </div>`;
+}
+
+function removeQuestion(i) {
+  const pq = getPendingQuestions();
+  pq.splice(i, 1);
+  savePendingQuestions(pq);
+  renderPublish();
+}
+
+function clearPending() {
+  if (!confirm('هل تريد حذف جميع الأسئلة؟')) return;
+  savePendingQuestions([]);
+  renderPublish();
+}
+
+function publishExam() {
+  const pq = getPendingQuestions();
+  if (!pq.length) { showToast('لا توجد أسئلة للنشر'); return; }
+  
+  const durationMap = {'1h':3600,'2h':7200,'4h':14400,'8h':28800,'12h':43200,'24h':86400,'48h':172800,'72h':259200,'1w':604800};
+  const durationSec = durationMap[currentExam.duration] || 86400;
+  
+  const exam = {
+    id: Date.now(),
+    type: currentExam.type,
+    title: currentExam.title || `${currentExam.type} – ${new Date().toLocaleDateString('ar-MA')}`,
+    duration: currentExam.duration,
+    expiresAt: Date.now() + durationSec * 1000,
+    questions: pq,
+    publishedAt: Date.now(),
+    teacherUid: localStorage.getItem('yadwor-uid') || 'teacher'
+  };
+
+  const exams = getExams();
+  exams.push(exam);
+  saveExams(exams);
+  savePendingQuestions([]);
+  // Reset exam meta
+  currentExam = { type: 'تمرين', title: '', duration: '24h', questions: [] };
+  
+  showToast(`✓ تم نشر ${exam.type} بنجاح`);
+  setMainTab('edit');
+}
+
+// ============================================================
+//  TAB 3: تعديل
+// ============================================================
+function renderEdit() {
+  const el = document.getElementById('main-content');
+  let exams = getExams();
+  // Filter expired
+  exams = exams.filter(e => Date.now() < e.expiresAt);
+  saveExams(exams);
+
+  if (!exams.length) {
+    el.innerHTML = `
+    <div class="flex flex-col items-center justify-center py-20 text-center gap-3">
+      <div class="h-16 w-16 rounded-full bg-zinc-100 flex items-center justify-center">
+        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round">
+          <path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+        </svg>
+      </div>
+      <p class="text-[14px] font-bold text-zinc-400">لا توجد اختبارات منشورة حالياً</p>
+      <button onclick="setMainTab('create')" class="mt-2 rounded-[12px] bg-zinc-900 px-6 py-3 text-[13px] font-bold text-white">إنشاء اختبار</button>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = `
+  <div class="space-y-3">
+    ${exams.map(e => renderExamEditCard(e)).join('')}
+  </div>`;
+}
+
+function renderExamEditCard(exam) {
+  const remaining = Math.max(0, exam.expiresAt - Date.now());
+  const remainHours = Math.floor(remaining / 3600000);
+  const remainMins = Math.floor((remaining % 3600000) / 60000);
+  const timeStr = remainHours > 0 ? `${remainHours}س ${remainMins}د` : `${remainMins} دقيقة`;
+  return `
+  <div class="rounded-[16px] bg-white border border-zinc-100 shadow-sm p-4">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-[11px] font-bold bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">${exam.type}</span>
+      <span class="text-[11px] text-orange-500 font-bold">⏳ متبقي: ${timeStr}</span>
+    </div>
+    <h3 class="text-[15px] font-extrabold text-zinc-900">${exam.title}</h3>
+    <p class="text-[12px] text-zinc-400 mt-1">${exam.questions.length} سؤال</p>
+    <div class="flex gap-2 mt-3">
+      <button onclick="deleteExam(${exam.id})"
+        class="flex-1 h-9 rounded-[10px] bg-red-50 text-[12px] font-bold text-red-600 border border-red-100">
+        حذف
+      </button>
+      <button onclick="viewResults(${exam.id})"
+        class="flex-1 h-9 rounded-[10px] bg-zinc-900 text-[12px] font-bold text-white">
+        النتائج
+      </button>
+    </div>
+  </div>`;
+}
+
+function deleteExam(id) {
+  if (!confirm('هل تريد حذف هذا الاختبار؟')) return;
+  const exams = getExams().filter(e => e.id !== id);
+  saveExams(exams);
+  showToast('تم الحذف');
+  renderEdit();
+}
+
+function viewResults(id) {
+  window.location.href = `results.html?exam=${id}`;
+}
+
+// ---- Init ----
+updatePendingBadge();
+renderMainContent();
+</script>
+</body>
+</html>

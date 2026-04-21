@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>YADWOR – إدارة المواد</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+* { box-sizing: border-box; }
+body { font-family:'Tajawal',system-ui,sans-serif; background:#f0f4f8; color:#18181b; min-height:100vh; }
+input:focus, select:focus { outline:none; }
+
+.toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#0f172a; color:white; padding:10px 22px; border-radius:999px; font-size:13px; font-weight:700; z-index:999; pointer-events:none; opacity:0; transition:opacity .25s; white-space:nowrap; }
+.toast.show { opacity:1; }
+
+/* Toggle */
+.tgl { position:relative; display:inline-block; width:44px; height:25px; flex-shrink:0; }
+.tgl input { opacity:0; width:0; height:0; position:absolute; }
+.tgl-sl { position:absolute; inset:0; border-radius:13px; background:#d1d5db; cursor:pointer; transition:.2s; }
+.tgl-sl::after { content:''; position:absolute; width:19px; height:19px; border-radius:50%; background:white; top:3px; right:3px; transition:.2s; box-shadow:0 1px 4px rgba(0,0,0,.2); }
+.tgl input:checked + .tgl-sl { background:linear-gradient(135deg,#1e40af,#3b82f6); }
+.tgl input:checked + .tgl-sl::after { transform:translateX(-19px); }
+
+/* Badges */
+.b-free { display:inline-flex; background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:999px; padding:2px 9px; font-size:10px; font-weight:700; white-space:nowrap; }
+.b-paid { display:inline-flex; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; border-radius:999px; padding:2px 9px; font-size:10px; font-weight:700; white-space:nowrap; }
+.b-off  { display:inline-flex; background:#f4f4f5; color:#a1a1aa; border:1px solid #e4e4e7; border-radius:999px; padding:2px 9px; font-size:10px; font-weight:700; white-space:nowrap; }
+
+.card { background:white; border-radius:18px; padding:15px; box-shadow:0 2px 16px rgba(15,23,42,0.07); }
+.price-fld { width:72px; height:34px; border:none; border-radius:9px; padding:0 7px; text-align:center; font-size:13px; font-weight:700; background:#064e3b; color:white; }
+.price-fld::placeholder { color:rgba(255,255,255,0.5); }
+.price-fld:focus { background:#065f46; outline:none; }
+.price-fld:disabled { background:#6b7280; color:#d1d5db; cursor:not-allowed; }
+
+/* Currency modal */
+.currency-modal-overlay { position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;justify-content:center;padding-bottom:0; }
+.currency-modal-sheet { width:100%;max-width:480px;background:white;border-radius:24px 24px 0 0;padding:0 0 32px;box-shadow:0 -8px 40px rgba(0,0,0,0.18);overflow:hidden; }
+.currency-modal-header { display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px; border-bottom:1.5px solid #f1f5f9; }
+.currency-item { display:flex;align-items:center;justify-content:space-between;padding:14px 20px;cursor:pointer;transition:background .15s; }
+.currency-item:hover { background:#f8fafc; }
+.currency-item.active { background:linear-gradient(135deg,#eff6ff,#dbeafe); }
+.currency-item-code { font-size:14px;font-weight:800;color:#0f172a; }
+.currency-item-name { font-size:12px;color:#64748b;font-weight:500; }
+.currency-item-radio { width:20px;height:20px;border-radius:50%;border:2px solid #cbd5e1;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+.currency-item.active .currency-item-radio { border-color:#1d4ed8;background:#1d4ed8; }
+.currency-item.active .currency-item-radio::after { content:'';width:8px;height:8px;border-radius:50%;background:white; }
+.currency-trigger-btn { display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:10px;background:linear-gradient(135deg,#0f172a,#1e293b);color:white;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:opacity .15s; }
+.currency-trigger-btn:hover { opacity:0.88; }
+
+/* Price badge */
+.price-badge-paid { background:linear-gradient(135deg,#064e3b,#065f46); color:white; border-radius:999px; padding:3px 10px; font-size:11px; font-weight:800; display:inline-flex; align-items:center; gap:2px; }
+.price-badge-free { background:linear-gradient(135deg,#1e3a5f,#1d4ed8); color:white; border-radius:999px; padding:3px 10px; font-size:11px; font-weight:800; }
+.price-badge-off  { background:#e2e8f0; color:#94a3b8; border-radius:999px; padding:3px 10px; font-size:11px; font-weight:800; }
+
+/* Custom badge */
+.badge-custom { font-size:9px; font-weight:800; color:white; background:linear-gradient(135deg,#7c3aed,#4f46e5); border-radius:999px; padding:2px 8px; }
+
+/* Edit/Delete buttons dark style */
+.btn-edit-dark { background:#1d4ed8; color:white; }
+.btn-del-dark  { background:#ef4444; color:white; }
+/* موحد لكل الأزرار في الإدارة */
+.mgmt-btn { border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; border-radius:4px; transition:opacity .15s; }
+.mgmt-btn:hover { opacity:.84; }
+.mgmt-btn-edit { background:#1d4ed8; color:white; }
+.mgmt-btn-del  { background:#ef4444; color:white; }
+.mgmt-btn-rm   { background:#ef4444; color:white; }
+/* badge سعر موحد */
+.badge-price { border-radius:4px; padding:3px 8px; font-size:11px; font-weight:800; }
+.badge-free-on  { background:transparent; color:#1d4ed8; font-weight:800; }
+.badge-paid-on  { background:transparent; color:#064e3b; font-weight:800; }
+.badge-off      { background:transparent; color:#cbd5e1; font-weight:800; }
+/* حقل السعر في إعداد المواد */
+.price-row { display:flex; align-items:center; border-radius:6px; border:1.5px solid #e2e8f0; background:#fff; overflow:hidden; height:34px; }
+.price-row input { flex:1; border:none; outline:none; padding:0 8px; font-size:13px; font-weight:700; color:#0f172a; background:transparent; width:52px; }
+.price-row-lbl { padding:0 9px 0 6px; font-size:11px; font-weight:800; color:#64748b; white-space:nowrap; border-left:1.5px solid #e2e8f0; height:100%; display:flex; align-items:center; }
+.price-row.disabled { background:#f1f5f9; border-color:#e2e8f0; }
+.price-row.disabled input { color:#94a3b8; }
+</style>
+</head>
+<body class="pb-20">
+<div id="toast" class="toast"></div>
+
+<!-- HEADER -->
+<header class="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200/60">
+  <div class="mx-auto flex h-12 max-w-[680px] items-center justify-between px-4">
+    <a href="profile.html" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-slate-100 transition">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    </a>
+    <h1 class="text-[15px] font-extrabold">إدارة المواد والمستويات</h1>
+    <div class="w-9"></div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-[680px] px-4 py-4 space-y-4">
+
+  <!-- Hero -->
+  <div class="rounded-[20px] p-5 text-white shadow-lg" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 55%,#1d4ed8 100%);">
+    <div class="flex items-center gap-4">
+      <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15">
+        <svg viewBox="0 0 24 24" class="h-6 w-6 fill-none stroke-white" stroke-width="1.6" stroke-linecap="round">
+          <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+          <rect x="9" y="3" width="6" height="4" rx="1"/>
+          <path d="M9 12h6M9 16h4"/>
+        </svg>
+      </div>
+      <div>
+        <h2 class="text-[17px] font-extrabold">كتالوج المؤسسة</h2>
+        <p class="text-[11px] text-blue-200 mt-0.5">حدد المستويات والمواد التي تظهر لطلبات الانضمام</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS BAR -->
+  <div class="card p-1.5">
+    <div class="flex gap-1 rounded-[12px] p-1" style="background:#f1f5f9;">
+      <button id="tab-add-btn" onclick="switchTab('add')"
+        class="flex-1 rounded-[10px] py-2.5 text-[13px] font-extrabold transition flex items-center justify-center gap-1.5"
+        style="background:#0f172a;color:white;">
+        <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        إضافة
+      </button>
+      <button id="tab-manage-btn" onclick="switchTab('manage')"
+        class="flex-1 rounded-[10px] py-2.5 text-[13px] font-extrabold transition flex items-center justify-center gap-1.5"
+        style="background:transparent;color:#64748b;">
+        <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+        الإدارة
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== TAB ADD ==================== -->
+  <div id="tab-add" class="space-y-4">
+
+    <!-- اختيار المستوى -->
+    <div class="card">
+      <p class="text-[14px] font-extrabold text-slate-900 mb-0.5">① اختر المستوى الدراسي</p>
+      <p class="text-[11px] text-slate-400 mb-3">اضغط على المستوى لتحديده ثم أضف موادّه</p>
+      <div id="level-btns" class="space-y-2"></div>
+
+      <!-- مستوى مخصص -->
+      <div class="mt-3 rounded-[13px] bg-blue-50/80 p-3">
+        <p class="text-[11px] font-bold text-blue-600 mb-2">أو اكتب مستوى مخصص</p>
+        <div class="flex gap-2">
+          <input id="new-lvl-name" placeholder="مثال: تمهيدي"
+            class="flex-1 h-10 rounded-[10px] bg-white px-3 text-[13px] font-medium placeholder-slate-400 transition" style="outline:none;" />
+          <button onclick="addCustomLevel()"
+            class="h-10 px-4 rounded-[10px] text-white text-[12px] font-extrabold transition hover:opacity-85"
+            style="background:#0f172a;">+ إضافة</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- قسم المواد — يظهر بعد اختيار مستوى -->
+    <div id="subj-section" class="card hidden">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <p class="text-[14px] font-extrabold text-slate-900">② مواد مستوى: <span id="lvl-name-label" class="text-blue-700"></span></p>
+          <p class="text-[11px] text-slate-400">اختر المواد أو أضف مادة مخصصة</p>
+        </div>
+      </div>
+
+      <!-- شبكة المواد الجاهزة -->
+      <div id="preset-grid" class="grid grid-cols-2 gap-2 mb-3"></div>
+
+      <!-- إعداد الأسعار للمواد المختارة -->
+      <div id="price-config" class="hidden mb-3 space-y-1.5">
+        <p class="text-[12px] font-extrabold text-slate-700 mb-1.5">③ إعداد أسعار المواد المختارة</p>
+      </div>
+
+      <!-- إضافة مادة مخصصة -->
+      <div class="rounded-[13px] bg-blue-50/80 p-3">
+        <p class="text-[11px] font-bold text-blue-600 mb-2">أضف مادة مخصصة لهذا المستوى</p>
+        <div class="flex gap-2 mb-2">
+          <input id="csubj-name" placeholder="اسم المادة"
+            class="flex-1 h-10 rounded-[10px] bg-white px-3 text-[13px] font-medium placeholder-slate-400 transition" style="outline:none;" />
+          <button onclick="addCustomSubj()"
+            class="h-10 px-4 rounded-[10px] text-white text-[12px] font-extrabold hover:opacity-85 transition"
+            style="background:#0f172a;">+ إضافة</button>
+        </div>
+        <div class="flex gap-3 items-center">
+          <div class="flex-1">
+            <div class="price-row disabled" style="width:100%;height:38px;">
+              <input id="csubj-price" type="number" placeholder="السعر" min="0" disabled style="width:100%;" />
+              <span class="price-row-lbl" id="csubj-currency-lbl"></span>
+            </div>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <label class="tgl">
+              <input type="checkbox" id="csubj-free" checked onchange="toggleCSFree(this)" />
+              <span class="tgl-sl"></span>
+            </label>
+            <span class="text-[12px] font-bold text-emerald-600">مجاني</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- زر الحفظ -->
+      <button onclick="saveLevelSubjects()"
+        class="mt-4 w-full h-12 rounded-[14px] text-[14px] font-extrabold text-white flex items-center justify-center gap-2 hover:opacity-90 transition"
+        style="background:linear-gradient(135deg,#0f172a 0%,#1d4ed8 100%);">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-white" stroke-width="2" stroke-linecap="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+          <polyline points="17 21 17 13 7 13 7 21"/>
+          <polyline points="7 3 7 8 15 8"/>
+        </svg>
+        حفظ مواد هذا المستوى
+      </button>
+    </div>
+
+    <!-- تلميح قبل الاختيار -->
+    <div id="no-lvl-hint" class="card text-center py-9">
+      <svg viewBox="0 0 24 24" class="mx-auto mb-2 h-10 w-10 fill-none stroke-slate-300" stroke-width="1.4" stroke-linecap="round"><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+      <p class="text-[13px] font-bold text-slate-400">اختر مستوى من الأعلى للبدء</p>
+    </div>
+
+  </div><!-- /tab-add -->
+
+  <!-- ==================== TAB MANAGE ==================== -->
+  <div id="tab-manage" class="hidden space-y-3">
+
+    <div id="manage-empty" class="card text-center py-10 hidden">
+      <svg viewBox="0 0 24 24" class="mx-auto mb-3 h-10 w-10 fill-none stroke-slate-300" stroke-width="1.4" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+      <p class="text-[14px] font-bold text-slate-400">لا توجد مستويات مضافة بعد</p>
+      <p class="text-[11px] text-slate-400 mt-1">اذهب لتبويب "إضافة" وابدأ بتهيئة الكتالوج</p>
+    </div>
+
+    <div id="manage-list" class="space-y-3"></div>
+
+  </div><!-- /tab-manage -->
+
+</main>
+
+<!-- ===== نافذة تأكيد مخصصة ===== -->
+<div id="confirm-modal" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);padding:16px;">
+  <div style="width:100%;max-width:340px;border-radius:24px;background:white;box-shadow:0 20px 60px rgba(0,0,0,0.25);overflow:hidden;">
+    <div style="display:flex;align-items:center;justify-content:center;padding:28px 0 12px;">
+      <div id="confirm-icon" style="display:flex;width:68px;height:68px;align-items:center;justify-content:center;border-radius:18px;"></div>
+    </div>
+    <div style="padding:0 24px 12px;text-align:center;">
+      <h3 id="confirm-title" style="font-size:18px;font-weight:900;color:#0f172a;margin:0 0 8px;"></h3>
+      <p id="confirm-desc" style="font-size:13px;color:#64748b;line-height:1.6;margin:0;"></p>
+    </div>
+    <div style="display:flex;gap:12px;padding:16px 20px 20px;">
+      <button onclick="closeConfirmModal()"
+        style="flex:1;height:50px;border-radius:14px;border:none;background:#f1f5f9;color:#475569;font-size:14px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif;">
+        إلغاء
+      </button>
+      <button id="confirm-ok-btn" onclick="_doConfirm()"
+        style="flex:1;height:50px;border-radius:14px;border:none;color:white;font-size:14px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif;">
+        تأكيد
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+// ================================================================
+// DATA: catalog = { levelId: { name, cycle, subjects: [{name,free,price,enabled}] } }
+// ================================================================
+let catalog = JSON.parse(localStorage.getItem('yadwor-catalog-v3') || '{}');
+let selLvlId = null;        // المستوى المختار حالياً
+let pending  = {};           // { subjectName: {free,price,enabled} } للمستوى الحالي
+let selectedCurrency = localStorage.getItem('yadwor-currency') || 'DH';
+
+const CURRENCIES = [
+  { code:'DH',  label:'DH — Dirham (MAD)' },
+  { code:'SAR', label:'SAR — Riyal Saoudien' },
+  { code:'USD', label:'USD — Dollar Américain' },
+  { code:'EUR', label:'EUR — Euro' },
+  { code:'GBP', label:'GBP — Livre Sterling' },
+  { code:'AED', label:'AED — Dirham Émirien' },
+  { code:'TND', label:'TND — Dinar Tunisien' },
+  { code:'DZD', label:'DZD — Dinar Algérien' },
+  { code:'EGP', label:'EGP — Livre Égyptienne' },
+];
+
+function openCurrencyModal() {
+  const list = document.getElementById('currency-list');
+  list.innerHTML = CURRENCIES.map(c => `
+    <div class="currency-item ${c.code === selectedCurrency ? 'active' : ''}" onclick="saveCurrency('${c.code}')">
+      <div>
+        <div class="currency-item-code">${c.code}</div>
+        <div class="currency-item-name">${c.label.split(' — ')[1] || c.label}</div>
+      </div>
+      <div class="currency-item-radio"></div>
+    </div>
+    <div style="height:1px;background:#f8fafc;margin:0 20px;"></div>
+  `).join('');
+  document.getElementById('currency-modal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCurrencyModal(e) {
+  if (!e || e.target === document.getElementById('currency-modal')) {
+    document.getElementById('currency-modal').style.display = 'none';
+    document.body.style.overflow = '';
+  }
+}
+
+function saveCurrency(code) {
+  selectedCurrency = code;
+  localStorage.setItem('yadwor-currency', code);
+  closeCurrencyModal();
+  const lbl = document.getElementById('csubj-currency-lbl');
+  if (lbl) lbl.textContent = code;
+  renderPriceConfig();
+  renderManageList();
+}
+
+// ─── CONFIRM MODAL ───────────────────────────────────────────────
+let _confirmCallback = null;
+
+function showConfirm({ title, desc, icon, color, okLabel, onOk }) {
+  _confirmCallback = onOk;
+  document.getElementById('confirm-icon').style.background = color + '22';
+  document.getElementById('confirm-icon').innerHTML = icon;
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-desc').textContent = desc;
+  const okBtn = document.getElementById('confirm-ok-btn');
+  okBtn.style.background = color;
+  okBtn.textContent = okLabel || 'تأكيد';
+  document.getElementById('confirm-modal').style.display = 'flex';
+}
+
+function closeConfirmModal() {
+  document.getElementById('confirm-modal').style.display = 'none';
+  _confirmCallback = null;
+}
+
+function _doConfirm() {
+  const cb = _confirmCallback;
+  closeConfirmModal();
+  if (cb) cb();
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─── TABS ────────────────────────────────────────────────────────
+function switchTab(tab) {
+  const isAdd = tab === 'add';
+  document.getElementById('tab-add').classList.toggle('hidden', !isAdd);
+  document.getElementById('tab-manage').classList.toggle('hidden', isAdd);
+  const ab = document.getElementById('tab-add-btn');
+  const mb = document.getElementById('tab-manage-btn');
+  ab.style.background = isAdd ? '#0f172a' : 'transparent';
+  ab.style.color = isAdd ? 'white' : '#64748b';
+  mb.style.background = !isAdd ? '#0f172a' : 'transparent';
+  mb.style.color = !isAdd ? 'white' : '#64748b';
+  if (!isAdd) renderManageList();
+}
+
+// ─── ALL LEVELS (preset + custom in catalog) ──────────────────────
+function allLevels() {
+  const preset = moroccanLevels;
+  const custom = Object.keys(catalog)
+    .filter(id => !preset.some(l => l.id === id))
+    .map(id => ({ id, name: catalog[id].name, cycle: catalog[id].cycle, isCustom: true }));
+  return [...preset, ...custom];
+}
+
+// ─── RENDER LEVEL BUTTONS ────────────────────────────────────────
+function renderLevelBtns() {
+  const c = document.getElementById('level-btns');
+  const cycles = {};
+  allLevels().forEach(l => {
+    if (!cycles[l.cycle]) cycles[l.cycle] = [];
+    cycles[l.cycle].push(l);
+  });
+  c.innerHTML = Object.entries(cycles).map(([cyc, lvls]) => `
+    <div>
+      <p class="text-[10px] font-bold text-slate-400 mb-1.5">${cyc}</p>
+      <div class="flex flex-wrap gap-2">
+        ${lvls.map(l => {
+          const saved = !!catalog[l.id];
+          const isActive = selLvlId === l.id;
+          return `<button onclick="selectLevel('${l.id}')"
+            class="px-3 py-2 rounded-[11px] text-[12px] font-bold transition border-1.5 flex items-center gap-1.5"
+            style="${isActive
+              ? 'background:#0f172a;color:white;border-color:#0f172a;'
+              : 'background:white;color:#475569;border:1.5px solid #e2e8f0;'} ">
+            ${l.name}${l.isCustom ? ' <span style="font-size:9px;font-weight:800;color:white;background:linear-gradient(135deg,#7c3aed,#4f46e5);border-radius:999px;padding:2px 7px;">مخصص</span>' : ''}
+            ${saved ? '<span style="font-size:9px;background:#dcfce7;color:#16a34a;border-radius:999px;padding:1px 6px;display:inline-flex;align-items:center;gap:2px;"><svg viewBox=\'0 0 24 24\' style=\'width:9px;height:9px\' fill=\'none\' stroke=\'#16a34a\' stroke-width=\'3\' stroke-linecap=\'round\'><path d=\'M20 6L9 17l-5-5\'/></svg></span>' : ''}
+          </button>`;
+        }).join('')}
+      </div>
+    </div>`).join('');
+}
+
+// ─── SELECT LEVEL ────────────────────────────────────────────────
+function selectLevel(id) {
+  selLvlId = id;
+  pending = {};
+  // تحميل البيانات المحفوظة
+  if (catalog[id]) {
+    catalog[id].subjects.forEach(s => {
+      pending[s.name] = { free: s.free !== false, price: s.price || '0', enabled: s.enabled !== false, isCustom: s.isCustom || false };
+    });
+  }
+  const lvl = allLevels().find(l => l.id === id);
+  document.getElementById('lvl-name-label').textContent = lvl ? lvl.name : '';
+  document.getElementById('subj-section').classList.remove('hidden');
+  document.getElementById('no-lvl-hint').classList.add('hidden');
+  renderLevelBtns();
+  renderPresetGrid();
+  renderPriceConfig();
+}
+
+// ─── PRESET SUBJECTS GRID ─────────────────────────────────────────
+function renderPresetGrid() {
+  if (!selLvlId) return;
+  const lvl = allLevels().find(l => l.id === selLvlId);
+  const presets = lvl ? (subjectsByCycle[lvl.cycle] || []) : [];
+  const customNames = new Set();
+  Object.entries(pending).forEach(([name, d]) => {
+    if (d.isCustom && !presets.includes(name)) customNames.add(name);
+  });
+  if (catalog[selLvlId]) {
+    catalog[selLvlId].subjects.forEach(s => {
+      if (s.isCustom && !presets.includes(s.name)) customNames.add(s.name);
+    });
+  }
+  const allSubjects = [...presets, ...customNames];
+  const grid = document.getElementById('preset-grid');
+  if (!allSubjects.length) { grid.innerHTML = ''; return; }
+  grid.innerHTML = allSubjects.map(s => {
+    const sel = !!pending[s];
+    const isCustom = pending[s]?.isCustom || (catalog[selLvlId]?.subjects.find(x => x.name === s)?.isCustom);
+    return `<button type="button" data-subj-toggle="${encodeURIComponent(s)}"
+      class="flex items-center gap-2 rounded-[13px] p-2.5 text-right transition"
+      style="${sel ? 'background:#eff6ff;' : 'background:#f8fafc;'}">
+      <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px]"
+        style="${sel ? 'background:#3b82f6;' : 'background:#e2e8f0;'}">
+        ${sel ? '<svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}
+      </span>
+      <span class="text-[13px] font-bold" style="${sel ? 'color:#1e40af;' : 'color:#64748b;'}">${s}</span>
+      ${isCustom ? '<span style="font-size:9px;font-weight:800;color:white;background:linear-gradient(135deg,#7c3aed,#4f46e5);border-radius:999px;padding:2px 7px;margin-right:auto;">مخصص</span>' : ''}
+    </button>`;
+  }).join('');
+  grid.querySelectorAll('[data-subj-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => toggleSubj(decodeURIComponent(btn.dataset.subjToggle)));
+  });
+}
+
+function toggleSubj(name) {
+  if (pending[name]) {
+    if (pending[name].isCustom) {
+      // للمادة المخصصة: نحذفها من pending لكنها ستبقى ظاهرة من catalog
+      delete pending[name];
+    } else {
+      delete pending[name];
+    }
+  } else {
+    // إعادة تحديد المادة — نتحقق إن كانت مخصصة من catalog
+    const savedSubj = catalog[selLvlId]?.subjects.find(s => s.name === name);
+    const isCustom = savedSubj?.isCustom || false;
+    pending[name] = { free: true, price: '0', enabled: true, isCustom };
+  }
+  renderPresetGrid();
+  renderPriceConfig();
+}
+
+// ─── PRICE CONFIG ─────────────────────────────────────────────────
+function renderPriceConfig() {
+  const sec = document.getElementById('price-config');
+  const keys = Object.keys(pending);
+  if (!keys.length) { sec.classList.add('hidden'); return; }
+  sec.classList.remove('hidden');
+
+  sec.innerHTML = `
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-[12px] font-extrabold text-slate-700">③ إعداد أسعار المواد المختارة</p>
+      <button class="currency-trigger-btn" onclick="openCurrencyModal()">
+        <svg viewBox="0 0 24 24" style="width:13px;height:13px;" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        ${selectedCurrency}
+        <svg viewBox="0 0 24 24" style="width:11px;height:11px;opacity:.7;" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+    </div>`
+    + keys.map(s => {
+      const p = pending[s];
+      const enc = encodeURIComponent(s);
+      return `
+      <div class="flex items-center gap-2 rounded-[13px] px-3 py-2.5 mb-1.5" style="background:#f8fafc;border:1.5px solid #e2e8f0;">
+        <span class="flex-1 text-[13px] font-bold text-slate-900">${s}</span>
+        <label class="flex items-center gap-1.5 cursor-pointer shrink-0">
+          <label class="tgl">
+            <input type="checkbox" ${p.free ? 'checked' : ''} data-free-subj="${enc}" />
+            <span class="tgl-sl"></span>
+          </label>
+          <span class="text-[11px] font-bold text-emerald-600">مجاني</span>
+        </label>
+        <div class="price-row ${p.free ? 'disabled' : ''}" style="min-width:100px;">
+          <input type="number" value="${p.price || 0}" min="0" ${p.free ? 'disabled' : ''}
+            id="pi-${enc}" data-price-subj="${enc}" placeholder="0" />
+          <span class="price-row-lbl">${selectedCurrency}</span>
+        </div>
+      </div>`;
+    }).join('');
+
+  // ربط الأحداث
+  sec.querySelectorAll('[data-free-subj]').forEach(cb => {
+    cb.addEventListener('change', () => setFree(decodeURIComponent(cb.dataset.freeSubj), cb.checked));
+  });
+  sec.querySelectorAll('[data-price-subj]').forEach(inp => {
+    inp.addEventListener('input', () => setPrice(decodeURIComponent(inp.dataset.priceSubj), inp.value));
+  });
+}
+
+function setFree(name, val) {
+  if (!pending[name]) return;
+  pending[name].free = val;
+  if (val) pending[name].price = '0';
+  const inp = document.getElementById('pi-' + encodeURIComponent(name));
+  if (inp) {
+    inp.disabled = val;
+    if (val) inp.value = 0;
+    const box = inp.parentElement;
+    if (box) { box.classList.toggle('disabled', val); }
+  }
+}
+function setPrice(name, val) {
+  if (pending[name]) pending[name].price = val;
+}
+
+function toggleCSFree(cb) {
+  const inp = document.getElementById('csubj-price');
+  inp.disabled = cb.checked;
+  const row = inp.parentElement;
+  if (row) row.classList.toggle('disabled', cb.checked);
+}
+
+function addCustomSubj() {
+  if (!selLvlId) { showToast('اختر مستوى أولاً'); return; }
+  const name = document.getElementById('csubj-name').value.trim();
+  if (!name) { showToast('أدخل اسم المادة'); return; }
+  const free = document.getElementById('csubj-free').checked;
+  const price = free ? '0' : (document.getElementById('csubj-price').value || '0');
+  pending[name] = { free, price, enabled: true, isCustom: true };
+  document.getElementById('csubj-name').value = '';
+  document.getElementById('csubj-price').value = '';
+  document.getElementById('csubj-free').checked = true;
+  document.getElementById('csubj-price').disabled = true;
+  renderPresetGrid();
+  renderPriceConfig();
+  showToast('تمت إضافة المادة: ' + name);
+}
+
+// ─── SAVE LEVEL ───────────────────────────────────────────────────
+function saveLevelSubjects() {
+  if (!selLvlId) { showToast('اختر مستوى أولاً'); return; }
+  const lvl = allLevels().find(l => l.id === selLvlId);
+  if (!lvl) return;
+  const subjects = Object.entries(pending).map(([name, d]) => ({
+    name, free: d.free !== false, price: d.price || '0', enabled: true, isCustom: d.isCustom || false
+  }));
+  if (!catalog[selLvlId]) catalog[selLvlId] = { name: lvl.name, cycle: lvl.cycle, subjects: [] };
+  catalog[selLvlId].name = lvl.name;
+  catalog[selLvlId].cycle = lvl.cycle;
+  catalog[selLvlId].subjects = subjects;
+  persistAll();
+  renderLevelBtns();
+  showToast('تم حفظ مواد ' + lvl.name);
+}
+
+function addCustomLevel() {
+  const name = document.getElementById('new-lvl-name').value.trim();
+  if (!name) { showToast('أدخل اسم المستوى'); return; }
+  const cycle = 'مخصص';
+  const id = 'cust_' + Date.now();
+  catalog[id] = { name, cycle, subjects: [] };
+  persistAll();
+  document.getElementById('new-lvl-name').value = '';
+  renderLevelBtns();
+  selectLevel(id);
+  showToast('تمت إضافة المستوى: ' + name);
+}
+
+// ─── PERSIST ──────────────────────────────────────────────────────
+function persistAll() {
+  localStorage.setItem('yadwor-catalog-v3', JSON.stringify(catalog));
+  // توافق مع profile.html (yadwor-catalog-v2 + yadwor-enabled-levels + yadwor-custom-subjects)
+  const v2 = {}, enabled = [], customSubs = [];
+  Object.entries(catalog).forEach(([lvlId, d]) => {
+    enabled.push(lvlId);
+    d.subjects.forEach(s => {
+      if (s.isCustom) {
+        // المواد المخصصة تُحفظ في custom-subjects لتظهر في profile.html
+        customSubs.push({ name: s.name, levelId: lvlId, free: s.free !== false, price: s.price || '0', enabled: s.enabled !== false });
+      } else {
+        v2[lvlId + '_' + s.name] = { enabled: s.enabled !== false, free: s.free, price: s.price };
+      }
+    });
+  });
+  localStorage.setItem('yadwor-catalog-v2', JSON.stringify(v2));
+  localStorage.setItem('yadwor-enabled-levels', JSON.stringify(enabled));
+  localStorage.setItem('yadwor-custom-subjects', JSON.stringify(customSubs));
+  const customLvls = Object.entries(catalog)
+    .filter(([id]) => !moroccanLevels.some(l => l.id === id))
+    .map(([id, d]) => ({ id, name: d.name, cycle: d.cycle }));
+  localStorage.setItem('yadwor-custom-levels', JSON.stringify(customLvls));
+}
+
+// ─── MANAGE TAB ───────────────────────────────────────────────────
+function renderManageList() {
+  const list = document.getElementById('manage-list');
+  const empty = document.getElementById('manage-empty');
+  const keys = Object.keys(catalog);
+  if (!keys.length) { empty.classList.remove('hidden'); list.innerHTML = ''; return; }
+  empty.classList.add('hidden');
+  list.innerHTML = keys.map(lvlId => {
+    const d = catalog[lvlId];
+    const isCustom = !moroccanLevels.some(l => l.id === lvlId);
+    const subjCount = d.subjects.length;
+    const lvlEnc = encodeURIComponent(lvlId);
+    return `
+    <div style="background:white;border-radius:8px;border:1.5px solid #e2e8f0;padding:14px;margin-bottom:10px;">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center" style="background:#1d4ed8;border-radius:4px;">
+          <svg viewBox="0 0 24 24" style="width:20px;height:20px;" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 6s1.5-2 5-2 5 2 5 2v14s-1.5-1-5-1-5 1-5 1V6z"/>
+            <path d="M12 6s1.5-2 5-2 5 2 5 2v14s-1.5-1-5-1-5 1-5 1V6z"/>
+            <line x1="12" y1="6" x2="12" y2="20"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <p class="text-[15px] font-extrabold text-slate-900">${d.name}</p>
+            ${isCustom ? '<span style="font-size:9px;font-weight:800;color:white;background:linear-gradient(135deg,#7c3aed,#4f46e5);border-radius:999px;padding:2px 8px;">مخصص</span>' : ''}
+          </div>
+          <p class="text-[11px] text-slate-400 mt-0.5">${d.cycle} • ${subjCount} مادة</p>
+        </div>
+        <div class="flex gap-2 shrink-0">
+          <button class="lvl-edit-btn mgmt-btn mgmt-btn-edit" style="width:36px;height:36px;" data-lvlid="${lvlEnc}" title="تعديل">
+            <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="lvl-del-btn mgmt-btn mgmt-btn-del" style="width:36px;height:36px;" data-lvlid="${lvlEnc}" title="حذف">
+            <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+          </button>
+        </div>
+      </div>
+
+      ${subjCount === 0
+        ? `<div class="py-3 text-center" style="background:#f8fafc;border-radius:4px;border:1px dashed #cbd5e1;">
+            <p class="text-[12px] text-slate-400">لا توجد مواد — اضغط تعديل لإضافة مواد</p>
+           </div>`
+        : `<div class="space-y-1.5">
+            ${d.subjects.map(s => {
+              const subjEnc = encodeURIComponent(s.name);
+              const isOn = s.enabled !== false;
+              return `
+              <div class="flex items-center gap-2 px-3 py-2" style="background:${isOn ? '#fff' : '#f8fafc'};border-radius:4px;border:1px solid ${isOn ? '#e2e8f0' : '#f1f5f9'};">
+                <label class="tgl shrink-0">
+                  <input type="checkbox" class="subj-toggle-cb" ${isOn ? 'checked' : ''}
+                    data-lvlid="${lvlEnc}" data-subjid="${subjEnc}" />
+                  <span class="tgl-sl"></span>
+                </label>
+                <span class="flex-1 text-[13px] font-bold" style="color:${isOn ? '#0f172a' : '#94a3b8'};">${s.name}</span>
+                <span id="mb-${lvlEnc}-${subjEnc}"
+                  class="badge-price ${isOn ? (s.free ? 'badge-free-on' : 'badge-paid-on') : 'badge-off'}">
+                  ${isOn ? (s.free ? 'مجاني' : s.price + ' ' + selectedCurrency) : 'معطل'}
+                </span>
+                <button class="subj-rm-btn shrink-0" style="width:26px;height:26px;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:4px;color:#94a3b8;transition:color .15s,background .15s;" onmouseenter="this.style.background='#fee2e2';this.style.color='#ef4444'" onmouseleave="this.style.background='transparent';this.style.color='#94a3b8'"
+                  data-lvlid="${lvlEnc}" data-subjid="${subjEnc}" title="حذف المادة">
+                  <svg viewBox="0 0 24 24" style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+              </div>`;
+            }).join('')}
+          </div>`}
+    </div>`;
+  }).join('');
+
+  // ربط الأحداث بعد البناء — آمن مع أي اسم
+  list.querySelectorAll('.lvl-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => editLevel(decodeURIComponent(btn.dataset.lvlid)));
+  });
+  list.querySelectorAll('.lvl-del-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteLevel(decodeURIComponent(btn.dataset.lvlid)));
+  });
+  list.querySelectorAll('.subj-toggle-cb').forEach(cb => {
+    cb.addEventListener('change', () => {
+      toggleManageSubj(
+        decodeURIComponent(cb.dataset.lvlid),
+        decodeURIComponent(cb.dataset.subjid),
+        cb.checked
+      );
+    });
+  });
+  list.querySelectorAll('.subj-rm-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      removeSubj(
+        decodeURIComponent(btn.dataset.lvlid),
+        decodeURIComponent(btn.dataset.subjid)
+      );
+    });
+  });
+}
+
+function toggleManageSubj(lvlId, name, enabled) {
+  if (!catalog[lvlId]) return;
+  const s = catalog[lvlId].subjects.find(x => x.name === name);
+  if (!s) return;
+  s.enabled = enabled;
+  persistAll();
+  const lvlEnc = encodeURIComponent(lvlId);
+  const subjEnc = encodeURIComponent(name);
+  const badge = document.getElementById('mb-' + lvlEnc + '-' + subjEnc);
+  if (badge) {
+    badge.className = 'badge-price ' + (enabled ? (s.free ? 'badge-free-on' : 'badge-paid-on') : 'badge-off');
+    badge.textContent = enabled ? (s.free ? 'مجاني' : s.price + ' ' + selectedCurrency) : 'معطل';
+  }
+}
+
+function removeSubj(lvlId, name) {
+  showConfirm({
+    title: 'حذف المادة',
+    desc: `هل تريد حذف مادة "${name}" من هذا المستوى؟`,
+    icon: `<svg viewBox="0 0 24 24" class="h-8 w-8" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>`,
+    color: '#ef4444',
+    okLabel: 'حذف المادة',
+    onOk: () => {
+      if (!catalog[lvlId]) return;
+      catalog[lvlId].subjects = catalog[lvlId].subjects.filter(s => s.name !== name);
+      persistAll();
+      renderManageList();
+      if (selLvlId === lvlId) {
+        delete pending[name];
+        renderPresetGrid();
+        renderPriceConfig();
+      }
+      showToast('تم حذف المادة');
+    }
+  });
+}
+
+function deleteLevel(lvlId) {
+  const lvlName = catalog[lvlId]?.name || 'هذا المستوى';
+  showConfirm({
+    title: 'حذف المستوى',
+    desc: `سيتم حذف "${lvlName}" وجميع موادّه نهائياً. هذا الإجراء لا يمكن التراجع عنه.`,
+    icon: `<svg viewBox="0 0 24 24" class="h-8 w-8" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>`,
+    color: '#ef4444',
+    okLabel: 'حذف المستوى',
+    onOk: () => {
+      delete catalog[lvlId];
+      if (selLvlId === lvlId) {
+        selLvlId = null; pending = {};
+        document.getElementById('subj-section').classList.add('hidden');
+        document.getElementById('no-lvl-hint').classList.remove('hidden');
+      }
+      persistAll();
+      renderManageList();
+      renderLevelBtns();
+      showToast('تم حذف المستوى');
+    }
+  });
+}
+
+function editLevel(lvlId) {
+  switchTab('add');
+  selectLevel(lvlId);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  showToast('يمكنك الآن تعديل مواد هذا المستوى');
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────
+function init() {
+  // ترحيل بيانات قديمة إن وجدت
+  if (!Object.keys(catalog).length) {
+    const oldEnabled = JSON.parse(localStorage.getItem('yadwor-enabled-levels') || 'null');
+    const oldV2 = JSON.parse(localStorage.getItem('yadwor-catalog-v2') || '{}');
+    const oldCustom = JSON.parse(localStorage.getItem('yadwor-custom-levels') || '[]');
+    if (oldEnabled && oldEnabled.length) {
+      const all = [...moroccanLevels, ...oldCustom];
+      oldEnabled.forEach(id => {
+        const lvl = all.find(l => l.id === id);
+        if (!lvl) return;
+        const subjects = [];
+        Object.entries(oldV2).forEach(([key, val]) => {
+          if (key.startsWith(id + '_') && val.enabled) {
+            subjects.push({ name: key.slice(id.length + 1), free: val.free !== false, price: val.price || '0', enabled: true });
+          }
+        });
+        catalog[id] = { name: lvl.name, cycle: lvl.cycle, subjects };
+      });
+      if (Object.keys(catalog).length) persistAll();
+    }
+  }
+  renderLevelBtns();
+  // تهيئة label العملة في حقل إضافة مادة مخصصة
+  setTimeout(() => {
+    const lbl = document.getElementById('csubj-currency-lbl');
+    if (lbl) lbl.textContent = selectedCurrency;
+  }, 0);
+}
+
+init();
+</script>
+
+<!-- ===== نافذة اختيار العملة ===== -->
+<div id="currency-modal" class="currency-modal-overlay" style="display:none;" onclick="closeCurrencyModal(event)">
+  <div class="currency-modal-sheet" onclick="event.stopPropagation()">
+    <div class="currency-modal-header">
+      <div>
+        <h3 style="font-size:16px;font-weight:900;color:#0f172a;margin:0;">اختر العملة</h3>
+        <p style="font-size:11px;color:#94a3b8;margin:4px 0 0;font-weight:500;">Choisissez votre devise</p>
+      </div>
+      <button onclick="closeCurrencyModal()" style="width:34px;height:34px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;" fill="none" stroke="#64748b" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="currency-list" style="max-height:60vh;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<script src="floating-room.js"></script>
+</body>
+</html>

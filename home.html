@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>YADWOR – الرئيسية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
+  input:focus, select:focus, textarea:focus { outline: none; }
+  .shimmer { animation: shimmer 1.5s infinite; background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%); background-size: 200% 100%; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .truncate { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#18181b; color:white; padding:8px 18px; border-radius:999px; font-size:13px; font-weight:700; z-index:999; pointer-events:none; opacity:0; transition:opacity .2s; }
+  .toast.show { opacity:1; }
+  details summary::-webkit-details-marker { display:none; }
+  /* Loading dots */
+  .loading-dots { display:flex; align-items:center; justify-content:center; gap:6px; padding:20px 0; }
+  .loading-dots span { width:8px; height:8px; border-radius:50%; background:#a1a1aa; animation:bounce 1.2s infinite ease-in-out; }
+  .loading-dots span:nth-child(2) { animation-delay:.2s; }
+  .loading-dots span:nth-child(3) { animation-delay:.4s; }
+  @keyframes bounce { 0%,80%,100%{transform:scale(0.7);opacity:.5} 40%{transform:scale(1);opacity:1} }
+  /* Draft image preview */
+  #draft-images-preview img { display:block; width:100%; height:100%; object-fit:cover; }
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div id="toast" class="toast"></div>
+
+<!-- ===== HOME PAGE ===== -->
+<div class="pb-16">
+  <header class="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/95 backdrop-blur-xl">
+    <div class="mx-auto flex h-11 max-w-[1100px] items-center justify-between px-3">
+      <div class="flex items-center gap-1.5">
+        <button onclick="openSidebar()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+          <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <a href="notifications.html" class="relative flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-800">
+          <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span id="notif-badge" class="absolute top-[2px] right-[3px] flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-rose-500 px-1 text-center text-[9px] font-extrabold leading-none text-white shadow ring-2 ring-white">2</span>
+        </a>
+        <a href="reels.html" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-800">
+          <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.9" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        </a>
+      </div>
+      <h1 class="text-[15px] font-extrabold tracking-tight">الرئيسية</h1>
+      <button onclick="document.getElementById('post-modal').classList.remove('hidden')" class="mr-1 flex h-9 w-9 items-center justify-center rounded-full bg-zinc-900/95 text-white shadow-sm">
+        <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+  </header>
+  <main id="home-feed" class="mx-auto max-w-[760px] pt-3"></main>
+  <!-- Loading dots for infinite scroll -->
+  <div id="load-more-indicator" class="loading-dots hidden">
+    <span></span><span></span><span></span>
+  </div>
+</div>
+
+<!-- ===== BOTTOM NAV ===== -->
+<nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-[0_-6px_20px_rgba(0,0,0,0.04)]">
+  <div class="mx-auto grid max-w-[480px] grid-cols-5 px-2 py-2 gap-1">
+    <a href="profile.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>
+      الملف
+    </a>
+    <a href="messages.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      الرسائل
+    </a>
+    <a href="roomhom.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+      الغرف
+    </a>
+    <a href="search.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16"/></svg>
+      البحث
+    </a>
+    <a href="home.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold bg-zinc-900 text-white">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>
+      الرئيسية
+    </a>
+  </div>
+</nav>
+
+<!-- ===== الصندوق العائم للغرفة النشطة ===== -->
+<style>
+#yw-frb {
+    position: fixed;
+    bottom: 76px;
+    left: 12px;
+    z-index: 9990;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 4px 22px rgba(0,0,0,0.22);
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px 8px 8px;
+    min-width: 170px;
+    max-width: 210px;
+    border: 1px solid rgba(0,0,0,0.07);
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+    direction: rtl;
+    font-family: 'Tajawal', sans-serif;
+}
+#yw-frb.show { display: flex; }
+#yw-frb-av {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 2px solid #0084ff; object-fit: cover;
+    flex-shrink: 0; background: #e4e6eb;
+}
+#yw-frb-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+#yw-frb-name {
+    font-size: 12px; font-weight: 700; color: #111;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#yw-frb-sub {
+    font-size: 10px; color: #0084ff; font-weight: 600;
+    display: flex; align-items: center; gap: 3px;
+}
+#yw-frb-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: #e53935;
+    animation: ywFrbPulse 1.3s infinite; flex-shrink: 0;
+}
+@keyframes ywFrbPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.85)} }
+#yw-frb-close {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #f1f3f5; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: background .15s; pointer-events: auto;
+}
+#yw-frb-close:hover { background: #ffcdd2; }
+#yw-frb-close svg { width: 12px; height: 12px; fill: none; stroke: #e53935; stroke-width: 2.5; stroke-linecap: round; }
+/* نافذة تأكيد الخروج */
+#yw-frb-modal {
+    position: fixed; inset: 0; z-index: 9995;
+    background: rgba(0,0,0,0.5);
+    display: none; align-items: center; justify-content: center; padding: 20px;
+    font-family: 'Tajawal', sans-serif;
+}
+#yw-frb-modal.open { display: flex; }
+#yw-frb-mbox {
+    background: #fff; border-radius: 16px; padding: 22px 20px;
+    width: 100%; max-width: 300px; text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+}
+#yw-frb-mbox h3 { font-size: 16px; font-weight: 800; color: #111; margin-bottom: 8px; }
+#yw-frb-mbox p  { font-size: 13px; color: #555; margin-bottom: 18px; line-height: 1.6; }
+.yw-frb-btns { display: flex; gap: 10px; }
+.yw-frb-yes { flex: 1; height: 42px; border: none; border-radius: 12px; background: #ff4757; color: #fff; font-weight: 800; font-size: 14px; cursor: pointer; font-family: 'Tajawal', sans-serif; }
+.yw-frb-no  { flex: 1; height: 42px; border: none; border-radius: 12px; background: #f1f3f5; color: #333; font-weight: 700; font-size: 14px; cursor: pointer; font-family: 'Tajawal', sans-serif; }
+</style>
+
+<div id="yw-frb">
+    <img id="yw-frb-av" src="" onerror="this.style.background='#e4e6eb';this.removeAttribute('src')" alt="">
+    <div id="yw-frb-info">
+        <div id="yw-frb-name">الغرفة</div>
+        <div id="yw-frb-sub"><span id="yw-frb-dot"></span><span>مباشر</span></div>
+    </div>
+    <button id="yw-frb-close" title="خروج من الغرفة" onclick="event.stopPropagation();ywFrbAskLeave()">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+</div>
+
+<div id="yw-frb-modal">
+    <div id="yw-frb-mbox">
+        <h3>خروج من الغرفة</h3>
+        <p>هل تريد حقاً الخروج من الغرفة؟</p>
+        <div class="yw-frb-btns">
+            <button class="yw-frb-yes" onclick="ywFrbDoLeave()">نعم، اخرج</button>
+            <button class="yw-frb-no"  onclick="ywFrbCloseModal()">إلغاء</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ===== الصندوق العائم للغرفة النشطة =====
+(function() {
+    var box      = document.getElementById('yw-frb');
+    var modal    = document.getElementById('yw-frb-modal');
+    var nameEl   = document.getElementById('yw-frb-name');
+    var avEl     = document.getElementById('yw-frb-av');
+    var floatData = null;
+
+    function loadFloatData() {
+        try { floatData = JSON.parse(localStorage.getItem('yw_floating_room') || 'null'); } catch(e) { floatData = null; }
+        return floatData;
+    }
+
+    function showBox() {
+        var d = loadFloatData();
+        if (!d || !d.roomId) { box.classList.remove('show'); return; }
+        // إذا مضى أكثر من 24 ساعة أو الغرفة منتهية — أخفِ
+        if (Date.now() - (d.ts || 0) > 24 * 60 * 60 * 1000) {
+            localStorage.removeItem('yw_floating_room');
+            box.classList.remove('show');
+            return;
+        }
+        nameEl.textContent = d.roomName || 'الغرفة';
+        if (d.avatar) { avEl.src = d.avatar; } else { avEl.removeAttribute('src'); }
+        box.classList.add('show');
+        initDrag();
+    }
+
+    // النقر على الصندوق = العودة للغرفة
+    box.addEventListener('click', function(e) {
+        if (e.target.closest('#yw-frb-close')) return;
+        var d = loadFloatData();
+        if (!d || !d.roomId) return;
+        // حفظ roomId للعودة
+        try {
+            localStorage.setItem('yw_room_target', JSON.stringify({ roomId: d.roomId }));
+            sessionStorage.setItem('targetRoom', d.roomId);
+        } catch(ex) {}
+        window.location.href = 'roomvideo.html';
+    });
+
+    // السحب
+    var dragging = false, sx, sy, sl, st;
+    function initDrag() {
+        box.addEventListener('pointerdown', function(e) {
+            if (e.target.closest('#yw-frb-close')) return;
+            dragging = true;
+            sx = e.clientX; sy = e.clientY;
+            sl = box.offsetLeft; st = box.offsetTop;
+            box.style.bottom = 'auto';
+            box.style.top = st + 'px';
+            box.style.left = sl + 'px';
+            box.setPointerCapture(e.pointerId);
+        }, { once: true });
+        box.addEventListener('pointermove', function(e) {
+            if (!dragging) return;
+            var nx = sl + (e.clientX - sx);
+            var ny = st + (e.clientY - sy);
+            nx = Math.max(4, Math.min(window.innerWidth - box.offsetWidth - 4, nx));
+            ny = Math.max(4, Math.min(window.innerHeight - box.offsetHeight - 4, ny));
+            box.style.left = nx + 'px';
+            box.style.top  = ny + 'px';
+        });
+        box.addEventListener('pointerup', function() { dragging = false; });
+    }
+
+    showBox();
+
+    window.ywFrbAskLeave = function() {
+        modal.classList.add('open');
+    };
+    window.ywFrbCloseModal = function() {
+        modal.classList.remove('open');
+    };
+    window.ywFrbDoLeave = function() {
+        modal.classList.remove('open');
+        box.classList.remove('show');
+        // إزالة بيانات الغرفة
+        var d = loadFloatData();
+        localStorage.removeItem('yw_floating_room');
+        localStorage.removeItem('yw_active_room');
+        localStorage.removeItem('yw_room_target');
+        localStorage.removeItem('yw_room_mode');
+        // إغلاق الغرفة في Firebase إن أمكن
+        if (d && d.roomId && d.isOwner) {
+            try {
+                if (typeof firebase !== 'undefined') {
+                    firebase.database().ref('rooms/' + d.roomId).update({
+                        closed: true,
+                        closedReason: 'تم إخراج الجميع بسبب خروج صاحب الغرفة',
+                        closedAt: Date.now(),
+                        closedBy: null
+                    });
+                    setTimeout(function() {
+                        firebase.database().ref('rooms/' + d.roomId).remove().catch(function(){});
+                    }, 5000);
+                }
+            } catch(ex) {}
+        }
+    };
+})();
+</script>
+
+<!-- ===== POST COMPOSER MODAL ===== -->
+<div id="post-modal" class="hidden fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 md:items-center md:p-4">
+  <div class="absolute inset-0" onclick="document.getElementById('post-modal').classList.add('hidden')"></div>
+  <div class="relative max-h-[95vh] w-full overflow-auto rounded-t-[28px] bg-white p-4 shadow-2xl md:max-w-[580px] md:rounded-[28px]">
+    <div class="mb-4 flex items-center justify-between">
+      <h3 class="text-[17px] font-extrabold">إنشاء منشور</h3>
+      <button onclick="document.getElementById('post-modal').classList.add('hidden')" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="mb-3 flex gap-2">
+      <button id="composer-post-btn" onclick="setComposerMode('post')" class="rounded-[12px] px-4 py-3 text-[13px] font-bold bg-zinc-900 text-white">منشور</button>
+      <button id="composer-reel-btn" onclick="setComposerMode('reel')" class="rounded-[12px] px-4 py-3 text-[13px] font-bold bg-zinc-100 text-zinc-700">ريلز</button>
+    </div>
+    <div id="post-composer-area">
+      <textarea id="draft-text" rows="4" placeholder="اكتب شيئاً جميلاً للنشر..." class="w-full rounded-[16px] border border-zinc-200 p-4 text-[14px] focus:border-zinc-900 bg-zinc-50"></textarea>
+      <!-- منطقة معاينة الصور — تظهر هنا مباشرة بعد الاختيار -->
+      <div id="draft-images-preview" class="mt-2 grid grid-cols-2 gap-2"></div>
+      <label class="mt-3 flex cursor-pointer items-center gap-2 text-[13px] font-bold text-zinc-600">
+        <div class="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100"><svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+        إضافة صورة
+        <input type="file" id="draft-image-input" accept="image/*" multiple class="hidden" onchange="handleDraftImages(this)" />
+      </label>
+    </div>
+    <div id="reel-composer-area" style="display:none">
+      <textarea id="draft-text-reel" rows="3" placeholder="اكتب وصف الفيديو..." class="w-full rounded-[16px] border border-zinc-200 p-4 text-[14px] bg-zinc-50"></textarea>
+      <input id="draft-hashtags" placeholder="#الوسوم" class="mt-2 w-full rounded-[14px] border border-zinc-200 px-4 py-3 text-[13px] bg-zinc-50" />
+      <div id="draft-video-preview" class="mt-2"></div>
+      <label class="mt-3 flex cursor-pointer items-center gap-2 text-[13px] font-bold text-zinc-600">
+        <div class="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100"><svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+        اختيار فيديو
+        <input type="file" accept="video/*" class="hidden" onchange="handleDraftVideo(this)" />
+      </label>
+    </div>
+    <button onclick="publishPost()" class="mt-4 h-12 w-full rounded-[16px] bg-zinc-900 text-[15px] font-extrabold text-white">نشر</button>
+  </div>
+</div>
+
+<!-- ===== COMMENTS MODAL ===== -->
+<div id="comments-modal" class="hidden fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
+  <div class="absolute inset-0" onclick="closeCommentsModal()"></div>
+  <div class="relative max-h-[85vh] w-full overflow-auto rounded-t-[28px] bg-zinc-50 p-4 shadow-2xl md:max-w-[580px]">
+    <div class="mb-4 flex items-center justify-between">
+      <div>
+        <h3 class="text-[17px] font-extrabold">التعليقات</h3>
+        <p id="comments-post-author" class="mt-0.5 text-[12px] text-zinc-500"></p>
+      </div>
+      <button onclick="closeCommentsModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-200">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="comments-list" class="space-y-3 pb-24"></div>
+    <div class="fixed bottom-0 left-0 right-0 border-t border-zinc-200 bg-white p-3 md:max-w-[580px] md:mx-auto">
+      <div class="flex items-center gap-2 rounded-[14px] bg-zinc-100 p-2">
+        <input id="comment-input" placeholder="اكتب تعليقك..." class="w-full bg-transparent px-2 text-[14px]" onkeydown="if(event.key==='Enter')submitComment()" />
+        <button onclick="submitComment()" class="rounded-[12px] bg-zinc-900 px-4 py-2 text-[13px] font-bold text-white">إرسال</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== EDIT MODAL ===== -->
+<div id="edit-modal" class="hidden fixed inset-0 z-[65] flex items-center justify-center bg-black/50 p-4">
+  <div class="absolute inset-0" onclick="closeEditModal()"></div>
+  <div class="relative w-full max-w-[560px] rounded-[24px] bg-white p-5 shadow-2xl">
+    <div class="mb-4 flex items-center justify-between">
+      <div><h3 class="text-[18px] font-extrabold">تعديل المنشور</h3><p class="mt-1 text-[12px] text-zinc-500">يسمح بتعديل المنشور مرتين فقط</p></div>
+      <button onclick="closeEditModal()" class="flex h-10 w-10 items-center justify-center rounded-full hover:bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <textarea id="edit-text" rows="6" class="w-full rounded-[16px] border border-zinc-300 p-4 text-[14px] focus:border-zinc-900"></textarea>
+    <div class="mt-4 flex gap-2">
+      <button onclick="closeEditModal()" class="h-11 flex-1 rounded-[14px] bg-zinc-100 text-[14px] font-bold text-zinc-700">إلغاء</button>
+      <button onclick="saveEdit()" id="save-edit-btn" class="h-11 flex-1 rounded-[14px] bg-zinc-900 text-[14px] font-bold text-white">حفظ التعديل</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== DELETE MODAL ===== -->
+<div id="delete-modal" class="hidden fixed inset-0 z-[68] flex items-center justify-center bg-black/50 p-4">
+  <div class="absolute inset-0" onclick="closeDeleteModal()"></div>
+  <div class="relative w-full max-w-[420px] rounded-[24px] bg-white p-5 text-right shadow-2xl">
+    <h3 class="text-[18px] font-extrabold">تأكيد حذف المنشور</h3>
+    <p class="mt-2 text-[13px] text-zinc-500">هل أنت متأكد أنك تريد حذف هذا المنشور؟ لا يمكن التراجع بعد الحذف.</p>
+    <div class="mt-5 flex gap-2">
+      <button onclick="closeDeleteModal()" class="h-11 flex-1 rounded-[14px] bg-zinc-100 text-[14px] font-bold text-zinc-700">إلغاء</button>
+      <button onclick="confirmDelete()" class="h-11 flex-1 rounded-[14px] bg-red-600 text-[14px] font-bold text-white">حذف</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== IMAGE VIEWER ===== -->
+<div id="image-viewer" class="hidden fixed inset-0 z-[66] flex flex-col" style="background:rgba(0,0,0,0.88);">
+  <!-- Top bar: counter + close button -->
+  <div class="flex items-center justify-between px-4 py-4 text-white shrink-0" style="z-index:2; background:rgba(0,0,0,0.5);">
+    <button onclick="closeImageViewer()" class="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 active:bg-white/40" style="touch-action:manipulation">
+      <svg viewBox="0 0 24 24" class="h-6 w-6 fill-none stroke-current" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <span id="image-viewer-counter" class="text-[14px] font-bold bg-black/50 px-3 py-1 rounded-full"></span>
+  </div>
+  <!-- Image area — tap on empty area to close -->
+  <div class="flex flex-1 items-center justify-center px-2 relative" onclick="closeImageViewer()">
+    <img id="image-viewer-img" src="" alt="preview"
+      class="max-h-full max-w-full object-contain rounded-[4px] shadow-2xl"
+      onclick="event.stopPropagation()" />
+  </div>
+  <!-- Nav arrows -->
+  <div class="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-2 pointer-events-none" style="top:56px">
+    <button onclick="prevImage()" class="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 pointer-events-auto" style="touch-action:manipulation">
+      <svg viewBox="0 0 24 24" class="h-6 w-6 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <button onclick="nextImage()" class="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 pointer-events-auto" style="touch-action:manipulation">
+      <svg viewBox="0 0 24 24" class="h-6 w-6 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ===== REEL UPLOAD PROGRESS ===== -->
+<div id="reel-upload-modal" class="hidden fixed inset-0 z-[81] flex items-center justify-center bg-black/55 p-4">
+  <div class="w-full max-w-[360px] rounded-[24px] bg-white p-5 text-right shadow-2xl">
+    <h3 class="text-[18px] font-extrabold">جاري رفع الريل</h3>
+    <p class="mt-2 text-[13px] text-zinc-500">يرجى الانتظار حتى يكتمل تحميل الفيديو ونشره.</p>
+    <div class="mt-4 h-3 overflow-hidden rounded-full bg-zinc-100">
+      <div id="reel-progress-bar" class="h-full rounded-full bg-violet-600 transition-all duration-200" style="width:0%"></div>
+    </div>
+    <div id="reel-progress-text" class="mt-3 text-left text-[14px] font-extrabold text-violet-700">0%</div>
+  </div>
+</div>
+
+<!-- ===== SIDEBAR OVERLAY ===== -->
+<div id="sidebar-overlay" class="hidden fixed inset-0 z-50 bg-black/40" onclick="closeSidebar()" style="transition:opacity .25s;"></div>
+
+<!-- ===== SIDEBAR PANEL ===== -->
+<div id="sidebar-panel" class="fixed top-0 right-0 z-50 h-full w-[82vw] max-w-[320px] bg-white shadow-2xl overflow-y-auto flex flex-col" style="transition:transform .25s cubic-bezier(.4,0,.2,1); transform:translateX(100%);">
+  <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+    <h2 class="text-[18px] font-extrabold">القائمة</h2>
+    <button onclick="closeSidebar()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <nav class="flex-1 px-3 py-3 space-y-1">
+    <a href="home.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>الرئيسية</span>
+    </a>
+    <a href="profile.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>الملف الشخصي</span>
+    </a>
+    <a href="search.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>البحث</span>
+    </a>
+    <a href="roomhom.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>الريلز</span>
+    </a>
+    <a href="messages.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>الرسائل</span>
+    </a>
+    <a href="settings.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>الإعدادات</span>
+    </a>
+    <a href="join-requests.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>طلبات الانضمام</span>
+    </a>
+    <a href="exercises.html" id="home-sidebar-exercises" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold" style="display:none;">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>التمارين والاختبارات</span>
+    </a>
+    <a href="results.html" id="home-sidebar-results" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold" style="display:none;">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>نتائج الاختبارات</span>
+    </a>
+    <button onclick="doLogout()" class="flex w-full items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold text-red-600">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      <span>تسجيل الخروج</span>
+    </button>
+  </nav>
+</div>
+
+<script>
+function openSidebar() {
+  document.getElementById('sidebar-overlay').classList.remove('hidden');
+  document.getElementById('sidebar-panel').style.transform = 'translateX(0)';
+  // Show exercises/results only for teacher/institution
+  const pt = localStorage.getItem('yadwor-profile-type') || 'influencer';
+  const showEx = pt === 'teacher' || pt === 'institution';
+  const exLink = document.getElementById('home-sidebar-exercises');
+  const resLink = document.getElementById('home-sidebar-results');
+  if (exLink) exLink.style.display = showEx ? 'flex' : 'none';
+  if (resLink) resLink.style.display = showEx ? 'flex' : 'none';
+}
+function closeSidebar() {
+  document.getElementById('sidebar-overlay').classList.add('hidden');
+  document.getElementById('sidebar-panel').style.transform = 'translateX(100%)';
+}
+function doLogout() {
+  localStorage.removeItem('yadwor-logged-in');
+  window.location.replace('index.html');
+}
+</script>
+
+<script src="shared.js"></script>
+<script>
+const PAGE = 'home';
+
+// ====================== تنظيف المنشورات الوهمية القديمة ======================
+(function cleanFakePosts() {
+  const FAKE_USERNAMES = ['riyada.school','sara.mehdi','youssef.amine','leila.bennani','yadwor.reels'];
+  state.posts = state.posts.filter(p => {
+    if (FAKE_USERNAMES.includes(p.username)) return false;
+    if (String(p.id).length < 10) return false;
+    return true;
+  });
+  state.posts = state.posts.map(p => { const c = Object.assign({}, p); delete c.owned; return c; });
+  localStorage.setItem('yadwor-posts', JSON.stringify(state.posts));
+})();// ====================== HOME RENDER ======================
+async function renderHome() {
+  const feed = document.getElementById('home-feed');
+  feed.innerHTML = [1,2,3].map(() => shimmerPostCard()).join('');
+
+  // جلب كل المنشورات من Firebase (يشمل ريلز وصور جميع المستخدمين)
+  await syncPostsFromFirebase();
+
+  if (!state.posts || !state.posts.length) {
+    feed.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-center gap-4 px-6">
+      <div class="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M8 8h5"/></svg>
+      </div>
+      <p class="text-[15px] font-bold text-zinc-400">لا توجد منشورات بعد</p>
+      <p class="text-[13px] text-zinc-400">كن أول من ينشر شيئاً!</p>
+    </div>`;
+    return;
+  }
+  feed.innerHTML = state.posts.map(p => renderPostCard(p)).join('');
+  setupInfiniteScroll();
+}
+
+// ====================== INFINITE SCROLL ======================
+function setupInfiniteScroll() {
+  const observer = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting) {
+      loadMorePosts();
+    }
+  }, { rootMargin: '100px' });
+
+  // Create sentinel at bottom of feed
+  let sentinel = document.getElementById('feed-sentinel');
+  if (!sentinel) {
+    sentinel = document.createElement('div');
+    sentinel.id = 'feed-sentinel';
+    document.getElementById('home-feed').after(sentinel);
+  }
+  observer.observe(sentinel);
+}
+
+function loadMorePosts() {
+  const indicator = document.getElementById('load-more-indicator');
+  if (indicator.dataset.loading) return;
+  indicator.dataset.loading = '1';
+  indicator.classList.remove('hidden');
+  // Simulate fetching more content
+  setTimeout(() => {
+    indicator.classList.add('hidden');
+    delete indicator.dataset.loading;
+  }, 1500);
+}
+
+// ====================== COMPOSER ======================
+function setComposerMode(mode) {
+  state.composerMode = mode;
+  document.getElementById('composer-post-btn').className = `rounded-[12px] px-4 py-3 text-[13px] font-bold ${mode==='post'?'bg-zinc-900 text-white':'bg-zinc-100 text-zinc-700'}`;
+  document.getElementById('composer-reel-btn').className = `rounded-[12px] px-4 py-3 text-[13px] font-bold ${mode==='reel'?'bg-zinc-900 text-white':'bg-zinc-100 text-zinc-700'}`;
+  document.getElementById('post-composer-area').style.display = mode==='post' ? 'block' : 'none';
+  document.getElementById('reel-composer-area').style.display = mode==='reel' ? 'block' : 'none';
+}
+
+// ====================== IMAGE PICKER — إصلاح معاينة الصور ======================
+function handleDraftImages(input) {
+  const files = Array.from(input.files || []).slice(0, 4);
+  if (!files.length) return;
+
+  // حفظ الملفات الفعلية للرفع لاحقاً
+  state.draftImageFiles = files;
+
+  const preview = document.getElementById('draft-images-preview');
+  // مسح المعاينة القديمة
+  preview.innerHTML = '';
+
+  // قراءة كل ملف وعرضه فوراً
+  files.forEach(function(file, i) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      // حفظ dataURL في state
+      if (!state.draftImages) state.draftImages = [];
+      state.draftImages[i] = e.target.result;
+
+      // إنشاء عنصر المعاينة
+      const div = document.createElement('div');
+      div.className = 'overflow-hidden rounded-[10px] border border-zinc-200 relative';
+      div.style.height = '96px';
+
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+
+      const sizeLabel = document.createElement('div');
+      sizeLabel.className = 'absolute bottom-1 left-1 bg-black/50 rounded px-1 text-[9px] text-white';
+      sizeLabel.textContent = (file.size / 1024).toFixed(0) + 'KB';
+
+      div.appendChild(img);
+      div.appendChild(sizeLabel);
+      preview.appendChild(div);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ===== FIREBASE HELPERS =====
+const FB_URL = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
+const FB_KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+
+async function savePostToFirebase(post) {
+  // المنشور يجب أن يحمل uid من Firebase Auth دائماً
+  const toSave = Object.assign({}, post, {
+    uid:      post.uid      || _myUid()      || '',
+    username: post.username || _myUsername() || '',
+    avatar:   post.avatar   || _myAvatar()   || '',
+    author:   post.author   || _myName()     || 'مستخدم'
+  });
+  delete toSave.owned; // owned مصدر الخلط — محذوف دائماً
+  try {
+    const res = await fetch(`${FB_URL}/posts/${toSave.id}.json?auth=${FB_KEY}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(toSave)
+    });
+    if (!res.ok) throw new Error('Firebase error');
+    return true;
+  } catch(e) {
+    console.warn('Firebase save failed:', e);
+    return false;
+  }
+}
+
+async function uploadImageToCloudinary(file) {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('upload_preset', 'my_app_upload');
+  const res = await fetch('https://api.cloudinary.com/v1_1/dlujoziwz/image/upload', { method: 'POST', body: form });
+  if (!res.ok) throw new Error('Image upload failed');
+  const data = await res.json();
+  return data.secure_url;
+}
+
+function handleDraftVideo(input) {
+  const file = input.files[0]; if(!file) return;
+  state.draftVideoFile = file;
+  state.draftVideo = URL.createObjectURL(file);
+  document.getElementById('draft-video-preview').innerHTML = `
+    <div class="relative overflow-hidden rounded-[12px] bg-black">
+      <video src="${state.draftVideo}" controls playsinline preload="metadata" class="max-h-[280px] w-full object-contain"></video>
+      <div class="mt-1 px-1 text-[11px] text-zinc-500">
+        <svg viewBox="0 0 24 24" class="inline h-3 w-3 mr-0.5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        ${(file.size/1024/1024).toFixed(1)} MB — سيتم رفعه عند النشر
+      </div>
+    </div>`;
+}
+
+async function uploadVideoToCloudinary(file) {
+  const CLOUD_NAME = 'dlujoziwz';
+  const UPLOAD_PRESET = 'my_app_upload';
+  const form = new FormData();
+  form.append('file', file);
+  form.append('upload_preset', UPLOAD_PRESET);
+  form.append('resource_type', 'video');
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`, { method: 'POST', body: form });
+  if (!res.ok) throw new Error('Upload failed');
+  const data = await res.json();
+  return { url: data.secure_url, thumbnail: data.secure_url.replace(/\.[^/.]+$/, '.jpg') };
+}
+
+async function publishPost() {
+  // دائماً اقرأ بيانات المستخدم الحقيقي من localStorage مباشرة
+  const realUid      = _myUid();
+  const realUsername = _myUsername();
+  const realAvatar   = _myAvatar() || currentProfile().avatar || '';
+  const realName     = _myName()   || currentProfile().name   || 'مستخدم';
+  const realType     = _myType();
+  const roleLabels   = {institution:'مؤسسة تعليمية',teacher:'أستاذ',student:'تلميذ',influencer:'مؤثر تعليمي',user:'مستخدم'};
+  const realRole     = roleLabels[realType] || 'مؤثر تعليمي';
+
+  if(state.composerMode === 'reel') {
+    if(!state.draftVideo && !state.draftVideoFile) { showToast('يرجى اختيار فيديو'); return; }
+    const hashtags = (document.getElementById('draft-hashtags').value||'').split(/\s+/).filter(Boolean).map(t=>t.startsWith('#')?t:'#'+t).join(' ');
+    const reelText = `${document.getElementById('draft-text-reel').value||'ريلز جديد'}${hashtags?'\n'+hashtags:''}`;
+    document.getElementById('post-modal').classList.add('hidden');
+    document.getElementById('reel-upload-modal').classList.remove('hidden');
+
+    let prog = 0;
+    const timer = setInterval(()=>{ if(prog<80){prog+=4;} document.getElementById('reel-progress-bar').style.width=prog+'%'; document.getElementById('reel-progress-text').textContent=prog+'%'; },200);
+
+    let videoUrl = state.draftVideo, thumbUrl = '';
+    try {
+      if (state.draftVideoFile) { const r = await uploadVideoToCloudinary(state.draftVideoFile); videoUrl=r.url; thumbUrl=r.thumbnail; }
+    } catch(e) { console.warn('Video upload failed:', e); }
+
+    clearInterval(timer);
+    document.getElementById('reel-progress-bar').style.width='100%';
+    document.getElementById('reel-progress-text').textContent='100%';
+
+    // الريلز يحمل بيانات صاحبه مدمجة — uid هو المرجع الوحيد
+    const newReel = {
+      id:          Date.now(),
+      uid:         realUid,
+      author:      realName,
+      username:    realUsername,
+      avatar:      realAvatar,
+      accountType: realType,
+      role:        realRole,
+      time:        "الآن",
+      timestamp:   Date.now(),
+      content:     reelText,
+      type:        "video",
+      images:      [videoUrl],
+      thumbnail:   thumbUrl,
+      likes: 0, comments: 0, shares: 0, editCount: 0
+    };
+    setTimeout(()=>{
+      state.posts.unshift(newReel);
+      document.getElementById('reel-upload-modal').classList.add('hidden');
+      state.draftVideo=''; state.draftVideoFile=null; state.draftImages=[];
+      document.getElementById('draft-text-reel').value='';
+      document.getElementById('draft-hashtags').value='';
+      document.getElementById('draft-video-preview').innerHTML='';
+      state.composerMode='post';
+      saveData();
+      savePostToFirebase(newReel);
+      window.location.href='reels.html';
+    },400);
+    return;
+  }
+
+  const text = document.getElementById('draft-text').value;
+  if(!text.trim() && (!state.draftImages||!state.draftImages.length)) { showToast('أضف نصاً أو صورة'); return; }
+
+  document.getElementById('post-modal').classList.add('hidden');
+  const uploadingToast = document.getElementById('toast');
+  uploadingToast.textContent='جاري نشر المنشور...'; uploadingToast.classList.add('show');
+
+  let finalImages = [];
+  try {
+    if (state.draftImageFiles && state.draftImageFiles.length) {
+      finalImages = await Promise.all(state.draftImageFiles.map(f=>uploadImageToCloudinary(f)));
+    } else if (state.draftImages && state.draftImages.length) {
+      finalImages = await Promise.all(state.draftImages.map(async dataUrl=>{
+        if (dataUrl && dataUrl.startsWith('data:')) { const blob=await fetch(dataUrl).then(r=>r.blob()); return uploadImageToCloudinary(blob); }
+        return dataUrl;
+      }));
+    }
+  } catch(e) { console.warn('Image upload failed:', e); finalImages = state.draftImages||[]; }
+
+  // المنشور يحمل بيانات صاحبه مدمجة — uid هو المرجع الوحيد
+  const newPost = {
+    id: Date.now(),
+    uid:         realUid,
+    author:      realName,
+    username:    realUsername,
+    avatar:      realAvatar,
+    accountType: realType,
+    role:        realRole,
+    time:        "الآن",
+    timestamp:   Date.now(),
+    content:     text || 'منشور جديد',
+    type:        finalImages.length ? 'gallery' : 'text',
+    images:      finalImages,
+    likes: 0, comments: 0, shares: 0, editCount: 0
+  };
+
+  state.posts.unshift(newPost);
+  document.getElementById('draft-text').value='';
+  state.draftImages=[]; state.draftImageFiles=[];
+  document.getElementById('draft-images-preview').innerHTML='';
+  const imgInput=document.getElementById('draft-image-input'); if(imgInput)imgInput.value='';
+  state.composerMode='post';
+  saveData();
+  savePostToFirebase(newPost);
+  uploadingToast.classList.remove('show');
+  renderHome();
+  showToast('تم نشر المنشور بنجاح');
+}
+
+// Init
+renderHome();
+</script>
+<script src="floating-room.js"></script>
+</body>
+</html>

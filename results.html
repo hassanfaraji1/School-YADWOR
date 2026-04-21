@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>YADWOR – نتائج الاختبارات</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Tajawal', system-ui, sans-serif; background: #faf8f6; color: #18181b; }
+  .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#18181b; color:white; padding:8px 18px; border-radius:999px; font-size:13px; font-weight:700; z-index:9999; pointer-events:none; opacity:0; transition:opacity .2s; }
+  .toast.show { opacity:1; }
+  #sidebar-panel { transition: transform .25s cubic-bezier(.4,0,.2,1); transform: translateX(100%); }
+  #sidebar-panel.open { transform: translateX(0); }
+  .tab-btn.active { background: #18181b; color: #fff; }
+  .tab-btn:not(.active) { background: #f4f4f5; color: #71717a; }
+  .result-bar { transition: width .6s cubic-bezier(.4,0,.2,1); }
+  .page-enter { animation: fadeIn .25s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+</style>
+</head>
+<body>
+<div id="toast" class="toast"></div>
+
+<header class="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/95 backdrop-blur-xl">
+  <div class="mx-auto flex h-11 max-w-[1100px] items-center justify-between px-3">
+    <button onclick="openSidebar()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round">
+        <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+    <h1 class="text-[15px] font-extrabold tracking-tight">نتائج الاختبارات</h1>
+    <a href="notifications.html" class="relative flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    </a>
+  </div>
+</header>
+
+<!-- Sub tabs (shown when exam selected) -->
+<div id="sub-tabs" class="hidden sticky top-11 z-30 bg-white border-b border-zinc-100 px-4 pt-3 pb-0">
+  <div class="flex gap-2 mx-auto max-w-[760px]">
+    <button onclick="setSubTab('students')" id="stab-students" class="tab-btn active rounded-[12px] px-4 py-2.5 text-[13px] font-bold flex-1">نتائج التلاميذ</button>
+    <button onclick="setSubTab('stats')" id="stab-stats" class="tab-btn rounded-[12px] px-4 py-2.5 text-[13px] font-bold flex-1">إحصائيات</button>
+    <button onclick="setSubTab('absent')" id="stab-absent" class="tab-btn rounded-[12px] px-4 py-2.5 text-[13px] font-bold flex-1">الغائبون</button>
+  </div>
+</div>
+
+<main id="main-content" class="mx-auto max-w-[760px] px-3 pb-28 pt-4"></main>
+
+<nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-[0_-6px_20px_rgba(0,0,0,0.04)]">
+  <div class="mx-auto grid max-w-[480px] grid-cols-5 px-2 py-2 gap-1">
+    <a href="profile.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>الملف
+    </a>
+    <a href="messages.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>الرسائل
+    </a>
+    <a href="roomhom.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>الغرف
+    </a>
+    <a href="search.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16"/></svg>البحث
+    </a>
+    <a href="home.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>الرئيسية
+    </a>
+  </div>
+</nav>
+
+<div id="sidebar-overlay" class="hidden fixed inset-0 z-50 bg-black/40" onclick="closeSidebar()"></div>
+<div id="sidebar-panel" class="fixed top-0 right-0 z-50 h-full w-[82vw] max-w-[320px] bg-white shadow-2xl overflow-y-auto flex flex-col">
+  <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
+    <h2 class="text-[18px] font-extrabold">القائمة</h2>
+    <button onclick="closeSidebar()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <nav class="flex-1 px-3 py-3 space-y-1">
+    <a href="home.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg><span>الرئيسية</span>
+    </a>
+    <a href="profile.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg><span>الملف الشخصي</span>
+    </a>
+    <a href="exercises.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg><span>التمارين والاختبارات</span>
+    </a>
+    <a href="results.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-zinc-100 text-[15px] font-bold">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg><span>نتائج الاختبارات</span>
+    </a>
+    <button onclick="doLogout()" class="flex w-full items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold text-red-600">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg><span>تسجيل الخروج</span>
+    </button>
+  </nav>
+</div>
+
+<!-- Student Detail Modal -->
+<div id="student-detail-modal" class="hidden fixed inset-0 z-[80] flex items-end justify-center bg-black/50">
+  <div class="absolute inset-0" onclick="closeStudentDetail()"></div>
+  <div id="student-detail-content" class="relative max-h-[90vh] w-full overflow-auto rounded-t-[28px] bg-white p-5 shadow-2xl md:max-w-[600px]"></div>
+</div>
+
+<script>
+function openSidebar() {
+  document.getElementById('sidebar-overlay').classList.remove('hidden');
+  document.getElementById('sidebar-panel').classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar-overlay').classList.add('hidden');
+  document.getElementById('sidebar-panel').classList.remove('open');
+}
+function doLogout() {
+  localStorage.removeItem('yadwor-logged-in');
+  window.location.replace('index.html');
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function getExams() {
+  try { return JSON.parse(localStorage.getItem('yadwor-exams') || '[]'); } catch(e) { return []; }
+}
+function getResults() {
+  try { return JSON.parse(localStorage.getItem('yadwor-results') || '[]'); } catch(e) { return []; }
+}
+
+// Sub-tab state
+let currentExamId = null;
+let subTab = 'students';
+
+const urlParams = new URLSearchParams(window.location.search);
+const paramExamId = urlParams.get('exam');
+
+function setSubTab(tab) {
+  subTab = tab;
+  ['students','stats','absent'].forEach(t => {
+    const btn = document.getElementById('stab-' + t);
+    if (btn) btn.classList.toggle('active', t === tab);
+  });
+  if (currentExamId) renderExamResults(currentExamId);
+}
+
+function renderMain() {
+  const el = document.getElementById('main-content');
+  const exams = getExams().filter(e => Date.now() < e.expiresAt || true); // show all for results
+  
+  if (paramExamId) {
+    currentExamId = parseInt(paramExamId);
+    document.getElementById('sub-tabs').classList.remove('hidden');
+    renderExamResults(currentExamId);
+    return;
+  }
+
+  if (!exams.length) {
+    el.innerHTML = `
+    <div class="flex flex-col items-center justify-center py-20 text-center gap-3">
+      <div class="h-16 w-16 rounded-full bg-zinc-100 flex items-center justify-center">
+        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round">
+          <path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+        </svg>
+      </div>
+      <p class="text-[14px] font-bold text-zinc-400">لا توجد نتائج بعد</p>
+      <p class="text-[12px] text-zinc-400">انشر اختباراً أولاً حتى تظهر هنا النتائج</p>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = `
+  <div class="space-y-3 page-enter">
+    <p class="text-[13px] text-zinc-400 font-bold">اختر اختباراً لعرض نتائجه</p>
+    ${exams.map(e => {
+      const results = getResults().filter(r => r.examId === e.id);
+      return `
+      <button onclick="openExamResults(${e.id})"
+        class="w-full rounded-[16px] bg-white border border-zinc-100 shadow-sm p-4 text-right hover:shadow-md transition">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">${e.type}</span>
+          <span class="text-[11px] text-zinc-400">${results.length} مشارك</span>
+        </div>
+        <h3 class="text-[15px] font-extrabold mt-1">${e.title}</h3>
+        <p class="text-[12px] text-zinc-400">${e.questions.length} سؤال</p>
+      </button>`;
+    }).join('')}
+  </div>`;
+}
+
+function openExamResults(id) {
+  currentExamId = id;
+  document.getElementById('sub-tabs').classList.remove('hidden');
+  renderExamResults(id);
+}
+
+function renderExamResults(id) {
+  const exams = getExams();
+  const exam = exams.find(e => e.id === id);
+  if (!exam) { renderMain(); return; }
+  
+  const allResults = getResults().filter(r => r.examId === id);
+  const el = document.getElementById('main-content');
+  el.classList.add('page-enter');
+
+  if (subTab === 'students') {
+    if (!allResults.length) {
+      el.innerHTML = `
+      <div class="flex flex-col items-center py-14 gap-3 text-center">
+        <p class="text-[14px] font-bold text-zinc-400">لم يشارك أي تلميذ بعد</p>
+        <button onclick="renderMain()" class="text-[13px] font-bold text-zinc-500">← العودة للقائمة</button>
+      </div>`;
+      return;
+    }
+
+    const totalPoints = exam.questions.reduce((s, q) => s + (q.points || 1), 0);
+    el.innerHTML = `
+    <div class="space-y-3 page-enter">
+      <div class="flex items-center justify-between">
+        <h2 class="text-[15px] font-extrabold">${exam.title}</h2>
+        <button onclick="renderMain()" class="text-[12px] font-bold text-zinc-400">← كل الاختبارات</button>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <div class="rounded-[14px] bg-blue-50 border border-blue-100 p-3 text-center">
+          <div class="text-[20px] font-extrabold text-blue-700">${allResults.length}</div>
+          <div class="text-[10px] text-blue-500 font-bold">مشارك</div>
+        </div>
+        <div class="rounded-[14px] bg-emerald-50 border border-emerald-100 p-3 text-center">
+          <div class="text-[20px] font-extrabold text-emerald-700">
+            ${allResults.length ? Math.round(allResults.reduce((s,r)=>s+(r.score/totalPoints*100),0)/allResults.length) : 0}%
+          </div>
+          <div class="text-[10px] text-emerald-500 font-bold">متوسط النتيجة</div>
+        </div>
+        <div class="rounded-[14px] bg-violet-50 border border-violet-100 p-3 text-center">
+          <div class="text-[20px] font-extrabold text-violet-700">${totalPoints}</div>
+          <div class="text-[10px] text-violet-500 font-bold">مجموع النقاط</div>
+        </div>
+      </div>
+      ${allResults.map(r => {
+        const pct = Math.round(r.score / totalPoints * 100);
+        const color = pct >= 70 ? 'emerald' : pct >= 50 ? 'amber' : 'red';
+        return `
+        <div class="rounded-[16px] bg-white border border-zinc-100 shadow-sm p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-[14px] font-extrabold">${r.studentName || 'تلميذ'}</h3>
+              <p class="text-[11px] text-zinc-400">${new Date(r.completedAt).toLocaleString('ar-MA')}</p>
+            </div>
+            <div class="text-left">
+              <div class="text-[18px] font-extrabold text-${color}-600">${r.score}/${totalPoints}</div>
+              <div class="text-[11px] text-zinc-400 text-left">${pct}%</div>
+            </div>
+          </div>
+          <div class="mt-2 h-2 rounded-full bg-zinc-100 overflow-hidden">
+            <div class="h-full rounded-full bg-${color}-500 result-bar" style="width:${pct}%"></div>
+          </div>
+          <button onclick="showStudentDetail(${JSON.stringify(r).replace(/"/g,'&quot;')}, ${JSON.stringify(exam).replace(/"/g,'&quot;')})"
+            class="mt-3 h-8 w-full rounded-[10px] bg-zinc-50 border border-zinc-200 text-[12px] font-bold text-zinc-600">
+            عرض التفاصيل
+          </button>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  else if (subTab === 'stats') {
+    const totalPoints = exam.questions.reduce((s, q) => s + (q.points || 1), 0);
+    const scores = allResults.map(r => r.score / totalPoints * 100);
+    const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
+    const pass = scores.filter(s => s >= 50).length;
+    const fail = scores.filter(s => s < 50).length;
+
+    el.innerHTML = `
+    <div class="space-y-4 page-enter">
+      <div class="flex items-center justify-between">
+        <h2 class="text-[15px] font-extrabold">إحصائيات: ${exam.title}</h2>
+        <button onclick="renderMain()" class="text-[12px] font-bold text-zinc-400">← كل الاختبارات</button>
+      </div>
+      <div class="rounded-[16px] bg-white border border-zinc-100 shadow-sm p-5">
+        <h3 class="text-[14px] font-bold mb-4">أداء المجموعة</h3>
+        <div class="space-y-3">
+          <div class="flex items-center gap-3">
+            <span class="text-[12px] text-zinc-500 w-20 shrink-0">ناجح (≥50%)</span>
+            <div class="flex-1 h-5 rounded-full bg-zinc-100 overflow-hidden">
+              <div class="h-full rounded-full bg-emerald-500 result-bar flex items-center justify-end pr-2"
+                style="width:${allResults.length ? pass/allResults.length*100 : 0}%">
+                <span class="text-[10px] text-white font-bold">${pass}</span>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-[12px] text-zinc-500 w-20 shrink-0">راسب (&lt;50%)</span>
+            <div class="flex-1 h-5 rounded-full bg-zinc-100 overflow-hidden">
+              <div class="h-full rounded-full bg-red-500 result-bar flex items-center justify-end pr-2"
+                style="width:${allResults.length ? fail/allResults.length*100 : 0}%">
+                <span class="text-[10px] text-white font-bold">${fail}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-4 grid grid-cols-3 gap-2 text-center">
+          <div class="rounded-[12px] bg-zinc-50 p-3">
+            <div class="text-[18px] font-extrabold">${avg}%</div>
+            <div class="text-[10px] text-zinc-400">متوسط</div>
+          </div>
+          <div class="rounded-[12px] bg-emerald-50 p-3">
+            <div class="text-[18px] font-extrabold text-emerald-600">${pass}</div>
+            <div class="text-[10px] text-zinc-400">ناجح</div>
+          </div>
+          <div class="rounded-[12px] bg-red-50 p-3">
+            <div class="text-[18px] font-extrabold text-red-500">${fail}</div>
+            <div class="text-[10px] text-zinc-400">راسب</div>
+          </div>
+        </div>
+      </div>
+      ${!allResults.length ? '<p class="text-center text-[13px] text-zinc-400 font-bold py-8">لا توجد نتائج بعد</p>' : ''}
+    </div>`;
+  }
+
+  else if (subTab === 'absent') {
+    // Simulated enrolled list
+    const enrolled = JSON.parse(localStorage.getItem('yadwor-enrolled') || '[]');
+    const participated = new Set(allResults.map(r => r.studentUid));
+    const absent = enrolled.filter(s => !participated.has(s.uid));
+
+    el.innerHTML = `
+    <div class="space-y-3 page-enter">
+      <div class="flex items-center justify-between">
+        <h2 class="text-[15px] font-extrabold">الغائبون: ${exam.title}</h2>
+        <button onclick="renderMain()" class="text-[12px] font-bold text-zinc-400">← كل الاختبارات</button>
+      </div>
+      ${!absent.length
+        ? `<div class="py-14 text-center">
+            <p class="text-[14px] font-bold text-zinc-400">${enrolled.length ? 'جميع التلاميذ شاركوا ✓' : 'لا توجد بيانات التسجيل'}</p>
+           </div>`
+        : absent.map(s => `
+          <div class="rounded-[14px] bg-white border border-zinc-100 shadow-sm p-3 flex items-center gap-3">
+            <div class="h-10 w-10 rounded-full bg-zinc-100 flex items-center justify-center text-[14px] font-bold text-zinc-500">
+              ${(s.name||'?')[0]}
+            </div>
+            <div>
+              <p class="text-[14px] font-bold">${s.name||'تلميذ'}</p>
+              <p class="text-[11px] text-zinc-400">لم يشارك</p>
+            </div>
+          </div>`).join('')
+      }
+    </div>`;
+  }
+}
+
+function showStudentDetail(result, exam) {
+  const modal = document.getElementById('student-detail-modal');
+  const content = document.getElementById('student-detail-content');
+  const totalPoints = exam.questions.reduce((s, q) => s + (q.points || 1), 0);
+  const pct = Math.round(result.score / totalPoints * 100);
+
+  content.innerHTML = `
+  <div class="flex items-center justify-between mb-4">
+    <div>
+      <h3 class="text-[18px] font-extrabold">${result.studentName}</h3>
+      <p class="text-[12px] text-zinc-400">${exam.title}</p>
+    </div>
+    <button onclick="closeStudentDetail()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="mb-4 rounded-[14px] bg-zinc-50 p-4 flex items-center justify-between">
+    <span class="text-[14px] font-bold text-zinc-600">النتيجة الإجمالية</span>
+    <span class="text-[22px] font-extrabold ${pct>=70?'text-emerald-600':pct>=50?'text-amber-500':'text-red-500'}">${result.score}/${totalPoints} (${pct}%)</span>
+  </div>
+  <div class="space-y-3">
+    ${exam.questions.map((q, i) => {
+      const ans = result.answers && result.answers[i];
+      const isCorrect = checkAnswer(q, ans);
+      return `
+      <div class="rounded-[14px] border ${isCorrect?'border-emerald-200 bg-emerald-50':'border-red-200 bg-red-50'} p-3">
+        <div class="flex items-start justify-between gap-2">
+          <p class="text-[13px] font-bold flex-1">${i+1}. ${q.text||'سؤال صورة'}</p>
+          <span class="text-[12px] font-bold ${isCorrect?'text-emerald-600':'text-red-500'} shrink-0">${isCorrect?'✓ صحيح':'✗ خطأ'}</span>
+        </div>
+        ${ans !== undefined && ans !== null
+          ? `<p class="mt-1 text-[12px] text-zinc-500">إجابته: <strong>${formatAnswer(q, ans)}</strong></p>` : ''}
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  modal.classList.remove('hidden');
+}
+
+function checkAnswer(q, ans) {
+  if (ans === null || ans === undefined) return false;
+  if (q.qtype === 'truefalse') return ans === q.correctAnswer;
+  if (q.qtype === 'multichoice') return ans === q.correctAnswer;
+  if (q.qtype === 'fill') return String(ans).trim().toLowerCase() === String(q.fillAnswer).trim().toLowerCase();
+  if (q.qtype === 'image') {
+    if (q.imageMode === 'choice') return ans === q.imageCorrect;
+    return true; // free write always partial
+  }
+  return false;
+}
+
+function formatAnswer(q, ans) {
+  if (q.qtype === 'truefalse') return ans ? 'صحيح' : 'خطأ';
+  if (q.qtype === 'multichoice') return q.choices[ans] || String(ans);
+  return String(ans);
+}
+
+function closeStudentDetail() {
+  document.getElementById('student-detail-modal').classList.add('hidden');
+}
+
+renderMain();
+</script>
+</body>
+</html>

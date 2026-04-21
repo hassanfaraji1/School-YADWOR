@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>YADWOR – تسجيل الدخول</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
+  input:focus, select:focus, textarea:focus { outline: none; }
+  .shimmer { animation: shimmer 1.5s infinite; background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%); background-size: 200% 100%; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#18181b; color:white; padding:8px 18px; border-radius:999px; font-size:13px; font-weight:700; z-index:999; pointer-events:none; opacity:0; transition:opacity .2s; }
+  .toast.show { opacity:1; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  .auth-card { animation: fadeIn .4s ease forwards; }
+  .field-label { display:block; font-size:11px; font-weight:700; color:#71717a; margin-bottom:4px; }
+  .field-input { height:48px; width:100%; border-radius:14px; border:1.5px solid #e4e4e7; background:#fafafa; padding:0 14px; font-size:14px; font-family:'Tajawal',sans-serif; transition:border-color .15s; }
+  .field-input:focus { border-color:#18181b; background:#fff; }
+  .field-select { height:48px; width:100%; border-radius:14px; border:1.5px solid #e4e4e7; background:#fafafa; padding:0 14px; font-size:14px; font-family:'Tajawal',sans-serif; transition:border-color .15s; appearance:none; }
+  .field-select:focus { border-color:#18181b; background:#fff; }
+  .field-textarea { width:100%; border-radius:14px; border:1.5px solid #e4e4e7; background:#fafafa; padding:10px 14px; font-size:13px; font-family:'Tajawal',sans-serif; resize:none; transition:border-color .15s; }
+  .field-textarea:focus { border-color:#18181b; background:#fff; }
+  .gender-btn { flex:1; padding:10px 6px; border-radius:12px; border:2px solid #e4e4e7; font-size:13px; font-weight:700; transition:all .15s; background:#fff; cursor:pointer; }
+  .gender-btn.active { border-color:#18181b; background:#18181b; color:#fff; }
+</style>
+</head>
+<body class="min-h-screen flex items-center justify-center bg-[#faf8f6] px-4 py-8">
+
+<div id="toast" class="toast"></div>
+
+<div class="auth-card w-full max-w-[440px]">
+  <!-- Logo -->
+  <div class="mb-5 text-center">
+    <div class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-[18px] bg-zinc-900 text-white">
+      <svg viewBox="0 0 24 24" class="h-7 w-7 fill-none stroke-current" stroke-width="1.8"><path d="M4 7h16M7 4v6m10-6v6M5 11h14v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/></svg>
+    </div>
+    <h1 class="text-[26px] font-extrabold tracking-tight">YADWOR</h1>
+    <p class="mt-1 text-[13px] text-zinc-500">منصة تعليمية اجتماعية</p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="mb-5 flex rounded-full bg-zinc-100 p-1">
+    <button onclick="setAuthMode('login')" id="btn-login" class="h-10 flex-1 rounded-full text-[13px] font-bold transition bg-white shadow-sm text-zinc-900">تسجيل الدخول</button>
+    <button onclick="setAuthMode('signup')" id="btn-signup" class="h-10 flex-1 rounded-full text-[13px] font-bold transition text-zinc-500">إنشاء حساب</button>
+  </div>
+
+  <!-- LOGIN FORM -->
+  <div id="login-form" class="rounded-[24px] border border-zinc-200/70 bg-white p-5 shadow-[0_20px_60px_rgba(0,0,0,0.07)] space-y-3">
+    <div>
+      <label class="field-label">البريد الإلكتروني</label>
+      <input id="login-email" type="email" placeholder="example@email.com" class="field-input" />
+    </div>
+    <div>
+      <label class="field-label">كلمة المرور</label>
+      <input id="login-password" type="password" placeholder="••••••••" class="field-input" />
+    </div>
+    <button onclick="doLogin()" id="login-btn" class="mt-2 h-12 w-full rounded-[14px] bg-zinc-900 text-[15px] font-extrabold text-white hover:bg-zinc-800 transition">دخول</button>
+  </div>
+
+  <!-- SIGNUP FORM -->
+  <div id="signup-form" class="hidden rounded-[24px] border border-zinc-200/70 bg-white p-5 shadow-[0_20px_60px_rgba(0,0,0,0.07)] space-y-3">
+
+    <!-- الاسم الكامل -->
+    <div>
+      <label class="field-label">الاسم الكامل <span class="text-red-500">*</span></label>
+      <input id="reg-name" type="text" placeholder="مثال: أحمد بنعلي" class="field-input" />
+    </div>
+
+    <!-- اسم المستخدم -->
+    <div>
+      <label class="field-label">اسم المستخدم (بالحروف اللاتينية) <span class="text-red-500">*</span></label>
+      <div class="relative">
+        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-bold text-zinc-400">@</span>
+        <input id="reg-username" type="text" placeholder="ahmed.benali" class="field-input pr-8" oninput="sanitizeUsername(this)" />
+      </div>
+      <p id="username-hint" class="mt-1 text-[11px] text-zinc-400">فقط حروف لاتينية وأرقام ونقطة وشرطة سفلية</p>
+    </div>
+
+    <!-- البريد الإلكتروني -->
+    <div>
+      <label class="field-label">البريد الإلكتروني <span class="text-red-500">*</span></label>
+      <input id="reg-email" type="email" placeholder="example@email.com" class="field-input" />
+    </div>
+
+    <!-- نبذة شخصية (اختياري) -->
+    <div>
+      <label class="field-label">نبذة عنك <span class="text-zinc-400 font-normal">(اختياري)</span></label>
+      <textarea id="reg-bio" rows="2" maxlength="150" placeholder="اكتب جملة أو جملتين عن نفسك..." class="field-textarea"></textarea>
+    </div>
+
+    <!-- الدولة -->
+    <div>
+      <label class="field-label">الدولة <span class="text-red-500">*</span></label>
+      <select id="reg-country" class="field-select" onchange="onCountryChange()">
+        <option value="">اختر الدولة</option>
+        <option value="MA">🇲🇦 المغرب</option>
+        <option value="DZ">🇩🇿 الجزائر</option>
+        <option value="TN">🇹🇳 تونس</option>
+        <option value="EG">🇪🇬 مصر</option>
+        <option value="SA">🇸🇦 السعودية</option>
+        <option value="AE">🇦🇪 الإمارات</option>
+        <option value="KW">🇰🇼 الكويت</option>
+        <option value="QA">🇶🇦 قطر</option>
+        <option value="BH">🇧🇭 البحرين</option>
+        <option value="OM">🇴🇲 عُمان</option>
+        <option value="JO">🇯🇴 الأردن</option>
+        <option value="LB">🇱🇧 لبنان</option>
+        <option value="IQ">🇮🇶 العراق</option>
+        <option value="LY">🇱🇾 ليبيا</option>
+        <option value="SD">🇸🇩 السودان</option>
+        <option value="OTHER">🌍 أخرى</option>
+      </select>
+    </div>
+
+    <!-- المدينة -->
+    <div>
+      <label class="field-label">المدينة <span class="text-red-500">*</span></label>
+      <input id="reg-city" type="text" placeholder="مثال: الدار البيضاء" class="field-input" />
+    </div>
+
+    <!-- كلمة المرور -->
+    <div>
+      <label class="field-label">كلمة المرور <span class="text-red-500">*</span></label>
+      <input id="reg-password" type="password" placeholder="8 أحرف على الأقل" class="field-input" />
+    </div>
+
+    <!-- تأكيد كلمة المرور -->
+    <div>
+      <label class="field-label">تأكيد كلمة المرور <span class="text-red-500">*</span></label>
+      <input id="reg-password2" type="password" placeholder="أعد كتابة كلمة المرور" class="field-input" />
+    </div>
+
+    <!-- الجنس -->
+    <div>
+      <label class="field-label">الجنس <span class="text-red-500">*</span></label>
+      <div class="flex gap-2">
+        <button type="button" onclick="setGender('male')" id="gender-male" class="gender-btn">ذكر</button>
+        <button type="button" onclick="setGender('female')" id="gender-female" class="gender-btn">أنثى</button>
+      </div>
+    </div>
+
+    <!-- الشروط والأحكام -->
+    <label class="flex items-start gap-3 cursor-pointer">
+      <input type="checkbox" id="reg-terms" class="mt-0.5 w-5 h-5 accent-zinc-900 shrink-0" />
+      <span class="text-[12px] text-zinc-600 leading-5">أوافق على <a href="#" class="font-bold text-zinc-900 underline">شروط الاستخدام</a> وسياسة الخصوصية</span>
+    </label>
+
+    <button onclick="doSignup()" id="signup-btn" class="h-12 w-full rounded-[14px] bg-zinc-900 text-[15px] font-extrabold text-white hover:bg-zinc-800 transition">إنشاء الحساب</button>
+  </div>
+</div>
+
+<script>
+const FB_DB_URL = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
+const FB_API_KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+
+let authMode = 'login';
+let selectedGender = '';
+
+// الصور الافتراضية حسب الجنس
+const DEFAULT_AVATARS = {
+  male: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop',
+  female: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&auto=format&fit=crop',
+  default: 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?w=400&auto=format&fit=crop'
+};
+const DEFAULT_COVER = 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1400&auto=format&fit=crop';
+
+function setAuthMode(mode) {
+  authMode = mode;
+  document.getElementById('login-form').classList.toggle('hidden', mode !== 'login');
+  document.getElementById('signup-form').classList.toggle('hidden', mode !== 'signup');
+  const btnL = document.getElementById('btn-login');
+  const btnS = document.getElementById('btn-signup');
+  if(mode === 'signup') {
+    btnS.className = 'h-10 flex-1 rounded-full text-[13px] font-bold transition bg-white shadow-sm text-zinc-900';
+    btnL.className = 'h-10 flex-1 rounded-full text-[13px] font-bold transition text-zinc-500';
+  } else {
+    btnL.className = 'h-10 flex-1 rounded-full text-[13px] font-bold transition bg-white shadow-sm text-zinc-900';
+    btnS.className = 'h-10 flex-1 rounded-full text-[13px] font-bold transition text-zinc-500';
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function sanitizeUsername(input) {
+  input.value = input.value.replace(/[^a-zA-Z0-9._-]/g, '').toLowerCase();
+}
+
+function setGender(g) {
+  selectedGender = g;
+  document.getElementById('gender-male').className = 'gender-btn' + (g === 'male' ? ' active' : '');
+  document.getElementById('gender-female').className = 'gender-btn' + (g === 'female' ? ' active' : '');
+}
+
+function onCountryChange() {
+  // يمكن لاحقاً ملء قائمة مدن حسب الدولة
+}
+
+async function saveNewUserToFirebase(userData) {
+  try {
+    await fetch(`${FB_DB_URL}/users/${userData.uid}.json?auth=${FB_API_KEY}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData)
+    });
+  } catch(e) { console.warn('Firebase save failed', e); }
+}
+
+function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-password').value.trim();
+  if(!email || !pass) { showToast('يرجى تعبئة جميع الحقول'); return; }
+
+  const btn = document.getElementById('login-btn');
+  btn.textContent = '...جاري الدخول';
+  btn.disabled = true;
+
+  // تحقق من وجود حساب محلي مسجّل بهذا البريد
+  const savedEmail = localStorage.getItem('yadwor-email');
+  const savedPass  = localStorage.getItem('yadwor-password');
+
+  setTimeout(() => {
+    if(savedEmail && savedPass && email === savedEmail && pass === savedPass) {
+      localStorage.setItem('yadwor-logged-in', '1');
+      window.location.replace('home.html');
+    } else if(savedEmail && email !== savedEmail) {
+      showToast('البريد الإلكتروني غير صحيح');
+      btn.textContent = 'دخول';
+      btn.disabled = false;
+    } else if(savedPass && pass !== savedPass) {
+      showToast('كلمة المرور غير صحيحة');
+      btn.textContent = 'دخول';
+      btn.disabled = false;
+    } else {
+      // أول دخول بدون حساب مسجّل — نسمح بالدخول
+      localStorage.setItem('yadwor-logged-in', '1');
+      window.location.replace('home.html');
+    }
+  }, 700);
+}
+
+async function doSignup() {
+  const name     = document.getElementById('reg-name').value.trim();
+  const username = document.getElementById('reg-username').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
+  const bio      = document.getElementById('reg-bio').value.trim();
+  const country  = document.getElementById('reg-country').value;
+  const city     = document.getElementById('reg-city').value.trim();
+  const pass     = document.getElementById('reg-password').value;
+  const pass2    = document.getElementById('reg-password2').value;
+  const terms    = document.getElementById('reg-terms').checked;
+
+  if(!name)     { showToast('يرجى إدخال الاسم الكامل'); return; }
+  if(!username) { showToast('يرجى إدخال اسم المستخدم'); return; }
+  if(!email)    { showToast('يرجى إدخال البريد الإلكتروني'); return; }
+  if(!country)  { showToast('يرجى اختيار الدولة'); return; }
+  if(!city)     { showToast('يرجى كتابة اسم المدينة'); return; }
+  if(!pass || pass.length < 8) { showToast('كلمة المرور يجب أن تكون 8 أحرف على الأقل'); return; }
+  if(pass !== pass2) { showToast('كلمتا المرور غير متطابقتين'); return; }
+  if(!selectedGender) { showToast('يرجى اختيار الجنس'); return; }
+  if(!terms)    { showToast('يرجى الموافقة على الشروط والأحكام'); return; }
+
+  const btn = document.getElementById('signup-btn');
+  btn.textContent = '...جاري إنشاء الحساب';
+  btn.disabled = true;
+
+  // توليد uid فريد
+  const uid = 'u' + Date.now() + Math.random().toString(36).slice(2, 6);
+
+  // الصورة الافتراضية حسب الجنس
+  const avatar = DEFAULT_AVATARS[selectedGender] || DEFAULT_AVATARS.default;
+
+  // الدولة كنص
+  const countryNames = {
+    MA:'المغرب', DZ:'الجزائر', TN:'تونس', EG:'مصر', SA:'السعودية',
+    AE:'الإمارات', KW:'الكويت', QA:'قطر', BH:'البحرين', OM:'عُمان',
+    JO:'الأردن', LB:'لبنان', IQ:'العراق', LY:'ليبيا', SD:'السودان', OTHER:'أخرى'
+  };
+  const countryName = countryNames[country] || country;
+  const location = countryName + '، ' + city;
+
+  const userData = {
+    uid, name, username, email, bio,
+    country: countryName, city, location,
+    gender: selectedGender,
+    avatar, cover: DEFAULT_COVER,
+    accountType: 'influencer',
+    followers: 0, following: 0,
+    verified: false,
+    createdAt: Date.now()
+  };
+
+  // حفظ في localStorage
+  // uid يأتي من Firebase Authentication — مرجع فريد للمستخدم
+      localStorage.setItem('yadwor-uid',          uid);
+  localStorage.setItem('yadwor-user-name',    name);
+  localStorage.setItem('yadwor-settings-name',name);
+  localStorage.setItem('yadwor-username',     username);
+  localStorage.setItem('yadwor-email',        email);
+  localStorage.setItem('yadwor-password',     pass);
+  localStorage.setItem('yadwor-bio',          bio);
+  localStorage.setItem('yadwor-country',      countryName);
+  localStorage.setItem('yadwor-city',         city);
+  localStorage.setItem('yadwor-location',     location);
+  localStorage.setItem('yadwor-gender',       selectedGender);
+  localStorage.setItem('yadwor-avatar-preview', avatar);
+  localStorage.setItem('yadwor-cover-preview',  DEFAULT_COVER);
+  localStorage.setItem('yadwor-account-type', 'influencer');
+  localStorage.setItem('yadwor-profile-type', 'influencer');
+  localStorage.setItem('yadwor-user-data',    JSON.stringify(userData));
+
+  // حفظ في Firebase ثم توجيه
+  await saveNewUserToFirebase(userData);
+
+  localStorage.setItem('yadwor-logged-in', '1');
+  window.location.replace('home.html');
+}
+
+// If already logged in, redirect to home
+if(localStorage.getItem('yadwor-logged-in') === '1') {
+  window.location.replace('home.html');
+}
+
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter') {
+    if(authMode === 'login') doLogin();
+  }
+});
+</script>
+</body>
+</html>

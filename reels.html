@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>YADWOR – ريلز</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #000; color: #fff; overflow: hidden; }
+  .shimmer { animation: fb-shimmer 1.4s infinite linear; background: linear-gradient(100deg, #1a1a1a 30%, #2e2e2e 50%, #1a1a1a 70%); background-size: 400% 100%; }
+  @keyframes fb-shimmer { 0%{background-position:100% 0} 100%{background-position:-100% 0} }
+  .reel-shimmer-overlay { position:absolute; inset:0; z-index:5; pointer-events:none; animation: fb-shimmer 1.4s infinite linear; background: linear-gradient(100deg, rgba(26,26,26,0.95) 30%, rgba(50,50,50,0.7) 50%, rgba(26,26,26,0.95) 70%); background-size: 400% 100%; border-radius: 0; }
+  .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#18181b; color:white; padding:8px 18px; border-radius:999px; font-size:13px; font-weight:700; z-index:999; pointer-events:none; opacity:0; transition:opacity .2s; }
+  .toast.show { opacity:1; }
+  .reel-container { height: 100vh; height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none; }
+  .reel-container::-webkit-scrollbar { display: none; }
+  .reel-item { height: 100vh; height: 100dvh; scroll-snap-align: start; position: relative; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden; }
+  video { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+  .video-progress { -webkit-appearance: none; appearance: none; width: 100%; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.3); cursor: pointer; outline: none; }
+  .video-progress::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; cursor: pointer; margin-top: -5.5px; box-shadow: 0 0 4px rgba(0,0,0,0.5); }
+  .video-progress::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; }
+  #reel-comments-modal { transition: transform .3s cubic-bezier(.4,0,.2,1); }
+</style>
+</head>
+<body>
+<div id="toast" class="toast"></div>
+
+<!-- Back button --><a href="home.html" class="fixed top-4 right-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm">
+  <svg viewBox="0 0 24 24" class="h-6 w-6 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+</a>
+
+<div id="reels-container" class="reel-container"></div>
+
+<!-- COMMENTS MODAL -->
+<div id="reel-comments-modal" class="hidden fixed inset-0 z-[60] flex items-end justify-center">
+  <div class="absolute inset-0 bg-black/60" onclick="closeReelComments()"></div>
+  <div class="relative w-full max-h-[80vh] flex flex-col rounded-t-[28px] bg-[#111] shadow-2xl md:max-w-[560px]">
+    <div class="flex-shrink-0 flex items-center justify-between p-4 border-b border-white/10">
+      <h3 class="text-[17px] font-extrabold text-white">التعليقات</h3>
+      <button onclick="closeReelComments()" class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="reel-comments-list" class="flex-1 overflow-y-auto space-y-3 p-4 pb-2"></div>
+    <div id="reel-reply-indicator" class="hidden flex-shrink-0 mx-4 mb-1 flex items-center justify-between rounded-[10px] bg-white/10 px-3 py-1.5">
+      <span id="reel-reply-label" class="text-[12px] text-white/70"></span>
+      <button onclick="cancelReelReply()" class="text-white/50">
+        <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="flex-shrink-0 flex items-center gap-2 mx-4 mb-4 rounded-[14px] bg-white/10 p-2">
+      <input id="reel-comment-input" placeholder="أضف تعليقاً..." class="flex-1 bg-transparent text-[14px] text-white placeholder-white/50 px-2" style="outline:none;" />
+      <button onclick="submitReelComment()" class="flex h-9 w-9 items-center justify-center rounded-full bg-white text-zinc-900 shrink-0 font-bold">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+let currentReelCommentPostId = null;
+let reelSoundEnabled = false;
+
+// ===== INIT: جلب من Firebase أولاً دائماً =====
+(async function initReels() {
+  const container = document.getElementById('reels-container');
+  // shimmer أثناء التحميل
+  container.innerHTML = `<div class="reel-item flex-col gap-4 text-zinc-400">
+    <div class="shimmer" style="width:80px;height:80px;border-radius:50%;margin-bottom:16px;"></div>
+    <p class="text-[15px] font-bold opacity-50">جاري تحميل الريلز...</p>
+  </div>`;
+
+  // جلب كل المنشورات من Firebase (بما فيها ريلز الآخرين)
+  await syncPostsFromFirebase();
+
+  renderReels();
+
+  // إذا قادم من منشور محدد
+  const gotoReel = localStorage.getItem('yadwor-goto-reel');
+  if (gotoReel) {
+    localStorage.removeItem('yadwor-goto-reel');
+    setTimeout(() => {
+      const el = document.getElementById('reel-' + gotoReel);
+      if (el) el.scrollIntoView({ behavior: 'instant' });
+    }, 300);
+  }
+})();
+
+function toggleReelSound(id) {
+  reelSoundEnabled = !reelSoundEnabled;
+  // Apply to all videos
+  document.querySelectorAll('.reel-item video').forEach(v => {
+    v.muted = !reelSoundEnabled;
+  });
+  // Update all sound icons
+  document.querySelectorAll('[id^="reel-sound-icon-"]').forEach(icon => {
+    const postId = icon.id.replace('reel-sound-icon-', '');
+    const xPath = document.getElementById('reel-sound-x-' + postId);
+    if (reelSoundEnabled) {
+      // Show sound on icon
+      icon.innerHTML = '<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>';
+    } else {
+      // Show muted icon
+      icon.innerHTML = '<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M23 9l-6 6M17 9l6 6" stroke-width="1.8"/>';
+    }
+  });
+  showToast(reelSoundEnabled ? 'الصوت مفعّل' : 'الصوت مكتوم');
+}
+function toggleReelSave(id) {
+  const post = state.posts.find(p => p.id === id); if(!post) return;
+  post.saved = !post.saved;
+  const btn = document.getElementById('reel-save-btn-' + id);
+  const svg = document.getElementById('reel-save-svg-' + id);
+  if(btn) btn.style.color = post.saved ? '#facc15' : 'white';
+  if(svg) svg.setAttribute('fill', post.saved ? 'currentColor' : 'none');
+  showToast(post.saved ? 'تم حفظ الريلز ✓' : 'تمت الإزالة');
+  try { localStorage.setItem('yadwor-posts', JSON.stringify(state.posts)); } catch(e) {}
+}
+let reelReplyTarget = null;
+let reelLikedComments = JSON.parse(localStorage.getItem('yadwor-reel-liked-comments') || '[]');
+
+function renderReels() {
+  const container = document.getElementById('reels-container');
+  const reelPosts = state.posts.filter(p => p.type === 'video' && p.images && p.images.length);
+  
+  if (!reelPosts.length) {
+    container.innerHTML = `<div class="reel-item flex-col gap-4 text-zinc-400">
+      <svg viewBox="0 0 24 24" class="h-16 w-16 fill-none stroke-current" stroke-width="1.2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      <p class="text-[16px] font-bold">لا توجد ريلز بعد</p>
+    </div>`;
+    return;
+  }
+  
+  container.innerHTML = reelPosts.map(post => {
+    const isLiked = state.likedPosts.includes(post.id);
+    const commentsCount = (state.postComments[post.id] || []).length;
+    const avShId = 'avsh_r_' + post.id;
+    // صورة صاحب الريلز — لا نضع صورة المستخدم الحالي
+    const postAvatar = post.avatar
+      || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(post.author || 'U') + '&background=444&color=fff&size=100';
+    return `<div class="reel-item" id="reel-${post.id}">
+      <div id="reel-sh-${post.id}" class="shimmer absolute inset-0"></div>
+      ${post.images[0] && (post.images[0].startsWith('http://') || post.images[0].startsWith('https://')) ? `
+      <video id="reel-vid-${post.id}" src="${post.images[0]}" loop muted playsinline preload="auto"
+        class="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-500"
+        oncanplay="onReelCanPlay(${post.id})"
+        ontimeupdate="updateProgress(${post.id})"
+        onclick="toggleReelPlay(${post.id})">
+      </video>
+      <!-- Sound toggle button -->
+      <button id="reel-sound-btn-${post.id}" onclick="toggleReelSound(${post.id})" 
+        class="absolute top-4 left-4 z-[20] flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
+        style="touch-action:manipulation">
+        <svg id="reel-sound-icon-${post.id}" viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round">
+          <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+          <path id="reel-sound-x-${post.id}" d="M23 9l-6 6M17 9l6 6" stroke-width="1.8"/>
+        </svg>
+      </button>` : `
+      <div id="reel-vid-${post.id}" data-no-video="1"
+        class="absolute inset-0 flex flex-col items-center justify-center cursor-pointer bg-zinc-900">
+        <div class="flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/5">
+          <svg viewBox="0 0 24 24" class="h-9 w-9 fill-none stroke-white/30" stroke-width="1.2" stroke-linecap="round">
+            <path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          </svg>
+        </div>
+        <p class="mt-3 text-[12px] text-white/30 font-bold">الفيديو غير متاح محلياً</p>
+      </div>`}
+      <!-- Play/Pause icon overlay -->
+      <div id="reel-play-icon-${post.id}" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200">
+        <div class="flex h-16 w-16 items-center justify-center rounded-full bg-black/50">
+          <svg id="reel-play-svg-${post.id}" viewBox="0 0 24 24" class="h-8 w-8 fill-white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </div>
+      </div>
+      <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent pointer-events-none"></div>
+      
+      <!-- Bottom info -->
+      <div class="absolute bottom-0 left-0 right-0 px-4 pt-3" style="padding-bottom: max(20px, env(safe-area-inset-bottom, 20px)); z-index:20; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);">
+        <div class="mb-3 flex items-start gap-3">
+          <div class="relative h-10 w-10 shrink-0 rounded-full overflow-hidden">
+            <div id="${avShId}" class="shimmer absolute inset-0 rounded-full"></div>
+            <img src="${postAvatar}" class="h-10 w-10 rounded-full object-cover z-[1] relative"
+              onload="(function(){var el=document.getElementById('${avShId}');if(el)el.remove();})()"
+              onerror="(function(){var el=document.getElementById('${avShId}');if(el)el.style.background='#333';})()" />
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-[14px] font-extrabold">${post.author}</p>
+            <p class="text-[11px] text-zinc-300">@${post.username}</p>
+            <p class="mt-1 text-[13px] leading-5 text-zinc-100 line-clamp-2">${post.content}</p>
+          </div>
+        </div>
+        <div class="mb-3">
+          <input type="range" id="reel-progress-${post.id}" class="video-progress" min="0" max="100" value="0"
+            oninput="seekVideo(${post.id}, this.value)"
+            style="background: linear-gradient(to left, rgba(255,255,255,0.3) 0%, white 0%)">
+        </div>
+        <!-- شريط أزرار التفاعل — يتكيف مع كل الشاشات -->
+        <div style="display:flex;align-items:center;justify-content:space-around;width:100%;margin-top:10px;">
+          <!-- لايك -->
+          <button onclick="reelLike(${post.id})" id="reel-like-btn-${post.id}"
+            style="display:flex;flex-direction:column;align-items:center;gap:3px;color:${isLiked?'#f43f5e':'white'};background:none;border:none;cursor:pointer;min-width:44px;padding:6px;">
+            <svg viewBox="0 0 24 24" style="width:26px;height:26px;" fill="${isLiked?'currentColor':'none'}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" id="reel-like-svg-${post.id}"><path d="M12 21s-7-4.35-9-8.68C1.38 8.92 3.44 5 7.5 5c2.04 0 3.11 1.03 4.5 2.5C13.39 6.03 14.46 5 16.5 5 20.56 5 22.62 8.92 21 12.32 19 16.65 12 21 12 21"/></svg>
+            <span id="reel-likes-${post.id}" style="font-size:12px;font-weight:800;">${post.likes||0}</span>
+          </button>
+          <!-- تعليق -->
+          <button onclick="openReelComments(${post.id})"
+            style="display:flex;flex-direction:column;align-items:center;gap:3px;color:white;background:none;border:none;cursor:pointer;min-width:44px;padding:6px;">
+            <svg viewBox="0 0 24 24" style="width:24px;height:24px;" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span id="reel-comments-count-${post.id}" style="font-size:12px;font-weight:800;">${commentsCount}</span>
+          </button>
+          <!-- مشاهدات -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:white;min-width:44px;padding:6px;">
+            <svg viewBox="0 0 24 24" style="width:24px;height:24px;" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span style="font-size:12px;font-weight:800;">${formatNumber(post.shares||0)}</span>
+          </div>
+          <!-- مشاركة -->
+          <button onclick="sharePost(${post.id})"
+            style="display:flex;flex-direction:column;align-items:center;gap:3px;color:white;background:none;border:none;cursor:pointer;min-width:44px;padding:6px;">
+            <svg viewBox="0 0 24 24" style="width:24px;height:24px;" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 16V4M8 8l4-4 4 4"/></svg>
+            <span style="font-size:12px;font-weight:800;">مشاركة</span>
+          </button>
+          <!-- حفظ -->
+          <button onclick="toggleReelSave(${post.id})" id="reel-save-btn-${post.id}"
+            style="display:flex;flex-direction:column;align-items:center;gap:3px;color:white;background:none;border:none;cursor:pointer;min-width:44px;padding:6px;">
+            <svg viewBox="0 0 24 24" style="width:24px;height:24px;" id="reel-save-svg-${post.id}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            <span style="font-size:12px;font-weight:800;">حفظ</span>
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // IntersectionObserver for auto-play on scroll
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const reelId = entry.target.id.replace('reel-', '');
+      const video = document.getElementById('reel-vid-' + reelId);
+      if (!video) return;
+      // التحقق أن العنصر فيديو فعلي وليس div
+      const isRealVideo = video.tagName === 'VIDEO';
+      if (entry.isIntersecting) {
+        document.querySelectorAll('.reel-item video').forEach(v => {
+          if (v !== video && typeof v.pause === 'function') { v.pause(); v.currentTime = 0; }
+        });
+        if (isRealVideo && !video.dataset.noVideo) {
+          video.currentTime = 0;
+          video.muted = !reelSoundEnabled;
+          video.play().catch(() => {
+            // If autoplay blocked, try muted
+            video.muted = true;
+            video.play().catch(() => {});
+          });
+        }
+      } else {
+        if (isRealVideo && typeof video.pause === 'function') { video.pause(); }
+      }
+    });
+  }, { threshold: 0.75 });
+
+  document.querySelectorAll('.reel-item').forEach(el => observer.observe(el));
+
+  // Scroll to specific reel if coming from home
+  const gotoReelId = localStorage.getItem('yadwor-goto-reel');
+  if (gotoReelId) {
+    localStorage.removeItem('yadwor-goto-reel');
+    setTimeout(() => {
+      const targetEl = document.getElementById('reel-' + gotoReelId);
+      if (targetEl) targetEl.scrollIntoView({ behavior: 'instant' });
+    }, 100);
+  }
+}
+
+function onReelCanPlay(id) {
+  const sh = document.getElementById('reel-sh-' + id);
+  const vid = document.getElementById('reel-vid-' + id);
+  // Fade in video, fade out shimmer
+  if (vid) {
+    vid.style.opacity = '1';
+  }
+  if (sh) {
+    sh.style.transition = 'opacity .4s';
+    sh.style.opacity = '0';
+    setTimeout(() => sh.remove(), 420);
+  }
+}
+
+function toggleReelPlay(id) {
+  const video = document.getElementById('reel-vid-' + id);
+  const icon = document.getElementById('reel-play-icon-' + id);
+  const svg = document.getElementById('reel-play-svg-' + id);
+  if (!video || video.dataset.noVideo) return;
+  if (video.paused) {
+    video.play();
+    if (svg) svg.innerHTML = '<path d="M8 5v14l11-7z"/>';
+    if (icon) { icon.style.opacity = '1'; setTimeout(() => { icon.style.opacity = '0'; }, 600); }
+  } else {
+    video.pause();
+    if (svg) svg.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+    if (icon) { icon.style.opacity = '1'; }
+  }
+}
+
+function updateProgress(id) {
+  const video = document.getElementById('reel-vid-' + id);
+  const bar = document.getElementById('reel-progress-' + id);
+  if (!video || !bar || !video.duration) return;
+  const pct = (video.currentTime / video.duration) * 100;
+  bar.value = pct;
+  bar.style.background = `linear-gradient(to left, rgba(255,255,255,0.3) ${100-pct}%, white ${100-pct}%)`;
+}
+
+function seekVideo(id, value) {
+  const video = document.getElementById('reel-vid-' + id);
+  if (!video || !video.duration) return;
+  video.currentTime = (value / 100) * video.duration;
+}
+
+function reelLike(id) {
+  const post = state.posts.find(p => p.id === id);
+  if (!post) return;
+  const idx = state.likedPosts.indexOf(id);
+  if (idx > -1) { state.likedPosts.splice(idx, 1); post.likes = Math.max(0, post.likes - 1); }
+  else { state.likedPosts.push(id); post.likes++; }
+  saveData();
+  const btn = document.getElementById('reel-like-btn-'+id);
+  const svg = document.getElementById('reel-like-svg-'+id);
+  const span = document.getElementById('reel-likes-'+id);
+  const isLiked = state.likedPosts.includes(id);
+  if(btn) btn.className = `flex items-center gap-1.5 ${isLiked?'text-rose-500':'text-white'}`;
+  if(svg) svg.setAttribute('fill', isLiked?'currentColor':'none');
+  if(span) span.textContent = post.likes;
+}
+
+function sharePost(id) { showToast('تم نسخ رابط المشاركة'); }
+
+// ---- Comments ----
+function openReelComments(postId) {
+  currentReelCommentPostId = postId;
+  renderReelComments(postId);
+  document.getElementById('reel-comments-modal').classList.remove('hidden');
+}
+function closeReelComments() {
+  document.getElementById('reel-comments-modal').classList.add('hidden');
+  currentReelCommentPostId = null;
+  cancelReelReply();
+}
+
+function renderReelComments(postId) {
+  const comments = state.postComments[postId] || [];
+  const list = document.getElementById('reel-comments-list');
+  if (!comments.length) {
+    list.innerHTML = `<p class="text-center text-[13px] text-white/50 py-4">لا توجد تعليقات بعد. كن أول من يعلق!</p>`;
+    return;
+  }
+  list.innerHTML = comments.map(c => {
+    const cKey = `${postId}_${c.id}`;
+    const liked = reelLikedComments.includes(cKey);
+    const replies = (c.replies||[]).map((r, ri) => {
+      const rKey = `${postId}_${c.id}_${ri}`;
+      const rLiked = reelLikedComments.includes(rKey);
+      return `<div class="rounded-[12px] bg-white/5 border border-white/10 px-3 py-2 mt-2">
+        <div class="flex items-center justify-between mb-1">
+          <div>
+            <span class="text-[12px] font-extrabold text-white">${r.author}</span>
+            <span class="text-[10px] text-white/40 mr-2">رد · ${r.time}</span>
+          </div>
+          <button onclick="likeReelReply(${postId},${c.id},${ri})" class="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${rLiked?'bg-rose-500/30 text-rose-400':'bg-white/10 text-white/60'}">
+            <svg viewBox="0 0 24 24" class="h-3 w-3" fill="${rLiked?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-4.35-9-8.68C1.38 8.92 3.44 5 7.5 5c2.04 0 3.11 1.03 4.5 2.5C13.39 6.03 14.46 5 16.5 5 20.56 5 22.62 8.92 21 12.32 19 16.65 12 21 12 21"/></svg>
+            ${r.likes}
+          </button>
+        </div>
+        <p class="text-[12px] text-white/75 leading-5">${r.text}</p>
+      </div>`;
+    }).join('');
+    return `<div class="rounded-[14px] bg-white/10 px-4 py-3">
+      <div class="flex items-start justify-between gap-2 mb-1.5">
+        <div class="flex-1 min-w-0">
+          <span class="text-[13px] font-extrabold text-white">${c.author}</span>
+          <span class="text-[11px] text-white/50 mr-2">${c.time}</span>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button onclick="likeReelComment(${postId},${c.id})" class="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${liked?'bg-rose-500/30 text-rose-400':'bg-white/10 text-white/60'}">
+            <svg viewBox="0 0 24 24" class="h-3 w-3" fill="${liked?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-4.35-9-8.68C1.38 8.92 3.44 5 7.5 5c2.04 0 3.11 1.03 4.5 2.5C13.39 6.03 14.46 5 16.5 5 20.56 5 22.62 8.92 21 12.32 19 16.65 12 21 12 21"/></svg>
+            ${c.likes}
+          </button>
+          <button onclick="setReelReply(${postId},${c.id},'${c.author.replace(/'/g,"\\'")}' )" class="rounded-full bg-white/10 text-white/70 px-2 py-0.5 text-[11px] font-bold hover:bg-white/20">رد</button>
+        </div>
+      </div>
+      <p class="text-[13px] text-white/80 leading-5">${c.text}</p>
+      ${replies ? `<div class="mt-2 border-r-2 border-white/10 pr-2">${replies}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function likeReelComment(postId, commentId) {
+  const key = `${postId}_${commentId}`;
+  const idx = reelLikedComments.indexOf(key);
+  const comment = (state.postComments[postId]||[]).find(c=>c.id===commentId);
+  if (!comment) return;
+  if (idx > -1) { reelLikedComments.splice(idx,1); comment.likes = Math.max(0, comment.likes-1); }
+  else { reelLikedComments.push(key); comment.likes++; }
+  localStorage.setItem('yadwor-reel-liked-comments', JSON.stringify(reelLikedComments));
+  saveData();
+  renderReelComments(postId);
+}
+
+function likeReelReply(postId, commentId, replyIndex) {
+  const key = `${postId}_${commentId}_${replyIndex}`;
+  const idx = reelLikedComments.indexOf(key);
+  const comment = (state.postComments[postId]||[]).find(c=>c.id===commentId);
+  if (!comment || !comment.replies || !comment.replies[replyIndex]) return;
+  const reply = comment.replies[replyIndex];
+  if (idx > -1) { reelLikedComments.splice(idx,1); reply.likes = Math.max(0, reply.likes-1); }
+  else { reelLikedComments.push(key); reply.likes++; }
+  localStorage.setItem('yadwor-reel-liked-comments', JSON.stringify(reelLikedComments));
+  saveData();
+  renderReelComments(postId);
+}
+
+function setReelReply(postId, commentId, author) {
+  reelReplyTarget = { postId, commentId, author };
+  const indicator = document.getElementById('reel-reply-indicator');
+  const label = document.getElementById('reel-reply-label');
+  if (indicator) indicator.classList.remove('hidden');
+  if (label) label.textContent = `الرد على ${author}`;
+  const input = document.getElementById('reel-comment-input');
+  if (input) { input.placeholder = `الرد على ${author}...`; input.focus(); }
+}
+
+function cancelReelReply() {
+  reelReplyTarget = null;
+  const indicator = document.getElementById('reel-reply-indicator');
+  if (indicator) indicator.classList.add('hidden');
+  const input = document.getElementById('reel-comment-input');
+  if (input) input.placeholder = 'أضف تعليقاً...';
+}
+
+function submitReelComment() {
+  const input = document.getElementById('reel-comment-input');
+  const text = input.value.trim();
+  if (!text || !currentReelCommentPostId) return;
+  const id = currentReelCommentPostId;
+  
+  if (reelReplyTarget && reelReplyTarget.postId === id) {
+    const comment = (state.postComments[id]||[]).find(c=>c.id===reelReplyTarget.commentId);
+    if (comment) {
+      comment.replies = comment.replies||[];
+      comment.replies.push({ id: Date.now(), author: state.settingsName, time: 'الآن', text, likes: 0 });
+    }
+    cancelReelReply();
+    showToast('تم إرسال الرد');
+  } else {
+    if (!state.postComments[id]) state.postComments[id] = [];
+    state.postComments[id].push({ id: Date.now(), author: state.settingsName, time: 'الآن', text, likes: 0, replies: [] });
+    const post = state.posts.find(p => p.id === id);
+    if (post) post.comments++;
+    showToast('تمت إضافة تعليقك');
+  }
+  
+  input.value = '';
+  saveData();
+  renderReelComments(id);
+  const countEl = document.getElementById('reel-comments-count-' + id);
+  if (countEl) countEl.textContent = (state.postComments[id] || []).length;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && document.activeElement?.id === 'reel-comment-input') {
+    submitReelComment();
+  }
+});
+</script>
+<script src="floating-room.js"></script>
+</body>
+</html>
