@@ -404,6 +404,33 @@ function renderPage(page) {
   else if(page==='messages') { if(typeof renderMessages==='function') renderMessages();}
 }
 
+// =================== SYNC ACCOUNT TYPE FROM FIREBASE ===================
+// تُشغَّل عند كل تحميل لصفحة — تتحقق إذا تغيّر نوع الحساب في Firebase (بعد قبول طلب انضمام)
+async function syncAccountTypeFromFirebase() {
+  const uid = _myUid();
+  if (!uid) return;
+  try {
+    const res = await fetch(`${FB_DB_URL}/users/${uid}.json?auth=${FB_API_KEY}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data) return;
+    const remoteType = data.accountType || data.profileType || '';
+    if (!remoteType) return;
+    const localType = localStorage.getItem('yadwor-account-type') || 'influencer';
+    if (remoteType !== localType) {
+      localStorage.setItem('yadwor-account-type', remoteType);
+      localStorage.setItem('yadwor-profile-type', remoteType);
+      state.profileType = remoteType;
+      state.settingsAccountType = remoteType;
+      try {
+        const ru = typeof getRealUser === 'function' ? getRealUser() : {};
+        ru.accountType = remoteType;
+        localStorage.setItem('yadwor-user-data', JSON.stringify(ru));
+      } catch(e) {}
+    }
+  } catch(e) {}
+}
+
 // =================== POST CARD ===================
 function formatTimeAgo(v) {
   if (!v) return 'الآن';
