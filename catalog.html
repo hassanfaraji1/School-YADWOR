@@ -604,6 +604,28 @@ function persistAll() {
     .filter(([id]) => !moroccanLevels.some(l => l.id === id))
     .map(([id, d]) => ({ id, name: d.name, cycle: d.cycle }));
   localStorage.setItem('yadwor-custom-levels', JSON.stringify(customLvls));
+
+  // ── رفع الكتالوج إلى Firebase ليتمكن المستخدمون الآخرون من رؤيته ──
+  _pushCatalogToFirebase(catalog, enabled, customSubs, customLvls);
+}
+
+async function _pushCatalogToFirebase(catV3, enabled, customSubs, customLvls) {
+  const uid = localStorage.getItem('yadwor-uid');
+  if (!uid) return;
+  const payload = {
+    catalogV3: catV3,
+    enabledLevels: enabled,
+    customSubjects: customSubs,
+    customLevels: customLvls,
+    updatedAt: Date.now()
+  };
+  try {
+    await fetch(`https://a-comment-5a3e5-default-rtdb.firebaseio.com/institutionCatalogs/${uid}.json?auth=AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+  } catch(e) { console.warn('catalog Firebase push failed:', e); }
 }
 
 // ─── MANAGE TAB ───────────────────────────────────────────────────
