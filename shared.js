@@ -272,6 +272,9 @@ async function saveUserProfileToFirebase() {
     uid, name:_myName(), username:_myUsername(),
     avatar:_myAvatar(), cover:_myCover(),
     bio: localStorage.getItem('yadwor-bio') || '',
+    location: localStorage.getItem('yadwor-location') || '',
+    country: localStorage.getItem('yadwor-country') || '',
+    city: localStorage.getItem('yadwor-city') || '',
     accountType: _myType(), updatedAt: Date.now()
   };
   try {
