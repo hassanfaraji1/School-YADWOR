@@ -1170,29 +1170,30 @@ function openExercisesModal() {
   let notSameInstitution = false;
 
   if (myProfileType === 'student') {
-    // التلميذ: تحقق من أنه في نفس المؤسسة
+    // التلميذ: تحقق من أنه منضم لمؤسسة وطلبه مقبول
     if (!myAcceptedReq) {
-      // لم ينضم لأي مؤسسة
+      // لم ينضم لأي مؤسسة بعد
       notSameInstitution = true;
     } else {
+      // التلميذ منضم: فلترة الاختبارات بالمؤسسة والمستوى والمادة
       const myInstitutionUid = myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '';
-      if (viewingInstitutionUid && myInstitutionUid !== viewingInstitutionUid) {
-        // التلميذ في مؤسسة مختلفة
+      const myLevelId = myAcceptedReq.levelId || '';
+      const mySubjects = (myAcceptedReq.subjects || []).map(s => (s.name || s).trim().toLowerCase());
+      filteredExams = activeExams.filter(e => {
+        const examLevel = (e.levelId || '').trim();
+        const examSubject = (e.subject || '').trim().toLowerCase();
+        const examInstUid = e.institutionUid || '';
+        // تحقق من المؤسسة: يجب أن تكون نفس مؤسسة التلميذ
+        const instMatch = !examInstUid || !myInstitutionUid || examInstUid === myInstitutionUid;
+        // تحقق من المستوى
+        const levelMatch = !examLevel || !myLevelId || examLevel === myLevelId;
+        // تحقق من المادة: يجب أن تكون إحدى مواد التلميذ
+        const subjectMatch = !examSubject || mySubjects.length === 0 || mySubjects.some(s => s === examSubject || examSubject.includes(s) || s.includes(examSubject));
+        return instMatch && levelMatch && subjectMatch;
+      });
+      // إذا كان يفتح من ملف مؤسسة أخرى → أظهر رسالة عدم الانتماء
+      if (viewingInstitutionUid && myInstitutionUid && viewingInstitutionUid !== myInstitutionUid) {
         notSameInstitution = true;
-      } else {
-        // فلترة الاختبارات بالمستوى والمادة
-        const myLevelId = myAcceptedReq.levelId || '';
-        const mySubjects = (myAcceptedReq.subjects || []).map(s => (s.name || s).trim().toLowerCase());
-        filteredExams = activeExams.filter(e => {
-          const examLevel = (e.levelId || '').trim();
-          const examSubject = (e.subject || '').trim().toLowerCase();
-          const levelMatch = !examLevel || !myLevelId || examLevel === myLevelId;
-          const subjectMatch = !examSubject || mySubjects.length === 0 || mySubjects.some(s => s === examSubject || examSubject.includes(s) || s.includes(examSubject));
-          // فلترة بالمؤسسة أيضاً: إذا كان الاختبار مرتبطاً بمؤسسة فيجب أن تكون نفس مؤسسة التلميذ
-          const examInstUid = e.institutionUid || '';
-          const instMatch = !examInstUid || examInstUid === myInstitutionUid;
-          return levelMatch && subjectMatch && instMatch;
-        });
       }
     }
   } else if (myProfileType === 'teacher' || myProfileType === 'institution') {
@@ -1418,12 +1419,8 @@ function buildSubjectsHTML(availSubjects, total, levelId) {
       + '</div>';
   }
 
-  const subjectsTitle = isTeacher
-    ? '<p class="mb-1 text-[13px] font-extrabold text-zinc-700">اختيار المادة</p><p class="mb-2 text-[11px] text-zinc-400 font-bold">الأستاذ يختار مادة واحدة فقط</p>'
-    : '<p class="mb-2 text-[13px] font-extrabold text-zinc-700">اختيار المواد</p>';
-
   return '<div class="mb-4">'
-    + subjectsTitle
+    + '<p class="mb-2 text-[13px] font-extrabold text-zinc-700">اختيار المواد</p>'
     + '<div class="rounded-[18px] border border-zinc-200 bg-zinc-50 p-3">'
     + '<div class="grid grid-cols-2 gap-2">' + subjectBtns + '</div>'
     + '</div></div>'
@@ -1611,13 +1608,7 @@ function renderJoinModalContent() {
 function selectJoinRole(role) { state.joinRole = role; state.joinStep = 2; state.selectedSubjects = []; renderJoinModalContent(); }
 function toggleJoinSubject(subject, checked) {
   if(checked) {
-    if(state.joinRole === 'teacher') {
-      // الأستاذ: مادة واحدة فقط — يُستبدل الاختيار السابق
-      state.selectedSubjects = [subject];
-    } else {
-      // التلميذ: يمكن اختيار مواد متعددة
-      if(!state.selectedSubjects.includes(subject)) state.selectedSubjects.push(subject);
-    }
+    if(!state.selectedSubjects.includes(subject)) state.selectedSubjects.push(subject);
   } else {
     state.selectedSubjects = state.selectedSubjects.filter(s=>s!==subject);
   }
