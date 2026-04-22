@@ -433,6 +433,15 @@ async function syncAccountTypeFromFirebase() {
     if (!res.ok) return;
     const data = await res.json();
     if (!data) return;
+    // جلب followers/following من Firebase وتحديثها محلياً
+    if (data.followers !== undefined || data.following !== undefined) {
+      try {
+        const ru = typeof getRealUser === 'function' ? getRealUser() : {};
+        if (data.followers !== undefined) ru.followers = data.followers;
+        if (data.following !== undefined) ru.following = data.following;
+        localStorage.setItem('yadwor-user-data', JSON.stringify(ru));
+      } catch(e) {}
+    }
     const remoteType = data.accountType || data.profileType || '';
     if (!remoteType) return;
     const localType = localStorage.getItem('yadwor-account-type') || 'influencer';
@@ -446,6 +455,11 @@ async function syncAccountTypeFromFirebase() {
         ru.accountType = remoteType;
         localStorage.setItem('yadwor-user-data', JSON.stringify(ru));
       } catch(e) {}
+    }
+    // دائماً حدّث accountType في منشوراتي على Firebase
+    const finalType = remoteType || localType;
+    if (typeof updateMyPostsAccountTypeInFirebase === 'function') {
+      updateMyPostsAccountTypeInFirebase(finalType);
     }
   } catch(e) {}
 }
@@ -474,12 +488,13 @@ function renderPostCard(post) {
   const timeLabel = formatTimeAgo(post.timestamp || post.time);
   const roleLabels= {institution:'مؤسسة تعليمية',teacher:'أستاذ',student:'تلميذ',influencer:'مؤثر تعليمي',user:'مستخدم'};
   // إذا كان المنشور للمستخدم الحالي، استخدم نوع حسابه الحالي من localStorage دائماً
-  let effectiveAccountType = post.accountType || post.role || 'influencer';
+  let effectiveAccountType = post.accountType || post.role || '';
   if (_isMine(post)) {
     const currentType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
     if (currentType) effectiveAccountType = currentType;
   }
-  const roleLabel = roleLabels[effectiveAccountType] || effectiveAccountType || 'مستخدم';
+  // لا نعرض "مؤثر تعليمي" كقيمة افتراضية — نترك فارغاً إذا لم يكن النوع صريحاً
+  const roleLabel = roleLabels[effectiveAccountType] || '';
   // post.avatar مدمجة مع المنشور تمثل صورة صاحبه الحقيقية — لا نستبدلها بصورة المستخدم الحالي
   const postAv    = post.avatar || 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?w=400&auto=format&fit=crop';
   const isMinePost= _isMine(post);
