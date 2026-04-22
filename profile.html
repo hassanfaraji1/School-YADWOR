@@ -101,15 +101,15 @@
       <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
       <span>الريلز</span>
     </a>
-    <a href="#" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+    <a href="messages.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
       <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
-      <span>المحفوظات</span>
+      <span>الرسائل</span>
     </a>
     <a href="settings.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
       <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
       <span>الإعدادات</span>
     </a>
-    <a href="catalog.html" id="sidebar-catalog-link" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+    <a href="catalog.html" id="sidebar-catalog-link" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold" style="display:none;">
       <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
       <span>إدارة المواد</span>
     </a>
@@ -375,9 +375,8 @@ function closePendingJoinModal() {
 
 function getDefaultTab(type) {
   if(type==='institution') return 'teachers';
-  if(type==='teacher') return 'students';
+  if(type==='teacher') return 'posts';
   if(type==='student') return 'teachers';
-  return 'posts';
 }
 
 function renderProfile() {
@@ -410,23 +409,25 @@ function renderProfile() {
       const acceptedTeachers = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted'&&(r.institutionId===vInstitutionId||r.institutionUid===vInstitutionId));
       const acceptedStudents = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted'&&(r.institutionId===vInstitutionId||r.institutionUid===vInstitutionId));
       vTabs = [
-        {id:'posts', label:'المنشورات', count: vPosts.length},
         {id:'teachers', label:'الأساتذة', count: acceptedTeachers.length},
-        {id:'students', label:'التلاميذ', count: acceptedStudents.length}
+        {id:'students', label:'التلاميذ', count: acceptedStudents.length},
+        {id:'books',    label:'الكتب',    count: 0},
+        {id:'posts',    label:'المنشورات', count: vPosts.length}
       ];
     } else if (vAccountType === 'teacher') {
       const vTeacherId = _visitorUid || _visitorUsername;
       const teacherStudents = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted'&&(r.teacherUid===vTeacherId||r.teacherUsername===vTeacherId||r.institutionUid===vTeacherId));
       vTabs = [
-        {id:'students', label:'تلاميذي', count: teacherStudents.length},
-        {id:'books',    label:'الكتب',   count: 0},
         {id:'posts',    label:'المنشورات', count: vPosts.length},
-        {id:'media',    label:'الوسائط', count: vPosts.filter(p=>p.images&&p.images.length&&p.type!=='video').reduce((s,p)=>s+p.images.length,0)}
+        {id:'students', label:'تلاميذي', count: teacherStudents.length},
+        {id:'books',    label:'الكتب',   count: 0}
       ];
     } else if (vAccountType === 'student') {
       vTabs = [
-        {id:'posts', label:'المنشورات', count: vPosts.length},
-        {id:'media', label:'الوسائط', count: vPosts.filter(p=>p.images&&p.images.length&&p.type!=='video').reduce((s,p)=>s+p.images.length,0)}
+        {id:'teachers',     label:'الأساتذة',  count: 0},
+        {id:'posts',        label:'المنشورات', count: vPosts.length},
+        {id:'certificates', label:'الشواهد',   count: 0},
+        {id:'badges',       label:'الألقاب',   count: 0}
       ];
     } else {
       vTabs = [
@@ -526,8 +527,8 @@ function renderProfile() {
               رسالة
             </button>
             <button id="visitor-follow-btn" onclick="toggleVisitorFollow('${_visitorUid||''}','${_visitorUsername||''}')"
-              class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[10px] font-bold cursor-pointer ${_visitorFollowing ? 'text-blue-600' : 'text-white'}"
-              style="${_visitorFollowing ? 'background:#dbeafe;border:1.5px solid #93c5fd;' : 'background:#3b82f6;'}">
+              class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[10px] font-bold cursor-pointer ${_visitorFollowing ? 'text-blue-700' : 'text-white'}"
+              style="${_visitorFollowing ? 'background:#dbeafe;' : 'background:#3b82f6;'}">
               ${_visitorFollowing ? '✓ تتابع' : '+ متابعة'}
             </button>
             ${vActionBtn3}
@@ -702,8 +703,8 @@ function getProfileTabs() {
   const acceptedTeachers = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted').length;
   const acceptedStudents = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted').length;
   if(state.profileType==='institution') return [{id:'teachers',label:'الأساتذة',count:acceptedTeachers},{id:'students',label:'التلاميذ',count:acceptedStudents},{id:'posts',label:'المنشورات',count:myPosts.length}];
-  if(state.profileType==='teacher')    return [{id:'students',label:'تلاميذي',count:0},{id:'books',label:'الكتب',count:0},{id:'posts',label:'المنشورات',count:myPosts.length}];
-  if(state.profileType==='student')    return [{id:'teachers',label:'أساتذتي',count:0},{id:'badges',label:'الألقاب',count:0},{id:'certificates',label:'الشواهد',count:0}];
+  if(state.profileType==='teacher')    return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'students',label:'تلاميذي',count:0},{id:'books',label:'الكتب',count:0}];
+  if(state.profileType==='student')    return [{id:'teachers',label:'أساتذتي',count:0},{id:'posts',label:'المنشورات',count:myPosts.length},{id:'certificates',label:'الشواهد',count:0},{id:'badges',label:'الألقاب',count:0}];
   if(state.profileType==='influencer') return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'media',label:'الوسائط',count:myMedia.length}];
   return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'media',label:'الوسائط',count:myMedia.length}];
 }
@@ -914,7 +915,7 @@ function toggleVisitorFollow(uid, username) {
     // تحديث الزر مباشرة
     const btn = document.getElementById('visitor-follow-btn');
     if (btn) {
-      btn.className = 'inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full text-[13px] font-bold border border-blue-300 bg-blue-50 text-blue-700 cursor-pointer';
+      btn.className = 'inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[10px] font-bold border border-blue-300 bg-blue-50 text-blue-700 cursor-pointer';
       btn.textContent = '✓ تتابع';
     }
     // تحديث عداد المتابعين في الواجهة
@@ -938,7 +939,7 @@ function confirmUnfollow() {
   // تحديث الزر
   const btn = document.getElementById('visitor-follow-btn');
   if (btn) {
-    btn.className = 'inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full bg-blue-500 text-[13px] font-bold text-white cursor-pointer';
+    btn.className = 'inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full bg-blue-500 text-[10px] font-bold text-white cursor-pointer';
     btn.textContent = '+ متابعة';
   }
   // تحديث العداد
@@ -1578,6 +1579,13 @@ function renderVisitorTabContent(tabId, vPosts) {
         </div>
       </a>`;
     }).join('')}</div>`;
+  }
+  if(tabId === 'badges') {
+    const badges=["مجتهد","المثابر","المتفوق في الدورة الأولى","الأول في الاختبار","مبدع في الأنشطة"];
+    return `<div class="flex flex-wrap gap-3">${badges.map(b=>`<div class="rounded-[18px] border border-violet-200 bg-violet-50 px-4 py-3 text-[13px] font-bold text-violet-800">${b}</div>`).join('')}</div>`;
+  }
+  if(tabId === 'certificates') {
+    return `<div class="flex flex-col items-center justify-center py-14 text-center gap-3"><p class="text-[14px] font-bold text-zinc-400">لا توجد شواهد بعد</p></div>`;
   }
   return '';
 }
