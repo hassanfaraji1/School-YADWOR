@@ -1147,74 +1147,53 @@ function goToVisitorChat(name, avatar) {
 }
 
 // ====================== EXERCISES MODAL ======================
-function openExercisesModal() {
-  const myUid = localStorage.getItem('yadwor-uid') || '';
-  const myProfileType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
-  const allExams = JSON.parse(localStorage.getItem('yadwor-exams') || '[]');
-  const activeExams = allExams.filter(e => Date.now() < e.expiresAt);
-
+function _filterAndShowExams(allExamsRaw, myProfileType, myUid, myAcceptedReq, viewingInstitutionUid) {
   const modal = document.getElementById('exercises-modal');
   const content = document.getElementById('exercises-modal-content');
-
-  // ── جلب بيانات انضمام المستخدم الحالي ──
-  const allRequests = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
-  const myAcceptedReq = allRequests.find(r =>
-    r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
-  );
-
-  // ── إذا كان التلميذ يفتح النافذة من ملف مؤسسة/أستاذ آخر ──
-  // _visitorUid = uid الملف الذي يُعرض حالياً (المؤسسة أو الأستاذ الآخر)
-  const viewingInstitutionUid = _visitorUid || '';
+  const activeExams = allExamsRaw.filter(e => Date.now() < (e.expiresAt || 0));
 
   let filteredExams = activeExams;
   let notSameInstitution = false;
 
   if (myProfileType === 'student') {
-    // التلميذ: تحقق من أنه منضم لمؤسسة وطلبه مقبول
     if (!myAcceptedReq) {
-      // لم ينضم لأي مؤسسة بعد
       notSameInstitution = true;
     } else {
-      // التلميذ منضم: فلترة الاختبارات بالمؤسسة والمستوى والمادة
       const myInstitutionUid = myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '';
-      const myLevelId = myAcceptedReq.levelId || '';
+      const myLevelId = (myAcceptedReq.levelId || '').trim();
       const mySubjects = (myAcceptedReq.subjects || []).map(s => (s.name || s).trim().toLowerCase());
       filteredExams = activeExams.filter(e => {
-        const examLevel = (e.levelId || '').trim();
-        const examSubject = (e.subject || '').trim().toLowerCase();
-        const examInstUid = e.institutionUid || '';
-        // تحقق من المؤسسة: يجب أن تكون نفس مؤسسة التلميذ
-        const instMatch = !examInstUid || !myInstitutionUid || examInstUid === myInstitutionUid;
-        // تحقق من المستوى
-        const levelMatch = !examLevel || !myLevelId || examLevel === myLevelId;
-        // تحقق من المادة: يجب أن تكون إحدى مواد التلميذ
-        const subjectMatch = !examSubject || mySubjects.length === 0 || mySubjects.some(s => s === examSubject || examSubject.includes(s) || s.includes(examSubject));
+        const examLevel   = (e.levelId  || '').trim();
+        const examSubject = (e.subject  || '').trim().toLowerCase();
+        const examInstUid = (e.institutionUid || '').trim();
+        // مؤسسة
+        const instMatch    = !examInstUid || !myInstitutionUid || examInstUid === myInstitutionUid;
+        // مستوى
+        const levelMatch   = !examLevel || !myLevelId || examLevel === myLevelId;
+        // مادة: تطابق نصي مرن
+        const subjectMatch = !examSubject || mySubjects.length === 0 ||
+          mySubjects.some(s => s === examSubject || examSubject.includes(s) || s.includes(examSubject));
         return instMatch && levelMatch && subjectMatch;
       });
-      // إذا كان يفتح من ملف مؤسسة أخرى → أظهر رسالة عدم الانتماء
+      // إذا يفتح من ملف مؤسسة أخرى → رسالة عدم الانتماء
       if (viewingInstitutionUid && myInstitutionUid && viewingInstitutionUid !== myInstitutionUid) {
         notSameInstitution = true;
       }
     }
   } else if (myProfileType === 'teacher' || myProfileType === 'institution') {
-    // الأستاذ والمؤسسة: يرون اختباراتهم فقط
     filteredExams = activeExams.filter(e => e.teacherUid === myUid || e.institutionUid === myUid);
-    // إذا كانوا يفتحون من ملف مؤسسة أخرى أو أستاذ آخر
     if (viewingInstitutionUid && viewingInstitutionUid !== myUid) {
-      // يرون اختبارات تلك المؤسسة/ذلك الأستاذ فقط إذا كانوا في نفس المؤسسة
-      const myInstitutionUid = myAcceptedReq ? (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '') : '';
-      if (myInstitutionUid !== viewingInstitutionUid) {
+      const myInstUid = myAcceptedReq ? (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '') : '';
+      if (myInstUid !== viewingInstitutionUid) {
         notSameInstitution = true;
       } else {
         filteredExams = activeExams.filter(e =>
-          e.teacherUid === viewingInstitutionUid ||
-          e.institutionUid === viewingInstitutionUid
+          e.teacherUid === viewingInstitutionUid || e.institutionUid === viewingInstitutionUid
         );
       }
     }
   }
 
-  // ── عرض رسالة "ليس في نفس المؤسسة" ──
   if (notSameInstitution) {
     content.innerHTML = `
     <div class="flex items-center justify-between mb-5">
@@ -1236,7 +1215,11 @@ function openExercisesModal() {
     return;
   }
 
-  // ── عرض الاختبارات المفلترة ──
+  _renderExamsContent(filteredExams, content);
+  modal.classList.remove('hidden');
+}
+
+function _renderExamsContent(filteredExams, content) {
   if (!filteredExams.length) {
     content.innerHTML = `
     <div class="flex items-center justify-between mb-5">
@@ -1269,8 +1252,6 @@ function openExercisesModal() {
         const remH = Math.floor(remaining/3600000);
         const remM = Math.floor((remaining%3600000)/60000);
         const timeStr = remH > 0 ? `${remH}س ${remM}د` : `${remM} دقيقة`;
-        const levelLabel = e.levelId ? ` · ${e.levelId}` : '';
-        const subjectLabel = e.subject ? ` · ${e.subject}` : '';
         return `
         <div class="rounded-[18px] border border-zinc-100 bg-zinc-50 p-4">
           <div class="flex items-center justify-between mb-2">
@@ -1296,8 +1277,63 @@ function openExercisesModal() {
       }).join('')}
     </div>`;
   }
+}
 
+function openExercisesModal() {
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  const myProfileType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
+
+  const modal = document.getElementById('exercises-modal');
+  const content = document.getElementById('exercises-modal-content');
+
+  const allRequests = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
+  const myAcceptedReq = allRequests.find(r =>
+    r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
+  );
+
+  const viewingInstitutionUid = _visitorUid || '';
+
+  // إظهار shimmer أثناء تحميل البيانات
+  content.innerHTML = `
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
+      <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="space-y-3">
+      ${[1,2].map(()=>`<div class="rounded-[18px] border border-zinc-100 bg-zinc-50 p-4 space-y-2">
+        <div class="shimmer h-4 w-1/3 rounded-full"></div>
+        <div class="shimmer h-5 w-2/3 rounded-full"></div>
+        <div class="shimmer h-10 w-full rounded-[14px] mt-2"></div>
+      </div>`).join('')}
+    </div>`;
   modal.classList.remove('hidden');
+
+  // 1) جلب الاختبارات من localStorage (اختبارات الجهاز الحالي)
+  const localExams = JSON.parse(localStorage.getItem('yadwor-exams') || '[]');
+
+  // 2) جلب الاختبارات من Firebase ودمجها مع المحلية
+  const FB = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
+  const KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+  fetch(`${FB}/exams.json?auth=${KEY}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      let fbExams = [];
+      if (data && typeof data === 'object') {
+        fbExams = Object.values(data).filter(e => e && e.id && e.expiresAt);
+      }
+      // دمج: Firebase أولاً ثم المحلية (تجنب التكرار بالـ id)
+      const seen = new Set(fbExams.map(e => String(e.id)));
+      const merged = [...fbExams, ...localExams.filter(e => !seen.has(String(e.id)))];
+      _filterAndShowExams(merged, myProfileType, myUid, myAcceptedReq, viewingInstitutionUid);
+    })
+    .catch(() => {
+      // إذا فشل الاتصال → استخدم المحلية فقط
+      _filterAndShowExams(localExams, myProfileType, myUid, myAcceptedReq, viewingInstitutionUid);
+    });
+}
+
 }
 
 function closeExercisesModal() {
