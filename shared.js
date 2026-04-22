@@ -299,6 +299,25 @@ async function updateMyPostsAvatarInFirebase(newAvatar) {
   }
 }
 
+// تحديث accountType في جميع منشوراتي على Firebase عند تغيير نوع الحساب
+async function updateMyPostsAccountTypeInFirebase(newType) {
+  const myPosts = state.posts.filter(p => _isMine(p));
+  // تحديث محلي أولاً
+  state.posts = state.posts.map(p => {
+    if (!_isMine(p)) return p;
+    return Object.assign({}, p, { accountType: newType });
+  });
+  localStorage.setItem('yadwor-posts', JSON.stringify(state.posts));
+  // ثم Firebase
+  for (const p of myPosts) {
+    try {
+      await fetch(`${FB_DB_URL}/posts/${p.id}/accountType.json?auth=${FB_API_KEY}`, {
+        method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(newType)
+      });
+    } catch(e) {}
+  }
+}
+
 // =================== saveData ===================
 function saveData() {
   const myUid  = _myUid();
@@ -454,10 +473,10 @@ function renderPostCard(post) {
   const savedFill = post.saved ? 'currentColor' : 'none';
   const timeLabel = formatTimeAgo(post.timestamp || post.time);
   const roleLabels= {institution:'مؤسسة تعليمية',teacher:'أستاذ',student:'تلميذ',influencer:'مؤثر تعليمي',user:'مستخدم'};
-  // إذا كان المنشور للمستخدم الحالي، استخدم نوع حسابه الحالي من localStorage
+  // إذا كان المنشور للمستخدم الحالي، استخدم نوع حسابه الحالي من localStorage دائماً
   let effectiveAccountType = post.accountType || post.role || 'influencer';
   if (_isMine(post)) {
-    const currentType = localStorage.getItem('yadwor-account-type') || '';
+    const currentType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
     if (currentType) effectiveAccountType = currentType;
   }
   const roleLabel = roleLabels[effectiveAccountType] || effectiveAccountType || 'مستخدم';
