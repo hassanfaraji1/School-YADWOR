@@ -452,7 +452,7 @@
       <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
       <span>الإعدادات</span>
     </a>
-    <a href="join-requests.html" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+    <a href="join-requests.html" id="home-sidebar-join-requests" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold" style="display:none;">
       <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
       <span>طلبات الانضمام</span>
     </a>
@@ -482,6 +482,9 @@ function openSidebar() {
   const resLink = document.getElementById('home-sidebar-results');
   if (exLink) exLink.style.display = showEx ? 'flex' : 'none';
   if (resLink) resLink.style.display = showEx ? 'flex' : 'none';
+  // طلبات الانضمام للمؤسسة فقط
+  const joinLink = document.getElementById('home-sidebar-join-requests');
+  if (joinLink) joinLink.style.display = pt === 'institution' ? 'flex' : 'none';
 }
 function closeSidebar() {
   document.getElementById('sidebar-overlay').classList.add('hidden');
