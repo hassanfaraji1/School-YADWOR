@@ -144,6 +144,8 @@ let currentExam = {
   type: 'تمرين',
   title: '',
   duration: '24h',
+  levelId: '',
+  subject: '',
   questions: []
 };
 let currentQuestion = {
@@ -254,7 +256,35 @@ function renderCreate() {
         </div>
       </div>
 
-      <!-- العنوان -->
+      <!-- المستوى الدراسي والمادة -->
+      <div>
+        <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">المستوى الدراسي</label>
+        <select id="exam-level" onchange="currentExam.levelId=this.value"
+          class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]">
+          <option value="">اختر المستوى</option>
+          <option value="1p">الأولى ابتدائي</option>
+          <option value="2p">الثانية ابتدائي</option>
+          <option value="3p">الثالثة ابتدائي</option>
+          <option value="4p">الرابعة ابتدائي</option>
+          <option value="5p">الخامسة ابتدائي</option>
+          <option value="6p">السادسة ابتدائي</option>
+          <option value="1c">الأولى إعدادي</option>
+          <option value="2c">الثانية إعدادي</option>
+          <option value="3c">الثالثة إعدادي</option>
+          <option value="tc">الجذع المشترك</option>
+          <option value="1b">الأولى باكالوريا</option>
+          <option value="2b">الثانية باكالوريا</option>
+        </select>
+      </div>
+
+      <!-- المادة -->
+      <div>
+        <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">المادة الدراسية</label>
+        <input id="exam-subject" value="" placeholder="مثال: الرياضيات"
+          oninput="currentExam.subject=this.value"
+          class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]" />
+      </div>
+
       <div>
         <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">العنوان (اختياري)</label>
         <input id="exam-title" value="${currentExam.title}" placeholder="مثال: اختبار المستوى الثالث – عمليات الضرب"
@@ -627,19 +657,32 @@ function clearPending() {
 function publishExam() {
   const pq = getPendingQuestions();
   if (!pq.length) { showToast('لا توجد أسئلة للنشر'); return; }
-  
+  if (!currentExam.levelId) { showToast('يرجى اختيار المستوى الدراسي'); return; }
+  if (!currentExam.subject || !currentExam.subject.trim()) { showToast('يرجى إدخال المادة الدراسية'); return; }
+
   const durationMap = {'1h':3600,'2h':7200,'4h':14400,'8h':28800,'12h':43200,'24h':86400,'48h':172800,'72h':259200,'1w':604800};
   const durationSec = durationMap[currentExam.duration] || 86400;
-  
+
+  // جلب uid المؤسسة التي ينتمي إليها الأستاذ
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  const allRequests = JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
+  const myAcceptedReq = allRequests.find(r =>
+    r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
+  );
+  const institutionUid = myAcceptedReq ? (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '') : '';
+
   const exam = {
     id: Date.now(),
     type: currentExam.type,
     title: currentExam.title || `${currentExam.type} – ${new Date().toLocaleDateString('ar-MA')}`,
     duration: currentExam.duration,
+    levelId: currentExam.levelId,
+    subject: currentExam.subject.trim(),
     expiresAt: Date.now() + durationSec * 1000,
     questions: pq,
     publishedAt: Date.now(),
-    teacherUid: localStorage.getItem('yadwor-uid') || 'teacher'
+    teacherUid: myUid || 'teacher',
+    institutionUid: institutionUid
   };
 
   const exams = getExams();
@@ -647,8 +690,8 @@ function publishExam() {
   saveExams(exams);
   savePendingQuestions([]);
   // Reset exam meta
-  currentExam = { type: 'تمرين', title: '', duration: '24h', questions: [] };
-  
+  currentExam = { type: 'تمرين', title: '', duration: '24h', levelId: '', subject: '', questions: [] };
+
   showToast(`✓ تم نشر ${exam.type} بنجاح`);
   setMainTab('edit');
 }
