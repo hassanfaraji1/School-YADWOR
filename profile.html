@@ -1418,8 +1418,12 @@ function buildSubjectsHTML(availSubjects, total, levelId) {
       + '</div>';
   }
 
+  const subjectsTitle = isTeacher
+    ? '<p class="mb-1 text-[13px] font-extrabold text-zinc-700">اختيار المادة</p><p class="mb-2 text-[11px] text-zinc-400 font-bold">الأستاذ يختار مادة واحدة فقط</p>'
+    : '<p class="mb-2 text-[13px] font-extrabold text-zinc-700">اختيار المواد</p>';
+
   return '<div class="mb-4">'
-    + '<p class="mb-2 text-[13px] font-extrabold text-zinc-700">اختيار المواد</p>'
+    + subjectsTitle
     + '<div class="rounded-[18px] border border-zinc-200 bg-zinc-50 p-3">'
     + '<div class="grid grid-cols-2 gap-2">' + subjectBtns + '</div>'
     + '</div></div>'
@@ -1607,7 +1611,13 @@ function renderJoinModalContent() {
 function selectJoinRole(role) { state.joinRole = role; state.joinStep = 2; state.selectedSubjects = []; renderJoinModalContent(); }
 function toggleJoinSubject(subject, checked) {
   if(checked) {
-    if(!state.selectedSubjects.includes(subject)) state.selectedSubjects.push(subject);
+    if(state.joinRole === 'teacher') {
+      // الأستاذ: مادة واحدة فقط — يُستبدل الاختيار السابق
+      state.selectedSubjects = [subject];
+    } else {
+      // التلميذ: يمكن اختيار مواد متعددة
+      if(!state.selectedSubjects.includes(subject)) state.selectedSubjects.push(subject);
+    }
   } else {
     state.selectedSubjects = state.selectedSubjects.filter(s=>s!==subject);
   }
