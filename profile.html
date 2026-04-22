@@ -314,9 +314,41 @@ async function showInstitutionInfoModal() {
   const type = state.profileType;
   if (type !== 'teacher' && type !== 'student') return;
 
+  // إظهار النافذة فوراً مع تحميل
+  document.getElementById('institution-info-name').textContent = '...';
+  document.getElementById('institution-info-role').textContent = type === 'teacher' ? 'أستاذ في' : 'تلميذ في';
+  document.getElementById('institution-info-sub').textContent = '';
+  document.getElementById('institution-info-modal').classList.remove('hidden');
+
+  // أيقونة حسب النوع
+  const iconEl = document.getElementById('institution-info-icon');
+  if (type === 'teacher') {
+    iconEl.className = 'mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50';
+    iconEl.innerHTML = '<svg viewBox="0 0 24 24" class="h-7 w-7 fill-none stroke-emerald-500" stroke-width="1.8" stroke-linecap="round"><path d="M12 14l9-5-9-5-9 5 9 5ZM12 14v7M9 18h6"/></svg>';
+  } else {
+    iconEl.className = 'mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-violet-50';
+    iconEl.innerHTML = '<svg viewBox="0 0 24 24" class="h-7 w-7 fill-none stroke-violet-500" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/></svg>';
+  }
+
   // البحث عن اسم المؤسسة من joinRequests
   const myUid = localStorage.getItem('yadwor-uid') || '';
-  const myReq = (state.joinRequests || []).find(r =>
+
+  // أولاً: جلب جميع joinRequests من Firebase للتأكد من أحدث بيانات
+  let allRequests = state.joinRequests || [];
+  try {
+    const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data) {
+        const fbReqs = Object.values(data).filter(r => r && r.id);
+        allRequests = fbReqs;
+        state.joinRequests = fbReqs;
+        localStorage.setItem('yadwor-join-requests', JSON.stringify(fbReqs));
+      }
+    }
+  } catch(e) {}
+
+  const myReq = allRequests.find(r =>
     r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
   );
 
@@ -347,18 +379,6 @@ async function showInstitutionInfoModal() {
   document.getElementById('institution-info-role').textContent = roleLabel;
   document.getElementById('institution-info-name').textContent = institutionName;
   document.getElementById('institution-info-sub').textContent = institutionSub;
-
-  // أيقونة حسب النوع
-  const iconEl = document.getElementById('institution-info-icon');
-  if (type === 'teacher') {
-    iconEl.className = 'mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50';
-    iconEl.innerHTML = '<svg viewBox="0 0 24 24" class="h-7 w-7 fill-none stroke-emerald-500" stroke-width="1.8" stroke-linecap="round"><path d="M12 14l9-5-9-5-9 5 9 5ZM12 14v7M9 18h6"/></svg>';
-  } else {
-    iconEl.className = 'mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-violet-50';
-    iconEl.innerHTML = '<svg viewBox="0 0 24 24" class="h-7 w-7 fill-none stroke-violet-500" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/></svg>';
-  }
-
-  document.getElementById('institution-info-modal').classList.remove('hidden');
 }
 
 // ====================== LOGOUT ======================
@@ -450,7 +470,7 @@ function closePendingJoinModal() {
 function getDefaultTab(type) {
   if(type==='institution') return 'posts';
   if(type==='teacher') return 'posts';
-  if(type==='student') return 'teachers';
+  if(type==='student') return 'posts';
 }
 
 // ====================== جلب صور الأعضاء من Firebase ======================
@@ -769,8 +789,8 @@ function renderProfile() {
           <div class="text-right">
             <h2 class="text-[20px] font-extrabold tracking-tight leading-snug">${displayName}</h2>
             <div class="mt-1.5 flex items-center gap-2 justify-start">
-              <span onclick="${(state.profileType==='teacher'||state.profileType==='student')?'showInstitutionInfoModal()':''}" class="inline-flex items-center gap-1 rounded-full bg-zinc-900 px-2.5 py-1 text-[10px] font-bold text-white ${(state.profileType==='teacher'||state.profileType==='student')?'cursor-pointer active:opacity-80':''}" style="${(state.profileType==='teacher'||state.profileType==='student')?'cursor:pointer;':''}" >
-                <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="${typeIcons}"/></svg>
+              <span onclick="${(state.profileType==='teacher'||state.profileType==='student')?'showInstitutionInfoModal()':''}" class="inline-flex items-center gap-0.5 rounded-full bg-zinc-900 px-2 py-0.5 text-[9px] font-bold text-white ${(state.profileType==='teacher'||state.profileType==='student')?'cursor-pointer active:opacity-80':''}" style="${(state.profileType==='teacher'||state.profileType==='student')?'cursor:pointer;':''}" >
+                <svg viewBox="0 0 24 24" class="h-2.5 w-2.5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="${typeIcons}"/></svg>
                 ${tl}
               </span>
               <span class="text-[11px] text-zinc-400 font-medium">@${prof.username}</span>
@@ -815,11 +835,12 @@ function getProfileTabs() {
   const myUid = localStorage.getItem('yadwor-uid') || '';
   const myPosts = state.posts.filter(p => myUid && p.uid && String(p.uid) === String(myUid));
   const myMedia = myPosts.filter(p => p.images && p.images.length && p.type !== 'video');
-  const acceptedTeachers = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted').length;
-  const acceptedStudents = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted').length;
+  const myInstUid = localStorage.getItem('yadwor-uid') || '';
+  const acceptedTeachers = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted'&&(r.institutionUid===myInstUid||r.institutionId===myInstUid)).length;
+  const acceptedStudents = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted'&&(r.institutionUid===myInstUid||r.institutionId===myInstUid)).length;
   if(state.profileType==='institution') return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'teachers',label:'الأساتذة',count:acceptedTeachers},{id:'students',label:'التلاميذ',count:acceptedStudents},{id:'books',label:'الكتب',count:0}];
   if(state.profileType==='teacher')    return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'students',label:'تلاميذي',count:0},{id:'books',label:'الكتب',count:0}];
-  if(state.profileType==='student')    return [{id:'teachers',label:'أساتذتي',count:0},{id:'posts',label:'المنشورات',count:myPosts.length},{id:'certificates',label:'الشواهد',count:0},{id:'badges',label:'الألقاب',count:0}];
+  if(state.profileType==='student')    return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'teachers',label:'أساتذتي',count:0},{id:'certificates',label:'الشواهد',count:0},{id:'badges',label:'الألقاب',count:0}];
   if(state.profileType==='influencer') return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'media',label:'الوسائط',count:myMedia.length}];
   return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'media',label:'الوسائط',count:myMedia.length}];
 }
@@ -888,7 +909,8 @@ function renderProfileTabContent() {
 
   // ── مؤسسة: الأساتذة ──
   if(t==='institution' && tab==='teachers') {
-    const accepted = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted');
+    const myInstUid2 = localStorage.getItem('yadwor-uid') || '';
+    const accepted = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted'&&(r.institutionUid===myInstUid2||r.institutionId===myInstUid2));
     if(!accepted.length) return emptyState('<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>', 'لم ينضم أي أستاذ بعد');
     // جلب الصور من Firebase بشكل غير متزامن وتحديث البطاقات
     const html = `<div class="grid gap-2" id="teachers-list-grid">${accepted.map(r=>personCard(r)).join('')}</div>`;
@@ -898,7 +920,8 @@ function renderProfileTabContent() {
 
   // ── مؤسسة: التلاميذ ──
   if(t==='institution' && tab==='students') {
-    const accepted = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted');
+    const myInstUid3 = localStorage.getItem('yadwor-uid') || '';
+    const accepted = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted'&&(r.institutionUid===myInstUid3||r.institutionId===myInstUid3));
     if(!accepted.length) return emptyState('<circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/>', 'لم ينضم أي تلميذ بعد');
     const html = `<div class="grid gap-2" id="students-list-grid">${accepted.map(r=>personCard(r)).join('')}</div>`;
     setTimeout(() => enrichAvatarsFromFirebase(accepted, 'students-list-grid'), 0);
@@ -1125,15 +1148,95 @@ function goToVisitorChat(name, avatar) {
 
 // ====================== EXERCISES MODAL ======================
 function openExercisesModal() {
-  // Find active exams for this teacher/institution
   const myUid = localStorage.getItem('yadwor-uid') || '';
-  const exams = JSON.parse(localStorage.getItem('yadwor-exams') || '[]');
-  const activeExams = exams.filter(e => Date.now() < e.expiresAt);
+  const myProfileType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
+  const allExams = JSON.parse(localStorage.getItem('yadwor-exams') || '[]');
+  const activeExams = allExams.filter(e => Date.now() < e.expiresAt);
 
   const modal = document.getElementById('exercises-modal');
   const content = document.getElementById('exercises-modal-content');
 
-  if (!activeExams.length) {
+  // ── جلب بيانات انضمام المستخدم الحالي ──
+  const allRequests = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
+  const myAcceptedReq = allRequests.find(r =>
+    r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
+  );
+
+  // ── إذا كان التلميذ يفتح النافذة من ملف مؤسسة/أستاذ آخر ──
+  // _visitorUid = uid الملف الذي يُعرض حالياً (المؤسسة أو الأستاذ الآخر)
+  const viewingInstitutionUid = _visitorUid || '';
+
+  let filteredExams = activeExams;
+  let notSameInstitution = false;
+
+  if (myProfileType === 'student') {
+    // التلميذ: تحقق من أنه في نفس المؤسسة
+    if (!myAcceptedReq) {
+      // لم ينضم لأي مؤسسة
+      notSameInstitution = true;
+    } else {
+      const myInstitutionUid = myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '';
+      if (viewingInstitutionUid && myInstitutionUid !== viewingInstitutionUid) {
+        // التلميذ في مؤسسة مختلفة
+        notSameInstitution = true;
+      } else {
+        // فلترة الاختبارات بالمستوى والمادة
+        const myLevelId = myAcceptedReq.levelId || '';
+        const mySubjects = (myAcceptedReq.subjects || []).map(s => (s.name || s).trim().toLowerCase());
+        filteredExams = activeExams.filter(e => {
+          const examLevel = (e.levelId || '').trim();
+          const examSubject = (e.subject || '').trim().toLowerCase();
+          const levelMatch = !examLevel || !myLevelId || examLevel === myLevelId;
+          const subjectMatch = !examSubject || mySubjects.length === 0 || mySubjects.some(s => s === examSubject || examSubject.includes(s) || s.includes(examSubject));
+          // فلترة بالمؤسسة أيضاً: إذا كان الاختبار مرتبطاً بمؤسسة فيجب أن تكون نفس مؤسسة التلميذ
+          const examInstUid = e.institutionUid || '';
+          const instMatch = !examInstUid || examInstUid === myInstitutionUid;
+          return levelMatch && subjectMatch && instMatch;
+        });
+      }
+    }
+  } else if (myProfileType === 'teacher' || myProfileType === 'institution') {
+    // الأستاذ والمؤسسة: يرون اختباراتهم فقط
+    filteredExams = activeExams.filter(e => e.teacherUid === myUid || e.institutionUid === myUid);
+    // إذا كانوا يفتحون من ملف مؤسسة أخرى أو أستاذ آخر
+    if (viewingInstitutionUid && viewingInstitutionUid !== myUid) {
+      // يرون اختبارات تلك المؤسسة/ذلك الأستاذ فقط إذا كانوا في نفس المؤسسة
+      const myInstitutionUid = myAcceptedReq ? (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '') : '';
+      if (myInstitutionUid !== viewingInstitutionUid) {
+        notSameInstitution = true;
+      } else {
+        filteredExams = activeExams.filter(e =>
+          e.teacherUid === viewingInstitutionUid ||
+          e.institutionUid === viewingInstitutionUid
+        );
+      }
+    }
+  }
+
+  // ── عرض رسالة "ليس في نفس المؤسسة" ──
+  if (notSameInstitution) {
+    content.innerHTML = `
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
+      <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
+      <div class="h-16 w-16 rounded-full flex items-center justify-center" style="background:#fef3c7;">
+        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-amber-500" stroke-width="1.6" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+        </svg>
+      </div>
+      <p class="text-[16px] font-extrabold text-zinc-800">غير مسموح بالوصول</p>
+      <p class="text-[13px] text-zinc-500 leading-relaxed px-4">لا يمكنك مشاهدة هذه الاختبارات لأنك لست في نفس المؤسسة.<br>انضم أولاً للمؤسسة لتتمكن من الوصول إلى الاختبارات والتمارين.</p>
+    </div>`;
+    modal.classList.remove('hidden');
+    return;
+  }
+
+  // ── عرض الاختبارات المفلترة ──
+  if (!filteredExams.length) {
     content.innerHTML = `
     <div class="flex items-center justify-between mb-5">
       <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
@@ -1148,7 +1251,7 @@ function openExercisesModal() {
         </svg>
       </div>
       <p class="text-[15px] font-bold text-zinc-800">لا يوجد اختبار أو تمرين حالياً</p>
-      <p class="text-[13px] text-zinc-400">لم يقم الأستاذ بنشر أي اختبار أو تمرين بعد.<br>تابع الصفحة لتصلك الاختبارات القادمة.</p>
+      <p class="text-[13px] text-zinc-400">لم يتم نشر أي اختبار أو تمرين بعد.<br>تابع الصفحة لتصلك الاختبارات القادمة.</p>
     </div>`;
   } else {
     content.innerHTML = `
@@ -1159,12 +1262,14 @@ function openExercisesModal() {
       </button>
     </div>
     <div class="space-y-3">
-      ${activeExams.map(e => {
+      ${filteredExams.map(e => {
         const totalPts = e.questions.reduce((s,q)=>s+(q.points||1),0);
         const remaining = Math.max(0, e.expiresAt - Date.now());
         const remH = Math.floor(remaining/3600000);
         const remM = Math.floor((remaining%3600000)/60000);
         const timeStr = remH > 0 ? `${remH}س ${remM}د` : `${remM} دقيقة`;
+        const levelLabel = e.levelId ? ` · ${e.levelId}` : '';
+        const subjectLabel = e.subject ? ` · ${e.subject}` : '';
         return `
         <div class="rounded-[18px] border border-zinc-100 bg-zinc-50 p-4">
           <div class="flex items-center justify-between mb-2">
@@ -1172,9 +1277,10 @@ function openExercisesModal() {
             <span class="text-[11px] text-orange-500 font-bold">⏳ ${timeStr}</span>
           </div>
           <h4 class="text-[15px] font-extrabold text-zinc-900 mb-1">${e.title}</h4>
-          <div class="flex items-center gap-3 text-[12px] text-zinc-400 mb-3">
+          <div class="flex items-center gap-3 text-[12px] text-zinc-400 mb-3 flex-wrap">
             <span>📝 ${e.questions.length} سؤال</span>
             <span>⭐ ${totalPts} نقطة</span>
+            ${e.subject ? `<span>📚 ${e.subject}</span>` : ''}
           </div>
           <div class="rounded-[12px] bg-amber-50 border border-amber-200 p-3 mb-3">
             <p class="text-[12px] text-amber-700 font-bold leading-relaxed">
