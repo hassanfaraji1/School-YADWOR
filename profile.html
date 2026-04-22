@@ -113,7 +113,7 @@
       <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
       <span>إدارة المواد</span>
     </a>
-    <a href="join-requests.html" id="sidebar-join-requests-link" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold">
+    <a href="join-requests.html" id="sidebar-join-requests-link" class="flex items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold" style="display:none;">
       <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
       <span id="sidebar-join-count">طلبات الانضمام</span>
     </a>
@@ -385,9 +385,13 @@ function renderProfile() {
         {id:'students', label:'التلاميذ', count: acceptedStudents.length}
       ];
     } else if (vAccountType === 'teacher') {
+      const vTeacherId = _visitorUid || _visitorUsername;
+      const teacherStudents = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted'&&(r.teacherUid===vTeacherId||r.teacherUsername===vTeacherId||r.institutionUid===vTeacherId));
       vTabs = [
-        {id:'posts', label:'المنشورات', count: vPosts.length},
-        {id:'media', label:'الوسائط', count: vPosts.filter(p=>p.images&&p.images.length&&p.type!=='video').reduce((s,p)=>s+p.images.length,0)}
+        {id:'students', label:'تلاميذي', count: teacherStudents.length},
+        {id:'books',    label:'الكتب',   count: 0},
+        {id:'posts',    label:'المنشورات', count: vPosts.length},
+        {id:'media',    label:'الوسائط', count: vPosts.filter(p=>p.images&&p.images.length&&p.type!=='video').reduce((s,p)=>s+p.images.length,0)}
       ];
     } else if (vAccountType === 'student') {
       vTabs = [
@@ -420,12 +424,18 @@ function renderProfile() {
       if (isAlreadyMember) {
         vActionBtn3 = `<button onclick="openExercisesModal()" class="inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full text-[13px] font-bold text-white" style="background:#7c3aed;">تمارين / اختبارات</button>`;
       } else if (hasPendingJoin) {
-        vActionBtn3 = `<button onclick="openCancelJoinModal('${vInstitutionId2}')" class="inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full text-[13px] font-bold bg-amber-50 text-amber-700 border border-amber-300">⏳ انتظر القبول</button>`;
+        vActionBtn3 = `<button onclick="openCancelJoinModal('${vInstitutionId2}')" class="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-[13px] font-bold text-amber-800 cursor-pointer" style="background:#fef3c7;">
+          <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          انتظر القبول
+        </button>`;
       } else {
         vActionBtn3 = `<button onclick="openJoinModal()" class="inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full text-[13px] font-bold text-white" style="background:#fb923c;">+ انضمام</button>`;
       }
     } else if (vAccountType === 'teacher') {
-      vActionBtn3 = `<button onclick="openExercisesModal()" class="inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full text-[13px] font-bold text-white" style="background:#7c3aed;">تمارين / اختبارات</button>`;
+      vActionBtn3 = `<button onclick="openExercisesModal()" class="inline-flex h-9 flex-1 items-center justify-center gap-1 rounded-full text-[12px] font-bold text-white" style="background:#7c3aed;">
+        <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+        تمارين
+      </button>`;
     }
 
     document.getElementById('profile-content').innerHTML = `
@@ -478,11 +488,11 @@ function renderProfile() {
             ${vp.bio ? `<p class="mt-2 text-[12px] leading-[1.7] text-zinc-500">${vp.bio}</p>` : ''}
           </div>
           <div class="mt-4 flex gap-2">
-            <button onclick="goToVisitorChat('${encodeURIComponent(vp.name||state._viewingUsername||'')}','${encodeURIComponent(vAvatar)}')" class="inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full bg-zinc-900 text-[13px] font-bold text-white cursor-pointer">
-              <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <button onclick="goToVisitorChat('${encodeURIComponent(vp.name||state._viewingUsername||'')}','${encodeURIComponent(vAvatar)}')" class="inline-flex h-9 flex-1 items-center justify-center gap-1 rounded-full bg-zinc-900 text-[12px] font-bold text-white cursor-pointer">
+              <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               رسالة
             </button>
-            <button id="visitor-follow-btn" onclick="toggleVisitorFollow('${_visitorUid||''}','${_visitorUsername||''}')" class="${_visitorFollowing ? 'inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full text-[13px] font-bold border border-blue-300 bg-blue-50 text-blue-700 cursor-pointer' : 'inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full bg-blue-500 text-[13px] font-bold text-white cursor-pointer'}">${_visitorFollowing ? '✓ تتابع' : '+ متابعة'}</button>
+            <button id="visitor-follow-btn" onclick="toggleVisitorFollow('${_visitorUid||''}','${_visitorUsername||''}')" class="${_visitorFollowing ? 'inline-flex h-9 flex-1 items-center justify-center gap-1 rounded-full text-[12px] font-bold text-blue-700 cursor-pointer' : 'inline-flex h-9 flex-1 items-center justify-center gap-1 rounded-full bg-blue-500 text-[12px] font-bold text-white cursor-pointer'}" style="${_visitorFollowing ? 'background:#eff6ff;' : ''}">${_visitorFollowing ? '✓ تتابع' : '+ متابعة'}</button>
             ${vActionBtn3}
           </div>
           <div class="mt-3 grid grid-cols-4 divide-x divide-x-reverse divide-zinc-100">
@@ -492,8 +502,11 @@ function renderProfile() {
             <div class="text-center px-1"><div class="text-[14px] font-extrabold" style="color:#1e40af;">${vAccountType==='institution' ? formatNumber(vp.students||0) : vPosts.filter(p=>p.images&&p.images.length&&p.type!=='video').reduce((s,p)=>s+p.images.length,0)}</div><div class="text-[9px] font-bold mt-0.5" style="color:#4b5563;">${vAccountType==='institution' ? 'تلميذ' : 'وسائط'}</div></div>
           </div>
           ${hasPendingJoin ? `
-          <div id="pending-join-notice" class="mt-3 rounded-[14px] bg-amber-50 border border-amber-200 px-4 py-3 text-right">
-            <p class="text-[13px] font-bold text-amber-800">⏳ لقد أرسلت طلب انضمام، انتظر حتى تتم مراجعة طلبك من طرف المؤسسة وسيتم الرد عليك في أقرب وقت.</p>
+          <div id="pending-join-notice" class="mt-3 rounded-[14px] px-4 py-3 text-right" style="background:#fef3c7;">
+            <div class="flex items-start gap-2">
+              <svg viewBox="0 0 24 24" class="h-5 w-5 shrink-0 mt-0.5 fill-none stroke-amber-700" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+              <p class="text-[13px] font-bold text-amber-900 leading-relaxed">لقد أرسلت طلب انضمام، انتظر حتى تتم مراجعة طلبك من طرف المؤسسة وسيتم الرد عليك في أقرب وقت.</p>
+            </div>
             <button onclick="cancelMyJoinRequest('${vInstitutionId2}')" class="mt-2 text-[12px] font-bold text-red-600 underline">إزالة طلب الانضمام</button>
           </div>` : ''}
           <div class="mt-4 border-t border-zinc-200">
@@ -545,22 +558,22 @@ function renderProfile() {
   const stat4label = state.profileType==='institution' ? 'تلميذ' : state.profileType==='teacher' ? 'كتب' : state.profileType==='student' ? 'ألقاب' : 'وسائط';
   const displayName = prof.name || state.settingsName || 'مستخدم';
   const followBtn = state.isFollowing
-    ? `<button onclick="toggleFollow()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-2 text-[11px] font-bold border border-blue-300 bg-blue-50 text-blue-700">✓ تتابع</button>`
-    : `<button onclick="toggleFollow()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-2 text-[11px] font-bold text-white" style="background:#60a5fa;">+ متابعة</button>`;
+    ? `<button onclick="toggleFollow()" class="inline-flex h-9 w-full items-center justify-center gap-1 rounded-full px-2 text-[11px] font-bold text-blue-700" style="background:#eff6ff;">✓ تتابع</button>`
+    : `<button onclick="toggleFollow()" class="inline-flex h-9 w-full items-center justify-center gap-1 rounded-full px-2 text-[11px] font-bold text-white" style="background:#60a5fa;">+ متابعة</button>`;
   // زر التمارين/الاختبارات للأستاذ
   const exercisesBtn = state.profileType === 'teacher'
-    ? `<button onclick="openExercisesModal()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-1 text-[11px] font-bold text-white" style="background:#7c3aed;">
+    ? `<button onclick="openExercisesModal()" class="inline-flex h-9 w-full items-center justify-center gap-1 rounded-full px-2 text-[11px] font-bold text-white" style="background:#7c3aed;">
         <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
-        تمارين / اختبارات
+        تمارين
       </button>`
     : state.profileType === 'institution'
       ? (state.joinedInstitution
-          ? `<button onclick="openExercisesModal()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-1 text-[11px] font-bold text-white" style="background:#7c3aed;">
+          ? `<button onclick="openExercisesModal()" class="inline-flex h-9 w-full items-center justify-center gap-1 rounded-full px-2 text-[11px] font-bold text-white" style="background:#7c3aed;">
               <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
-              تمارين / اختبارات
+              تمارين
             </button>`
-          : `<button onclick="openJoinModal()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-2 text-[11px] font-bold text-white" style="background:#fb923c;">انضمام</button>`)
-      : `<div class="h-8 w-full"></div>`;
+          : `<button onclick="openJoinModal()" class="inline-flex h-9 w-full items-center justify-center gap-1 rounded-full px-2 text-[11px] font-bold text-white" style="background:#fb923c;">انضمام</button>`)
+      : `<div class="h-9 w-full"></div>`;
 
   document.getElementById('profile-content').innerHTML = `
     <div class="bg-white">
@@ -624,7 +637,7 @@ function renderProfile() {
             <p class="mt-2 text-[12px] leading-[1.7] text-zinc-500">${prof.bio}</p>
           </div>
           <div class="mt-4 grid grid-cols-3 gap-2">
-            <button onclick="goToChat()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-1 text-[11px] font-bold text-white" style="background:#3f3f46;">
+            <button onclick="goToChat()" class="inline-flex h-9 w-full items-center justify-center gap-1 rounded-full px-1 text-[11px] font-bold text-white" style="background:#3f3f46;">
               <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               رسالة
             </button>
@@ -688,12 +701,17 @@ function renderProfileTabContent() {
   const t = state.profileType, tab = state.activeTab;
 
   // ── دالة مساعدة: بطاقة شخص قابلة للنقر ──
-  function personCard(name, sub, imgIdx, role) {
-    const href = `profile.html?type=${role}`;
+  function personCard(r) {
+    const uid = r.uid || '';
+    const username = r.username || '';
+    const href = uid ? `profile.html?uid=${uid}` : (username ? `profile.html?username=${username}` : '#');
+    const avatarSrc = r.avatarUrl || r.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.fullName||'U')}&background=e4e6eb&color=555&size=200`;
+    const name = r.fullName || 'مستخدم';
+    const sub  = r.role === 'teacher' ? (r.subjects?.map(s=>s.name||s).join('، ')||'') : (r.levelName||'');
     return `<a href="${href}" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition">
       <div class="relative h-11 w-11 shrink-0 rounded-full overflow-hidden">
         <div class="shimmer absolute inset-0"></div>
-        <img src="https://i.pravatar.cc/200?img=${imgIdx}" class="h-11 w-11 rounded-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
+        <img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=e4e6eb&color=555&size=200';var e=this.previousElementSibling;if(e)e.remove();" />
       </div>
       <div class="flex-1 min-w-0">
         <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${name}</h3>
@@ -719,14 +737,14 @@ function renderProfileTabContent() {
   if(t==='institution' && tab==='teachers') {
     const accepted = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted');
     if(!accepted.length) return emptyState('<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>', 'لم ينضم أي أستاذ بعد');
-    return `<div class="grid gap-2">${accepted.map((r,i)=>personCard(r.fullName||'أستاذ', r.subjects?.map(s=>s.name).join('، ')||'', 10+i, 'teacher')).join('')}</div>`;
+    return `<div class="grid gap-2">${accepted.map(r=>personCard(r)).join('')}</div>`;
   }
 
   // ── مؤسسة: التلاميذ ──
   if(t==='institution' && tab==='students') {
     const accepted = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted');
     if(!accepted.length) return emptyState('<circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/>', 'لم ينضم أي تلميذ بعد');
-    return `<div class="grid gap-2">${accepted.map((r,i)=>personCard(r.fullName||'تلميذ', r.levelName||'', 30+i, 'student')).join('')}</div>`;
+    return `<div class="grid gap-2">${accepted.map(r=>personCard(r)).join('')}</div>`;
   }
 
   // ── مؤسسة / أستاذ / مؤثر: المنشورات ──
@@ -1363,6 +1381,7 @@ async function submitJoinRequest() {
     id: Date.now(),
     uid: localStorage.getItem('yadwor-uid') || '',
     username: localStorage.getItem('yadwor-username') || '',
+    avatar: localStorage.getItem('yadwor-avatar-preview') || '',
     role: state.joinRole,
     fullName: state.settingsName,
     levelId: state.selectedLevel,
@@ -1467,35 +1486,55 @@ function renderVisitorTabContent(tabId, vPosts) {
     <style>.vmg{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}.vmg-i{position:relative;aspect-ratio:1/1;overflow:hidden;cursor:pointer;background:#f4f4f5}.vmg-i img{width:100%;height:100%;object-fit:cover;display:block}</style>
     <div class="vmg">${mediaItems.map((item,i)=>`<div class="vmg-i" onclick="openImageViewer(${item.postId},${item.idx})"><img src="${item.url}" /></div>`).join('')}</div>`;
   }
+  if(tabId === 'books') {
+    const books=[{title:"كتاب الرياضيات الكامل",subject:"الرياضيات",kind:"كتاب",image:"https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=900&auto=format&fit=crop"},{title:"فرض محروس رقم 1",subject:"الرياضيات",kind:"فرض",image:"https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=900&auto=format&fit=crop"},{title:"ملخص النهايات",subject:"الرياضيات",kind:"ملخص",image:"https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=900&auto=format&fit=crop"}];
+    return `<div class="grid grid-cols-3 gap-2">${books.map(b=>`<div class="relative h-40 overflow-hidden rounded-[12px] border border-zinc-200"><div class="shimmer absolute inset-0"></div><img src="${b.image}" class="h-full w-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" /><div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-[2]"></div><div class="absolute inset-x-0 bottom-0 p-2 text-white z-[3]"><div class="mb-1 flex items-center justify-between gap-1"><span class="rounded-full bg-white/15 px-2 py-1 text-[9px] font-bold">${b.kind}</span><span class="rounded-full bg-violet-500/90 px-2 py-1 text-[9px] font-bold">${b.subject}</span></div><h3 class="line-clamp-2 text-[12px] font-extrabold leading-5">${b.title}</h3></div></div>`).join('')}</div>`;
+  }
   if(tabId === 'teachers') {
     const vId = _visitorUid || _visitorUsername;
     const accepted = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted'&&(r.institutionId===vId||r.institutionUid===vId));
     if(!accepted.length) return emptyState('لم ينضم أي أستاذ بعد');
-    return `<div class="grid gap-2">${accepted.map((r,i)=>`
-      <div class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm">
+    return `<div class="grid gap-2">${accepted.map((r)=>{
+      const tUid = r.uid || '';
+      const tUsername = r.username || '';
+      const profileLink = tUid ? `profile.html?uid=${tUid}` : (tUsername ? `profile.html?username=${tUsername}` : '#');
+      const avatarSrc = r.avatarUrl || r.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.fullName||'A')}&background=e4e6eb&color=555&size=200`;
+      return `<a href="${profileLink}" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition">
         <div class="h-11 w-11 shrink-0 rounded-full overflow-hidden bg-zinc-100">
-          <img src="https://i.pravatar.cc/200?img=${10+i}" class="h-11 w-11 rounded-full object-cover" />
+          <img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(r.fullName||'A')}&background=e4e6eb&color=555&size=200'" />
         </div>
         <div class="flex-1 min-w-0">
           <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${r.fullName||'أستاذ'}</h3>
           <p class="text-[11px] text-zinc-400 font-medium truncate">${(r.subjects||[]).map(s=>s.name||s).join('، ')||''}</p>
         </div>
-      </div>`).join('')}</div>`;
+        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-50 border border-zinc-100">
+          <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-400" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </a>`;
+    }).join('')}</div>`;
   }
   if(tabId === 'students') {
     const vId = _visitorUid || _visitorUsername;
     const accepted = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted'&&(r.institutionId===vId||r.institutionUid===vId));
     if(!accepted.length) return emptyState('لم ينضم أي تلميذ بعد');
-    return `<div class="grid gap-2">${accepted.map((r,i)=>`
-      <div class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm">
+    return `<div class="grid gap-2">${accepted.map((r)=>{
+      const sUid = r.uid || '';
+      const sUsername = r.username || '';
+      const profileLink = sUid ? `profile.html?uid=${sUid}` : (sUsername ? `profile.html?username=${sUsername}` : '#');
+      const avatarSrc = r.avatarUrl || r.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.fullName||'T')}&background=e4e6eb&color=555&size=200`;
+      return `<a href="${profileLink}" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition">
         <div class="h-11 w-11 shrink-0 rounded-full overflow-hidden bg-zinc-100">
-          <img src="https://i.pravatar.cc/200?img=${30+i}" class="h-11 w-11 rounded-full object-cover" />
+          <img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(r.fullName||'T')}&background=e4e6eb&color=555&size=200'" />
         </div>
         <div class="flex-1 min-w-0">
           <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${r.fullName||'تلميذ'}</h3>
           <p class="text-[11px] text-zinc-400 font-medium truncate">${r.levelName||''}</p>
         </div>
-      </div>`).join('')}</div>`;
+        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-50 border border-zinc-100">
+          <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-400" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </a>`;
+    }).join('')}</div>`;
   }
   return '';
 }
