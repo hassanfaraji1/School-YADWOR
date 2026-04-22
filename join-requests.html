@@ -473,13 +473,45 @@ async function rejectRequest(id) {
 
 async function removeMember(id) {
   if (!confirm('هل تريد إزالة هذا العضو من المؤسسة؟')) return;
+  const r = state.joinRequests.find(x => x.id === id);
+  // إزالة الطلب من القائمة المحلية
   state.joinRequests = state.joinRequests.filter(x => x.id !== id);
   try { localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests)); } catch(e) {}
+
+  // تحويل نوع حساب العضو المُزال إلى "مؤثر تعليمي" في Firebase
+  if (r && r.uid) {
+    try {
+      await fetch(`${FB_JR_URL}/users/${r.uid}.json?auth=${FB_JR_KEY}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ accountType: 'influencer', profileType: 'influencer', updatedAt: Date.now() })
+      });
+    } catch(e) { console.warn('reset accountType failed:', e); }
+  }
+
+  // إذا كان العضو المُزال هو المستخدم الحالي — حدّث localStorage أيضاً
+  const myUid = localStorage.getItem('yadwor-uid');
+  if (r && r.uid && r.uid === myUid) {
+    localStorage.setItem('yadwor-account-type', 'influencer');
+    localStorage.setItem('yadwor-profile-type', 'influencer');
+    if (typeof state !== 'undefined') {
+      state.profileType = 'influencer';
+      state.settingsAccountType = 'influencer';
+    }
+    try {
+      const ru = typeof getRealUser === 'function' ? getRealUser() : {};
+      ru.accountType = 'influencer';
+      localStorage.setItem('yadwor-user-data', JSON.stringify(ru));
+    } catch(e) {}
+  }
+
+  // حذف الطلب من Firebase
   try {
     await fetch(`${FB_JR_URL}/joinRequests/${id}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' });
   } catch(e) { console.warn(e); }
+
   closeMemberModal();
-  showToast('تم إزالة العضو من المؤسسة');
+  showToast('تم إزالة العضو وتحويل حسابه إلى مؤثر تعليمي');
   renderMembers();
 }
 
