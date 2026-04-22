@@ -1147,87 +1147,16 @@ function goToVisitorChat(name, avatar) {
 }
 
 // ====================== EXERCISES MODAL ======================
-function _filterAndShowExams(allExamsRaw, myProfileType, myUid, myAcceptedReq, viewingInstitutionUid) {
-  const modal = document.getElementById('exercises-modal');
-  const content = document.getElementById('exercises-modal-content');
-  const activeExams = allExamsRaw.filter(e => Date.now() < (e.expiresAt || 0));
-
-  let filteredExams = activeExams;
-  let notSameInstitution = false;
-
-  if (myProfileType === 'student') {
-    if (!myAcceptedReq) {
-      notSameInstitution = true;
-    } else {
-      const myInstitutionUid = myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '';
-      const myLevelId = (myAcceptedReq.levelId || '').trim();
-      const mySubjects = (myAcceptedReq.subjects || []).map(s => (s.name || s).trim().toLowerCase());
-      filteredExams = activeExams.filter(e => {
-        const examLevel   = (e.levelId  || '').trim();
-        const examSubject = (e.subject  || '').trim().toLowerCase();
-        const examInstUid = (e.institutionUid || '').trim();
-        // مؤسسة
-        const instMatch    = !examInstUid || !myInstitutionUid || examInstUid === myInstitutionUid;
-        // مستوى
-        const levelMatch   = !examLevel || !myLevelId || examLevel === myLevelId;
-        // مادة: تطابق نصي مرن
-        const subjectMatch = !examSubject || mySubjects.length === 0 ||
-          mySubjects.some(s => s === examSubject || examSubject.includes(s) || s.includes(examSubject));
-        return instMatch && levelMatch && subjectMatch;
-      });
-      // إذا يفتح من ملف مؤسسة أخرى → رسالة عدم الانتماء
-      if (viewingInstitutionUid && myInstitutionUid && viewingInstitutionUid !== myInstitutionUid) {
-        notSameInstitution = true;
-      }
-    }
-  } else if (myProfileType === 'teacher' || myProfileType === 'institution') {
-    filteredExams = activeExams.filter(e => e.teacherUid === myUid || e.institutionUid === myUid);
-    if (viewingInstitutionUid && viewingInstitutionUid !== myUid) {
-      const myInstUid = myAcceptedReq ? (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '') : '';
-      if (myInstUid !== viewingInstitutionUid) {
-        notSameInstitution = true;
-      } else {
-        filteredExams = activeExams.filter(e =>
-          e.teacherUid === viewingInstitutionUid || e.institutionUid === viewingInstitutionUid
-        );
-      }
-    }
-  }
-
-  if (notSameInstitution) {
-    content.innerHTML = `
+function _buildExamsModalHTML(filteredExams) {
+  const header = `
     <div class="flex items-center justify-between mb-5">
       <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
       <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
         <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
-    </div>
-    <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
-      <div class="h-16 w-16 rounded-full flex items-center justify-center" style="background:#fef3c7;">
-        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-amber-500" stroke-width="1.6" stroke-linecap="round">
-          <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
-        </svg>
-      </div>
-      <p class="text-[16px] font-extrabold text-zinc-800">غير مسموح بالوصول</p>
-      <p class="text-[13px] text-zinc-500 leading-relaxed px-4">لا يمكنك مشاهدة هذه الاختبارات لأنك لست في نفس المؤسسة.<br>انضم أولاً للمؤسسة لتتمكن من الوصول إلى الاختبارات والتمارين.</p>
     </div>`;
-    modal.classList.remove('hidden');
-    return;
-  }
-
-  _renderExamsContent(filteredExams, content);
-  modal.classList.remove('hidden');
-}
-
-function _renderExamsContent(filteredExams, content) {
   if (!filteredExams.length) {
-    content.innerHTML = `
-    <div class="flex items-center justify-between mb-5">
-      <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
-      <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
-        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
+    return header + `
     <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
       <div class="h-16 w-16 rounded-full bg-zinc-100 flex items-center justify-center">
         <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.5" stroke-linecap="round">
@@ -1235,65 +1164,91 @@ function _renderExamsContent(filteredExams, content) {
         </svg>
       </div>
       <p class="text-[15px] font-bold text-zinc-800">لا يوجد اختبار أو تمرين حالياً</p>
-      <p class="text-[13px] text-zinc-400">لم يتم نشر أي اختبار أو تمرين بعد.<br>تابع الصفحة لتصلك الاختبارات القادمة.</p>
-    </div>`;
-  } else {
-    content.innerHTML = `
-    <div class="flex items-center justify-between mb-5">
-      <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
-      <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
-        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <div class="space-y-3">
-      ${filteredExams.map(e => {
-        const totalPts = e.questions.reduce((s,q)=>s+(q.points||1),0);
-        const remaining = Math.max(0, e.expiresAt - Date.now());
-        const remH = Math.floor(remaining/3600000);
-        const remM = Math.floor((remaining%3600000)/60000);
-        const timeStr = remH > 0 ? `${remH}س ${remM}د` : `${remM} دقيقة`;
-        return `
-        <div class="rounded-[18px] border border-zinc-100 bg-zinc-50 p-4">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-[11px] font-bold bg-violet-100 text-violet-700 rounded-full px-2.5 py-1">${e.type}</span>
-            <span class="text-[11px] text-orange-500 font-bold">⏳ ${timeStr}</span>
-          </div>
-          <h4 class="text-[15px] font-extrabold text-zinc-900 mb-1">${e.title}</h4>
-          <div class="flex items-center gap-3 text-[12px] text-zinc-400 mb-3 flex-wrap">
-            <span>📝 ${e.questions.length} سؤال</span>
-            <span>⭐ ${totalPts} نقطة</span>
-            ${e.subject ? `<span>📚 ${e.subject}</span>` : ''}
-          </div>
-          <div class="rounded-[12px] bg-amber-50 border border-amber-200 p-3 mb-3">
-            <p class="text-[12px] text-amber-700 font-bold leading-relaxed">
-              ⚠️ استعد جيداً! لكل سؤال وقت محدد ولا يمكن تخطي الأسئلة.
-            </p>
-          </div>
-          <button onclick="startExamFromProfile(${e.id})"
-            class="h-11 w-full rounded-[14px] bg-zinc-900 text-[14px] font-extrabold text-white">
-            بدء الآن ←
-          </button>
-        </div>`;
-      }).join('')}
+      <p class="text-[13px] text-zinc-400">لم يتم نشر أي اختبار أو تمرين بعد.</p>
     </div>`;
   }
+  return header + `<div class="space-y-3">
+    ${filteredExams.map(e => {
+      const totalPts = e.questions.reduce((s,q)=>s+(q.points||1),0);
+      const remaining = Math.max(0, e.expiresAt - Date.now());
+      const remH = Math.floor(remaining/3600000);
+      const remM = Math.floor((remaining%3600000)/60000);
+      const timeStr = remH > 0 ? `${remH}س ${remM}د` : `${remM} دقيقة`;
+      return `
+      <div class="rounded-[18px] border border-zinc-100 bg-zinc-50 p-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[11px] font-bold bg-violet-100 text-violet-700 rounded-full px-2.5 py-1">${e.type}</span>
+          <span class="text-[11px] text-orange-500 font-bold">⏳ ${timeStr}</span>
+        </div>
+        <h4 class="text-[15px] font-extrabold text-zinc-900 mb-1">${e.title}</h4>
+        <div class="flex items-center gap-3 text-[12px] text-zinc-400 mb-3 flex-wrap">
+          <span>📝 ${e.questions.length} سؤال</span>
+          <span>⭐ ${totalPts} نقطة</span>
+          ${e.subject ? `<span>📚 ${e.subject}</span>` : ''}
+        </div>
+        <div class="rounded-[12px] bg-amber-50 border border-amber-200 p-3 mb-3">
+          <p class="text-[12px] text-amber-700 font-bold leading-relaxed">
+            ⚠️ استعد جيداً! لكل سؤال وقت محدد ولا يمكن تخطي الأسئلة.
+          </p>
+        </div>
+        <button onclick="startExamFromProfile(${e.id})"
+          class="h-11 w-full rounded-[14px] bg-zinc-900 text-[14px] font-extrabold text-white">
+          بدء الآن ←
+        </button>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function _applyExamFilter(allExamsRaw, myProfileType, myUid, myAcceptedReq, viewingUid) {
+  const now = Date.now();
+  const active = allExamsRaw.filter(e => now < (e.expiresAt || 0));
+
+  if (myProfileType === 'student') {
+    if (!myAcceptedReq) return { notAllowed: true };
+    const myInstUid  = (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '').trim();
+    const myLevelId  = (myAcceptedReq.levelId || '').trim();
+    const mySubjects = (myAcceptedReq.subjects || []).map(s => (s.name || s).trim().toLowerCase());
+    // إذا يفتح من ملف مؤسسة مختلفة عن مؤسسته → غير مسموح
+    if (viewingUid && myInstUid && viewingUid !== myInstUid) return { notAllowed: true };
+    const filtered = active.filter(e => {
+      const eInst    = (e.institutionUid || '').trim();
+      const eLevel   = (e.levelId        || '').trim();
+      const eSubject = (e.subject        || '').trim().toLowerCase();
+      const instOk   = !eInst   || !myInstUid  || eInst   === myInstUid;
+      const levelOk  = !eLevel  || !myLevelId  || eLevel  === myLevelId;
+      const subjOk   = !eSubject|| mySubjects.length === 0 ||
+        mySubjects.some(s => s === eSubject || eSubject.includes(s) || s.includes(eSubject));
+      return instOk && levelOk && subjOk;
+    });
+    return { filtered };
+  }
+
+  if (myProfileType === 'teacher' || myProfileType === 'institution') {
+    // إذا يفتح من ملف مؤسسة أخرى
+    if (viewingUid && viewingUid !== myUid) {
+      const myInstUid = myAcceptedReq ? (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '') : '';
+      if (myInstUid !== viewingUid) return { notAllowed: true };
+      return { filtered: active.filter(e => e.institutionUid === viewingUid || e.teacherUid === viewingUid) };
+    }
+    return { filtered: active.filter(e => e.teacherUid === myUid || e.institutionUid === myUid) };
+  }
+
+  return { filtered: active };
 }
 
 function openExercisesModal() {
-  const myUid = localStorage.getItem('yadwor-uid') || '';
+  const myUid         = localStorage.getItem('yadwor-uid') || '';
   const myProfileType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
-
-  const modal = document.getElementById('exercises-modal');
-  const content = document.getElementById('exercises-modal-content');
-
-  const allRequests = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
+  const modal         = document.getElementById('exercises-modal');
+  const content       = document.getElementById('exercises-modal-content');
+  const allRequests   = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
   const myAcceptedReq = allRequests.find(r =>
     r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
   );
+  const viewingUid = _visitorUid || '';
 
-  const viewingInstitutionUid = _visitorUid || '';
-
-  // إظهار shimmer أثناء تحميل البيانات
+  // shimmer
   content.innerHTML = `
     <div class="flex items-center justify-between mb-5">
       <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
@@ -1310,12 +1265,10 @@ function openExercisesModal() {
     </div>`;
   modal.classList.remove('hidden');
 
-  // 1) جلب الاختبارات من localStorage (اختبارات الجهاز الحالي)
   const localExams = JSON.parse(localStorage.getItem('yadwor-exams') || '[]');
-
-  // 2) جلب الاختبارات من Firebase ودمجها مع المحلية
-  const FB = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
+  const FB  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
   const KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+
   fetch(`${FB}/exams.json?auth=${KEY}`)
     .then(r => r.ok ? r.json() : null)
     .then(data => {
@@ -1323,17 +1276,38 @@ function openExercisesModal() {
       if (data && typeof data === 'object') {
         fbExams = Object.values(data).filter(e => e && e.id && e.expiresAt);
       }
-      // دمج: Firebase أولاً ثم المحلية (تجنب التكرار بالـ id)
       const seen = new Set(fbExams.map(e => String(e.id)));
       const merged = [...fbExams, ...localExams.filter(e => !seen.has(String(e.id)))];
-      _filterAndShowExams(merged, myProfileType, myUid, myAcceptedReq, viewingInstitutionUid);
+      const result = _applyExamFilter(merged, myProfileType, myUid, myAcceptedReq, viewingUid);
+      if (result.notAllowed) {
+        content.innerHTML = `
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
+          <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+            <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
+          <div class="h-16 w-16 rounded-full flex items-center justify-center" style="background:#fef3c7;">
+            <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-amber-500" stroke-width="1.6" stroke-linecap="round">
+              <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+            </svg>
+          </div>
+          <p class="text-[16px] font-extrabold text-zinc-800">غير مسموح بالوصول</p>
+          <p class="text-[13px] text-zinc-500 leading-relaxed px-4">لا يمكنك مشاهدة هذه الاختبارات لأنك لست في نفس المؤسسة.<br>انضم أولاً للمؤسسة لتتمكن من الوصول.</p>
+        </div>`;
+      } else {
+        content.innerHTML = _buildExamsModalHTML(result.filtered || []);
+      }
     })
     .catch(() => {
-      // إذا فشل الاتصال → استخدم المحلية فقط
-      _filterAndShowExams(localExams, myProfileType, myUid, myAcceptedReq, viewingInstitutionUid);
+      const result = _applyExamFilter(localExams, myProfileType, myUid, myAcceptedReq, viewingUid);
+      if (result.notAllowed) {
+        content.innerHTML = `<p class="text-center text-zinc-500 py-10">غير مسموح بالوصول.</p>`;
+      } else {
+        content.innerHTML = _buildExamsModalHTML(result.filtered || []);
+      }
     });
-}
-
 }
 
 function closeExercisesModal() {
