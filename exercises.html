@@ -729,11 +729,20 @@ function publishExam() {
   saveExams(exams);
   savePendingQuestions([]);
 
-  // حفظ الإشعار في Firebase لكي تستقبله التلاميذ المعنيون
+  // حفظ الاختبار كاملاً في Firebase لكي تستقبله التلاميذ المعنيون
   try {
     const FB_DB_URL_EX = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
     const FB_API_KEY_EX = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
     const myName = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'أستاذ';
+
+    // 1) حفظ الاختبار كاملاً في /exams/
+    fetch(`${FB_DB_URL_EX}/exams/${exam.id}.json?auth=${FB_API_KEY_EX}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(exam)
+    }).catch(() => {});
+
+    // 2) حفظ الإشعار في /notifications/
     const notif = {
       id: exam.id,
       type: 'exam',
