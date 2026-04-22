@@ -454,7 +454,13 @@ function renderPostCard(post) {
   const savedFill = post.saved ? 'currentColor' : 'none';
   const timeLabel = formatTimeAgo(post.timestamp || post.time);
   const roleLabels= {institution:'مؤسسة تعليمية',teacher:'أستاذ',student:'تلميذ',influencer:'مؤثر تعليمي',user:'مستخدم'};
-  const roleLabel = roleLabels[post.accountType] || roleLabels[post.role] || post.role || 'مستخدم';
+  // إذا كان المنشور للمستخدم الحالي، استخدم نوع حسابه الحالي من localStorage
+  let effectiveAccountType = post.accountType || post.role || 'influencer';
+  if (_isMine(post)) {
+    const currentType = localStorage.getItem('yadwor-account-type') || '';
+    if (currentType) effectiveAccountType = currentType;
+  }
+  const roleLabel = roleLabels[effectiveAccountType] || effectiveAccountType || 'مستخدم';
   // post.avatar مدمجة مع المنشور تمثل صورة صاحبه الحقيقية — لا نستبدلها بصورة المستخدم الحالي
   const postAv    = post.avatar || 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?w=400&auto=format&fit=crop';
   const isMinePost= _isMine(post);
