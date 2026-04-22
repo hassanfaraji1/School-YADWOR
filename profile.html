@@ -354,15 +354,29 @@ function formatNumber(n) {
 function switchProfile(type) {
   state.profileType = type;
   localStorage.setItem('yadwor-profile-type', type);
+  localStorage.setItem('yadwor-account-type', type);
   state.activeTab = getDefaultTab(type);
+  // تحديث accountType في جميع منشوراتي محلياً وعلى Firebase
+  if (typeof updateMyPostsAccountTypeInFirebase === 'function') {
+    updateMyPostsAccountTypeInFirebase(type);
+  }
   renderProfile();
   updateSidebarButtons();
 }
 
+let _currentPendingInstitutionId = '';
+function showPendingJoinModal() {
+  _currentPendingInstitutionId = _visitorUid || _visitorUsername || '';
+  document.getElementById('pending-join-modal').classList.remove('hidden');
+}
+function closePendingJoinModal() {
+  document.getElementById('pending-join-modal').classList.add('hidden');
+}
+
 function getDefaultTab(type) {
-  if(type==='institution') return 'posts';
+  if(type==='institution') return 'teachers';
   if(type==='teacher') return 'students';
-  if(type==='student') return 'posts';
+  if(type==='student') return 'teachers';
   return 'posts';
 }
 
@@ -391,34 +405,33 @@ function renderProfile() {
     // تحديد tabs حسب نوع الحساب
     let vTabs = [];
     if (vAccountType === 'institution') {
+      // الأساتذة والتلاميذ المقبولون في هذه المؤسسة
       const vInstitutionId = _visitorUid || _visitorUsername;
       const acceptedTeachers = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted'&&(r.institutionId===vInstitutionId||r.institutionUid===vInstitutionId));
       const acceptedStudents = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted'&&(r.institutionId===vInstitutionId||r.institutionUid===vInstitutionId));
       vTabs = [
-        {id:'posts',    label:'المنشورات', count: vPosts.length},
-        {id:'teachers', label:'الأساتذة',  count: acceptedTeachers.length},
-        {id:'students', label:'التلاميذ',  count: acceptedStudents.length},
-        {id:'books',    label:'الكتب',     count: 0}
+        {id:'posts', label:'المنشورات', count: vPosts.length},
+        {id:'teachers', label:'الأساتذة', count: acceptedTeachers.length},
+        {id:'students', label:'التلاميذ', count: acceptedStudents.length}
       ];
     } else if (vAccountType === 'teacher') {
       const vTeacherId = _visitorUid || _visitorUsername;
       const teacherStudents = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted'&&(r.teacherUid===vTeacherId||r.teacherUsername===vTeacherId||r.institutionUid===vTeacherId));
       vTabs = [
-        {id:'students', label:'تلاميذي',    count: teacherStudents.length},
-        {id:'books',    label:'الكتب',      count: 0},
-        {id:'posts',    label:'المنشورات',  count: vPosts.length}
+        {id:'students', label:'تلاميذي', count: teacherStudents.length},
+        {id:'books',    label:'الكتب',   count: 0},
+        {id:'posts',    label:'المنشورات', count: vPosts.length},
+        {id:'media',    label:'الوسائط', count: vPosts.filter(p=>p.images&&p.images.length&&p.type!=='video').reduce((s,p)=>s+p.images.length,0)}
       ];
     } else if (vAccountType === 'student') {
       vTabs = [
-        {id:'posts',        label:'المنشورات', count: vPosts.length},
-        {id:'badges',       label:'الألقاب',   count: 0},
-        {id:'certificates', label:'الشواهد',   count: 0}
+        {id:'posts', label:'المنشورات', count: vPosts.length},
+        {id:'media', label:'الوسائط', count: vPosts.filter(p=>p.images&&p.images.length&&p.type!=='video').reduce((s,p)=>s+p.images.length,0)}
       ];
     } else {
-      // influencer أو user
       vTabs = [
         {id:'posts', label:'المنشورات', count: vPosts.length},
-        {id:'media', label:'الوسائط',  count: vPosts.filter(p=>p.images&&p.images.length&&p.type!=='video').reduce((s,p)=>s+p.images.length,0)}
+        {id:'media', label:'الوسائط', count: vPosts.filter(p=>p.images&&p.images.length&&p.type!=='video').reduce((s,p)=>s+p.images.length,0)}
       ];
     }
 
@@ -439,19 +452,22 @@ function renderProfile() {
     let vActionBtn3 = '';
     if (vAccountType === 'institution') {
       if (isAlreadyMember) {
-        vActionBtn3 = `<button onclick="openExercisesModal()" class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[12px] font-bold text-white cursor-pointer" style="background:#7c3aed;">تمارين / اختبارات</button>`;
+        vActionBtn3 = `<button onclick="openExercisesModal()" class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[10px] font-bold text-white cursor-pointer" style="background:#6366f1;">
+          <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+          تمارين واختبارات
+        </button>`;
       } else if (hasPendingJoin) {
-        vActionBtn3 = `<button onclick="showPendingJoinModal()" class="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-full text-[12px] font-bold text-amber-800 cursor-pointer" style="background:#fef3c7;">
-          <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+        vActionBtn3 = `<button onclick="showPendingJoinModal()" class="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-full text-[10px] font-bold text-amber-800 cursor-pointer" style="background:#fef3c7;">
+          <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
           انتظر القبول
         </button>`;
       } else {
-        vActionBtn3 = `<button onclick="openJoinModal()" class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[12px] font-bold text-white" style="background:#fb923c;">+ انضمام</button>`;
+        vActionBtn3 = `<button onclick="openJoinModal()" class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[10px] font-bold text-white" style="background:#f97316;">+ انضمام</button>`;
       }
     } else if (vAccountType === 'teacher') {
-      vActionBtn3 = `<button onclick="openExercisesModal()" class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[12px] font-bold text-white" style="background:#7c3aed;">
-        <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
-        تمارين
+      vActionBtn3 = `<button onclick="openExercisesModal()" class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[10px] font-bold text-white" style="background:#6366f1;">
+        <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
+        تمارين واختبارات
       </button>`;
     }
 
@@ -465,7 +481,6 @@ function renderProfile() {
       <div class="relative z-[5] -mt-10 px-3">
         <div class="absolute z-[20]" style="top:-36px; right:12px; left:12px; direction:ltr;">
           <div class="flex items-end justify-end gap-2">
-            <!-- Badges موقع الزائر -->
             <div class="flex items-center gap-1.5 pb-2">
               <span class="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2 py-1 shadow-sm">
                 <svg viewBox="0 0 24 24" class="h-2.5 w-2.5 fill-none stroke-white" stroke-width="2.2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
@@ -480,18 +495,19 @@ function renderProfile() {
                 <span class="text-[9.5px] font-extrabold text-white">${(vp.location||'').split('،')[0]?.trim()||vp.country||'—'}</span>
               </span>
             </div>
-            <!-- Avatar -->
             <div class="relative shrink-0">
               <div class="h-[72px] w-[72px] rounded-full bg-white p-[3px] shadow-xl">
                 <div class="shimmer absolute inset-[3px] rounded-full"></div>
                 <img src="${vAvatar}" class="h-full w-full rounded-full object-cover relative z-[1]"
                   onload="this.previousElementSibling&&this.previousElementSibling.remove()"
-                  onerror="this.src='https://images.unsplash.com/photo-1511367461989-f85a21fda167?w=400&auto=format&fit=crop';var e=this.previousElementSibling;if(e)e.remove();" />
+                  onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(vp.name||_visitorUsername||'U')}&background=e4e6eb&color=555&size=200';var e=this.previousElementSibling;if(e)e.remove();" />
                 ${vp.verified ? `<div class="absolute bottom-0.5 left-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 ring-2 ring-white z-[3]"><svg viewBox="0 0 24 24" class="h-3 w-3 fill-white"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>` : ''}
               </div>
             </div>
           </div>
         </div>
+
+        <!-- Info card ONLY (no tabs inside) -->
         <div class="rounded-[22px] bg-white border border-zinc-200/60 pt-12 pb-4 px-4 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
           <div class="text-right">
             <h2 class="text-[20px] font-extrabold mt-1">${vp.name||state._viewingUsername}</h2>
@@ -504,12 +520,16 @@ function renderProfile() {
             </div>
             ${vp.bio ? `<p class="mt-2 text-[12px] leading-[1.7] text-zinc-500">${vp.bio}</p>` : ''}
           </div>
-          <div class="mt-4 flex gap-2">
-            <button onclick="goToVisitorChat('${encodeURIComponent(vp.name||state._viewingUsername||'')}','${encodeURIComponent(vAvatar)}')" class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full bg-zinc-900 text-[11px] font-bold text-white cursor-pointer">
+          <div class="mt-3 flex gap-2">
+            <button onclick="goToVisitorChat('${encodeURIComponent(vp.name||state._viewingUsername||'')}','${encodeURIComponent(vAvatar)}')" class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full bg-zinc-900 text-[10px] font-bold text-white cursor-pointer">
               <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               رسالة
             </button>
-            <button id="visitor-follow-btn" onclick="toggleVisitorFollow('${_visitorUid||''}','${_visitorUsername||''}')" class="${_visitorFollowing ? 'inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[11px] font-bold text-blue-700 cursor-pointer' : 'inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full bg-blue-500 text-[11px] font-bold text-white cursor-pointer'}" style="${_visitorFollowing ? 'background:#eff6ff;' : ''}">${_visitorFollowing ? '✓ تتابع' : '+ متابعة'}</button>
+            <button id="visitor-follow-btn" onclick="toggleVisitorFollow('${_visitorUid||''}','${_visitorUsername||''}')"
+              class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[10px] font-bold cursor-pointer ${_visitorFollowing ? 'text-blue-600' : 'text-white'}"
+              style="${_visitorFollowing ? 'background:#dbeafe;border:1.5px solid #93c5fd;' : 'background:#3b82f6;'}">
+              ${_visitorFollowing ? '✓ تتابع' : '+ متابعة'}
+            </button>
             ${vActionBtn3}
           </div>
           <div class="mt-3 grid grid-cols-4 divide-x divide-x-reverse divide-zinc-100">
@@ -518,19 +538,20 @@ function renderProfile() {
             <div class="text-center px-1"><div class="text-[14px] font-extrabold" style="color:#1e40af;">${vAccountType==='institution' ? formatNumber(vp.teachers||0) : vPosts.length}</div><div class="text-[9px] font-bold mt-0.5" style="color:#4b5563;">${vAccountType==='institution' ? 'أستاذ' : 'منشور'}</div></div>
             <div class="text-center px-1"><div class="text-[14px] font-extrabold" style="color:#1e40af;">${vAccountType==='institution' ? formatNumber(vp.students||0) : vPosts.filter(p=>p.images&&p.images.length&&p.type!=='video').reduce((s,p)=>s+p.images.length,0)}</div><div class="text-[9px] font-bold mt-0.5" style="color:#4b5563;">${vAccountType==='institution' ? 'تلميذ' : 'وسائط'}</div></div>
           </div>
-
-          <div class="mt-4 border-t border-zinc-200">
-            <div class="flex items-center justify-between pt-0">
-              ${vTabs.map((tab,i)=>`
-              <button onclick="setVisitorTab('${tab.id}')" id="vtab-${tab.id}" class="relative flex h-12 flex-1 items-center justify-center gap-1.5 text-[13px] font-extrabold ${i===0?'text-zinc-900':'text-zinc-400'}">
-                ${i===0?'<span class="absolute inset-x-0 bottom-0 h-[2.5px] rounded-full bg-zinc-900"></span>':''}
-                <span>${tab.label}</span>
-                ${tab.count!==undefined?`<span class="text-[12px] font-black ${i===0?'text-zinc-900':'text-zinc-400'}" id="vtab-count-${tab.id}">${tab.count}</span>`:''}
-              </button>`).join('')}
-            </div>
-          </div>
-          <div id="visitor-tab-content" class="pt-4">${renderVisitorTabContent(vTabs[0].id, vPosts)}</div>
         </div>
+
+        <!-- Tabs OUTSIDE the card -->
+        <div class="mt-1 border-b border-zinc-200">
+          <div class="flex items-center justify-between overflow-x-auto">
+            ${vTabs.map((tab,i)=>`
+            <button onclick="setVisitorTab('${tab.id}')" id="vtab-${tab.id}" class="relative flex h-12 flex-1 items-center justify-center gap-1.5 text-[13px] font-extrabold ${i===0?'text-zinc-900':'text-zinc-400'}">
+              ${i===0?'<span class="absolute inset-x-0 bottom-0 h-[2.5px] rounded-full bg-zinc-900"></span>':''}
+              <span>${tab.label}</span>
+              ${tab.count!==undefined?`<span class="text-[12px] font-black ${i===0?'text-zinc-900':'text-zinc-400'}" id="vtab-count-${tab.id}">${tab.count}</span>`:''}
+            </button>`).join('')}
+          </div>
+        </div>
+        <div id="visitor-tab-content" class="pt-4">${renderVisitorTabContent(vTabs[0].id, vPosts)}</div>
       </div>
     </div>`;
     return;
@@ -567,43 +588,41 @@ function renderProfile() {
   const stat3label = state.profileType==='institution' ? 'أستاذ' : state.profileType==='teacher' ? 'تلاميذ' : state.profileType==='student' ? 'أساتذة' : 'منشورات';
   const stat4label = state.profileType==='institution' ? 'تلميذ' : state.profileType==='teacher' ? 'كتب' : state.profileType==='student' ? 'ألقاب' : 'وسائط';
   const displayName = prof.name || state.settingsName || 'مستخدم';
-  const followBtn = state.isFollowing
-    ? `<button onclick="toggleFollow()" class="inline-flex h-7 w-full items-center justify-center gap-1 rounded-full px-2 text-[10px] font-bold text-blue-700" style="background:#eff6ff;">✓ تتابع</button>`
-    : `<button onclick="toggleFollow()" class="inline-flex h-7 w-full items-center justify-center gap-1 rounded-full px-2 text-[10px] font-bold text-white" style="background:#60a5fa;">+ متابعة</button>`;
-  // زر التمارين/الاختبارات للأستاذ
+  // في ملفك الشخصي: بدل متابعة يظهر زر تعديل الملف
+  const followBtn = `<button onclick="window.location.href='settings.html'" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-2 text-[11px] font-bold text-zinc-700" style="background:#f4f4f5;border:1px solid #e4e4e7;">
+    <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    تعديل
+  </button>`;
+  // زر التمارين/الاختبارات
   const exercisesBtn = state.profileType === 'teacher'
-    ? `<button onclick="openExercisesModal()" class="inline-flex h-7 w-full items-center justify-center gap-1 rounded-full px-2 text-[10px] font-bold text-white" style="background:#7c3aed;">
+    ? `<button onclick="openExercisesModal()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-2 text-[10px] font-bold text-white" style="background:#6366f1;">
         <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
-        تمارين
+        تمارين واختبارات
       </button>`
     : state.profileType === 'institution'
       ? (state.joinedInstitution
-          ? `<button onclick="openExercisesModal()" class="inline-flex h-7 w-full items-center justify-center gap-1 rounded-full px-2 text-[10px] font-bold text-white" style="background:#7c3aed;">
+          ? `<button onclick="openExercisesModal()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-2 text-[10px] font-bold text-white" style="background:#6366f1;">
               <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
-              تمارين
+              تمارين واختبارات
             </button>`
-          : `<button onclick="openJoinModal()" class="inline-flex h-7 w-full items-center justify-center gap-1 rounded-full px-2 text-[10px] font-bold text-white" style="background:#fb923c;">انضمام</button>`)
-      : `<div class="h-7 w-full"></div>`;
+          : `<button onclick="openJoinModal()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-2 text-[10px] font-bold text-white" style="background:#f97316;">انضمام</button>`)
+      : `<div class="h-8 w-full"></div>`;
 
   document.getElementById('profile-content').innerHTML = `
-    <div class="bg-white">
-      <!-- Cover photo with fade-out bottom -->
+    <div>
+      <!-- Cover photo -->
       <div class="relative h-44 sm:h-52">
         <div class="shimmer absolute inset-0"></div>
         <img src="${prof.cover}" class="h-full w-full object-cover relative z-[1]"
           onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
-        <!-- Fade gradient bottom -->
         <div class="absolute bottom-0 left-0 right-0 h-24 z-[2]"
           style="background: linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.7) 50%, #fff 100%)"></div>
       </div>
 
-      <!-- Profile card floats up over cover bottom -->
       <div class="relative z-[5] -mt-10 px-3">
-
-        <!-- Avatar on original RIGHT position + badges in a row beside it -->
+        <!-- Avatar + badges -->
         <div class="absolute z-[20]" style="top:-36px; right:12px; left:12px; direction:ltr;">
           <div class="flex items-end justify-end gap-2">
-            <!-- Badges row -->
             <div class="flex items-center gap-1.5 pb-2">
               <span class="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2 py-1 shadow-sm">
                 <svg viewBox="0 0 24 24" class="h-2.5 w-2.5 fill-none stroke-white" stroke-width="2.2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
@@ -618,7 +637,6 @@ function renderProfile() {
                 <span class="text-[9.5px] font-extrabold text-white">${(prof.location||'المغرب، الدار البيضاء').split('،')[1]?.trim()||'المغرب'}</span>
               </span>
             </div>
-            <!-- Avatar last = rightmost in LTR -->
             <div class="relative shrink-0">
               <div class="h-[72px] w-[72px] rounded-full bg-white p-[3px] shadow-xl">
                 <div class="shimmer absolute inset-[3px] rounded-full"></div>
@@ -630,12 +648,10 @@ function renderProfile() {
           </div>
         </div>
 
-        <!-- Info card -->
+        <!-- Info card ONLY (no tabs inside) -->
         <div class="rounded-[22px] bg-white border border-zinc-200/60 pt-12 pb-4 px-4 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
           <div class="text-right">
-            <!-- Name -->
             <h2 class="text-[20px] font-extrabold tracking-tight leading-snug">${displayName}</h2>
-            <!-- Account type badge + username LEFT aligned under name -->
             <div class="mt-1.5 flex items-center gap-2 justify-start">
               <span class="inline-flex items-center gap-1 rounded-full bg-zinc-900 px-2.5 py-1 text-[10px] font-bold text-white">
                 <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="${typeIcons}"/></svg>
@@ -646,8 +662,8 @@ function renderProfile() {
             ${prof.institution ? `<p class="mt-1.5 text-[11px] font-bold text-violet-600">${prof.institution}</p>` : ''}
             <p class="mt-2 text-[12px] leading-[1.7] text-zinc-500">${prof.bio}</p>
           </div>
-          <div class="mt-4 grid grid-cols-3 gap-2">
-            <button onclick="goToChat()" class="inline-flex h-7 w-full items-center justify-center gap-1 rounded-full px-1 text-[10px] font-bold text-white" style="background:#3f3f46;">
+          <div class="mt-3 grid grid-cols-3 gap-2">
+            <button onclick="goToChat()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-1 text-[10px] font-bold text-white" style="background:#3f3f46;">
               <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               رسالة
             </button>
@@ -661,8 +677,10 @@ function renderProfile() {
             <div class="text-center px-1"><div class="text-[14px] font-extrabold" style="color:#1e40af;">${stat4}</div><div class="text-[9px] font-bold mt-0.5" style="color:#4b5563;">${stat4label}</div></div>
           </div>
         </div>
-        <div class="mt-4 border-t border-zinc-200">
-          <div class="flex flex-nowrap items-center justify-between overflow-x-auto gap-0 pt-0">
+
+        <!-- Tabs OUTSIDE the card -->
+        <div class="mt-1 border-b border-zinc-200">
+          <div class="flex flex-nowrap items-center justify-between overflow-x-auto gap-0">
             ${tabs.map(tab => `
               <button onclick="setProfileTab('${tab.id}')" id="ptab-${tab.id}" class="relative flex h-12 flex-1 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap px-2 text-[13px] font-extrabold transition ${state.activeTab===tab.id?'text-zinc-900':'text-zinc-400'}">
                 ${state.activeTab===tab.id?`<span class="absolute inset-x-0 bottom-0 h-[2.5px] rounded-full bg-zinc-900"></span>`:''}
@@ -683,9 +701,9 @@ function getProfileTabs() {
   const myMedia = myPosts.filter(p => p.images && p.images.length && p.type !== 'video');
   const acceptedTeachers = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted').length;
   const acceptedStudents = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted').length;
-  if(state.profileType==='institution') return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'teachers',label:'الأساتذة',count:acceptedTeachers},{id:'students',label:'التلاميذ',count:acceptedStudents},{id:'books',label:'الكتب',count:0}];
+  if(state.profileType==='institution') return [{id:'teachers',label:'الأساتذة',count:acceptedTeachers},{id:'students',label:'التلاميذ',count:acceptedStudents},{id:'posts',label:'المنشورات',count:myPosts.length}];
   if(state.profileType==='teacher')    return [{id:'students',label:'تلاميذي',count:0},{id:'books',label:'الكتب',count:0},{id:'posts',label:'المنشورات',count:myPosts.length}];
-  if(state.profileType==='student')    return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'badges',label:'الألقاب',count:0},{id:'certificates',label:'الشواهد',count:0}];
+  if(state.profileType==='student')    return [{id:'teachers',label:'أساتذتي',count:0},{id:'badges',label:'الألقاب',count:0},{id:'certificates',label:'الشواهد',count:0}];
   if(state.profileType==='influencer') return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'media',label:'الوسائط',count:myMedia.length}];
   return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'media',label:'الوسائط',count:myMedia.length}];
 }
@@ -879,16 +897,6 @@ function toggleFollow() {
   renderProfile();
 }
 
-// ====================== PENDING JOIN MODAL ======================
-let _currentPendingInstitutionId = '';
-function showPendingJoinModal() {
-  _currentPendingInstitutionId = _visitorUid || _visitorUsername || '';
-  document.getElementById('pending-join-modal').classList.remove('hidden');
-}
-function closePendingJoinModal() {
-  document.getElementById('pending-join-modal').classList.add('hidden');
-}
-
 // ====================== VISITOR FOLLOW ======================
 function toggleVisitorFollow(uid, username) {
   const key = 'yadwor-following-' + (uid || username);
@@ -906,7 +914,7 @@ function toggleVisitorFollow(uid, username) {
     // تحديث الزر مباشرة
     const btn = document.getElementById('visitor-follow-btn');
     if (btn) {
-      btn.className = 'inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[11px] font-bold border border-blue-300 bg-blue-50 text-blue-700 cursor-pointer';
+      btn.className = 'inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full text-[13px] font-bold border border-blue-300 bg-blue-50 text-blue-700 cursor-pointer';
       btn.textContent = '✓ تتابع';
     }
     // تحديث عداد المتابعين في الواجهة
@@ -930,7 +938,7 @@ function confirmUnfollow() {
   // تحديث الزر
   const btn = document.getElementById('visitor-follow-btn');
   if (btn) {
-    btn.className = 'inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full bg-blue-500 text-[11px] font-bold text-white cursor-pointer';
+    btn.className = 'inline-flex h-10 flex-1 items-center justify-center gap-1 rounded-full bg-blue-500 text-[13px] font-bold text-white cursor-pointer';
     btn.textContent = '+ متابعة';
   }
   // تحديث العداد
@@ -949,18 +957,16 @@ function closeUnfollowModal() {
 async function _updateVisitorFollowersCount(uid, username, delta) {
   if (!uid) return;
   try {
-    // 1) تحديث عداد "متابع" للحساب المتابَع
+    // 1) تحديث عداد "متابع" للحساب المتابَع في Firebase
     const res = await fetch(`${FB_DB_URL}/users/${uid}/followers.json?auth=${FB_API_KEY}`);
     const cur = res.ok ? (await res.json() || 0) : 0;
     const newVal = Math.max(0, (parseInt(cur) || 0) + delta);
     await fetch(`${FB_DB_URL}/users/${uid}/followers.json?auth=${FB_API_KEY}`, {
-      method: 'PUT',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(newVal)
+      method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(newVal)
     });
   } catch(e) {}
 
-  // 2) تحديث عداد "يتابع" للمستخدم الحالي
+  // 2) تحديث عداد "يتابع" للمستخدم الحالي في Firebase وفي localStorage
   const myUid = localStorage.getItem('yadwor-uid');
   if (!myUid) return;
   try {
@@ -968,10 +974,14 @@ async function _updateVisitorFollowersCount(uid, username, delta) {
     const cur2 = res2.ok ? (await res2.json() || 0) : 0;
     const newVal2 = Math.max(0, (parseInt(cur2) || 0) + delta);
     await fetch(`${FB_DB_URL}/users/${myUid}/following.json?auth=${FB_API_KEY}`, {
-      method: 'PUT',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(newVal2)
+      method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(newVal2)
     });
+    // تحديث في localStorage أيضاً
+    try {
+      const ru = typeof getRealUser === 'function' ? getRealUser() : {};
+      ru.following = newVal2;
+      localStorage.setItem('yadwor-user-data', JSON.stringify(ru));
+    } catch(e) {}
   } catch(e) {}
 }
 
@@ -1518,10 +1528,17 @@ function renderVisitorTabContent(tabId, vPosts) {
       const tUid = r.uid || '';
       const tUsername = r.username || '';
       const profileLink = tUid ? `profile.html?uid=${tUid}` : (tUsername ? `profile.html?username=${tUsername}` : '#');
-      const avatarSrc = r.avatarUrl || r.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.fullName||'A')}&background=e4e6eb&color=555&size=200`;
+      // جلب الصورة من منشورات الأستاذ أو من Firebase users
+      const fromPost = tUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(tUid)) : state.posts.find(p=>p.username===tUsername);
+      const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
+      const avatarEl = avatarSrc
+        ? `<img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover"
+            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+           <div class="h-11 w-11 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 items-center justify-center text-white font-extrabold text-[15px] hidden">${(r.fullName||'A').charAt(0).toUpperCase()}</div>`
+        : `<div class="h-11 w-11 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white font-extrabold text-[15px]">${(r.fullName||'A').charAt(0).toUpperCase()}</div>`;
       return `<a href="${profileLink}" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition">
-        <div class="h-11 w-11 shrink-0 rounded-full overflow-hidden bg-zinc-100">
-          <img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(r.fullName||'A')}&background=e4e6eb&color=555&size=200'" />
+        <div class="h-11 w-11 shrink-0 rounded-full overflow-hidden bg-zinc-100 flex items-center justify-center">
+          ${avatarEl}
         </div>
         <div class="flex-1 min-w-0">
           <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${r.fullName||'أستاذ'}</h3>
@@ -1541,10 +1558,16 @@ function renderVisitorTabContent(tabId, vPosts) {
       const sUid = r.uid || '';
       const sUsername = r.username || '';
       const profileLink = sUid ? `profile.html?uid=${sUid}` : (sUsername ? `profile.html?username=${sUsername}` : '#');
-      const avatarSrc = r.avatarUrl || r.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.fullName||'T')}&background=e4e6eb&color=555&size=200`;
+      const fromPost = sUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(sUid)) : state.posts.find(p=>p.username===sUsername);
+      const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
+      const avatarEl = avatarSrc
+        ? `<img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover"
+            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+           <div class="h-11 w-11 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 items-center justify-center text-white font-extrabold text-[15px] hidden">${(r.fullName||'T').charAt(0).toUpperCase()}</div>`
+        : `<div class="h-11 w-11 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center text-white font-extrabold text-[15px]">${(r.fullName||'T').charAt(0).toUpperCase()}</div>`;
       return `<a href="${profileLink}" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition">
-        <div class="h-11 w-11 shrink-0 rounded-full overflow-hidden bg-zinc-100">
-          <img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(r.fullName||'T')}&background=e4e6eb&color=555&size=200'" />
+        <div class="h-11 w-11 shrink-0 rounded-full overflow-hidden bg-zinc-100 flex items-center justify-center">
+          ${avatarEl}
         </div>
         <div class="flex-1 min-w-0">
           <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${r.fullName||'تلميذ'}</h3>
@@ -1608,31 +1631,6 @@ async function loadVisitorProfile(username, uid) {
 
   // مزامنة نوع الحساب من Firebase (قد يكون تغيّر بعد قبول طلب انضمام)
   await syncAccountTypeFromFirebase();
-
-  // ضمان أن state.profileType يعكس نوع الحساب الحقيقي من localStorage دائماً
-  const savedType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
-  if (savedType) {
-    state.profileType = savedType;
-    state.activeTab = getDefaultTab(savedType);
-  }
-
-  // مزامنة طلبات الانضمام من Firebase لضمان رؤية آخر حالة (مقبول/مرفوض)
-  try {
-    const jrRes = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
-    if (jrRes.ok) {
-      const jrData = await jrRes.json();
-      if (jrData) {
-        const fbRequests = Object.values(jrData).filter(Boolean);
-        if (fbRequests.length > 0) {
-          // دمج: احتفظ بالطلبات المحلية غير الموجودة في Firebase، وحدّث الموجودة
-          const fbIds = new Set(fbRequests.map(r => String(r.id)));
-          const localOnly = state.joinRequests.filter(r => !fbIds.has(String(r.id)));
-          state.joinRequests = [...fbRequests, ...localOnly];
-          localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests));
-        }
-      }
-    }
-  } catch(e) {}
 
   // تحديد هل نعرض ملف شخص آخر أم ملفي أنا
   // الاعتماد على uid الفريد أولاً — إذا uid مختلف فهو شخص آخر
