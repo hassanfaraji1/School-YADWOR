@@ -130,15 +130,20 @@
       <span>تسجيل الخروج</span>
     </button>
   </nav>
-  <!-- Account type switcher inside sidebar -->
-  <div class="px-4 pb-6 pt-2 border-t border-zinc-100">
-    <p class="mb-3 text-center text-[12px] font-bold text-zinc-500">تبديل نوع الحساب للمعاينة</p>
-    <div class="grid grid-cols-2 gap-2">
-      <button onclick="switchProfile('influencer');closeSidebar()" id="stype-influencer" class="rounded-2xl px-3 py-3 text-[13px] font-bold transition bg-zinc-900 text-white">مؤثر تعليمي</button>
-      <button onclick="switchProfile('institution');closeSidebar()" id="stype-institution" class="rounded-2xl px-3 py-3 text-[13px] font-bold transition bg-white ring-1 ring-zinc-200">مؤسسة</button>
-      <button onclick="switchProfile('teacher');closeSidebar()" id="stype-teacher" class="rounded-2xl px-3 py-3 text-[13px] font-bold transition bg-white ring-1 ring-zinc-200">أستاذ</button>
-      <button onclick="switchProfile('student');closeSidebar()" id="stype-student" class="rounded-2xl px-3 py-3 text-[13px] font-bold transition bg-white ring-1 ring-zinc-200">تلميذ</button>
+
+</div>
+
+<!-- INSTITUTION INFO MODAL -->
+<div id="institution-info-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+  <div class="absolute inset-0" onclick="closeInstitutionInfoModal()"></div>
+  <div class="relative w-full max-w-[340px] rounded-[24px] bg-white p-6 shadow-2xl text-center">
+    <div id="institution-info-icon" class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50">
+      <svg viewBox="0 0 24 24" class="h-7 w-7 fill-none stroke-indigo-500" stroke-width="1.8" stroke-linecap="round"><path d="M3 21h18M4 21V7l8-4 8 4v14M9 11h6M9 15h6"/></svg>
     </div>
+    <p id="institution-info-role" class="text-[11px] font-bold text-zinc-400 mb-1"></p>
+    <h3 id="institution-info-name" class="text-[18px] font-extrabold text-zinc-900 mb-1"></h3>
+    <p id="institution-info-sub" class="text-[12px] text-zinc-500 mb-5"></p>
+    <button onclick="closeInstitutionInfoModal()" class="h-10 w-full rounded-[14px] bg-zinc-900 text-[14px] font-bold text-white">حسناً</button>
   </div>
 </div>
 
@@ -300,6 +305,75 @@ if (typeof state !== 'undefined' && state.joinedInstitution === undefined) {
   state.posts = state.posts.map(p => { const c = Object.assign({}, p); delete c.owned; return c; });
   localStorage.setItem('yadwor-posts', JSON.stringify(state.posts));
 })();
+// ====================== INSTITUTION INFO MODAL ======================
+function closeInstitutionInfoModal() {
+  document.getElementById('institution-info-modal').classList.add('hidden');
+}
+
+async function showInstitutionInfoModal() {
+  const type = state.profileType;
+  if (type !== 'teacher' && type !== 'student') return;
+
+  // البحث عن اسم المؤسسة من joinRequests
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  const myReq = (state.joinRequests || []).find(r =>
+    r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
+  );
+
+  let institutionName = '';
+  let institutionSub = '';
+
+  if (myReq) {
+    // حاول جلب اسم المؤسسة من Firebase
+    const instUid = myReq.institutionUid || myReq.institutionId || '';
+    if (instUid) {
+      try {
+        const res = await fetch(`${FB_DB_URL}/users/${instUid}.json?auth=${FB_API_KEY}`);
+        if (res.ok) {
+          const d = await res.json();
+          if (d && d.name) institutionName = d.name;
+        }
+      } catch(e) {}
+    }
+    if (!institutionName) institutionName = myReq.institutionUsername || myReq.institutionName || 'مؤسسة غير معروفة';
+    institutionSub = myReq.levelName ? `${myReq.levelName} — ${(myReq.subjects||[]).map(s=>s.name||s).join('، ')}` : '';
+  } else {
+    // لا يوجد طلب مقبول
+    institutionName = 'لم تنضم لأي مؤسسة بعد';
+    institutionSub = '';
+  }
+
+  const roleLabel = type === 'teacher' ? 'أستاذ في' : 'تلميذ في';
+  document.getElementById('institution-info-role').textContent = roleLabel;
+  document.getElementById('institution-info-name').textContent = institutionName;
+  document.getElementById('institution-info-sub').textContent = institutionSub;
+
+  // أيقونة حسب النوع
+  const iconEl = document.getElementById('institution-info-icon');
+  if (type === 'teacher') {
+    iconEl.className = 'mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50';
+    iconEl.innerHTML = '<svg viewBox="0 0 24 24" class="h-7 w-7 fill-none stroke-emerald-500" stroke-width="1.8" stroke-linecap="round"><path d="M12 14l9-5-9-5-9 5 9 5ZM12 14v7M9 18h6"/></svg>';
+  } else {
+    iconEl.className = 'mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-violet-50';
+    iconEl.innerHTML = '<svg viewBox="0 0 24 24" class="h-7 w-7 fill-none stroke-violet-500" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/></svg>';
+  }
+
+  document.getElementById('institution-info-modal').classList.remove('hidden');
+}
+
+// ====================== LOGOUT ======================
+function doLogout() {
+  localStorage.removeItem('yadwor-logged-in');
+  localStorage.removeItem('yadwor-uid');
+  localStorage.removeItem('yadwor-username');
+  localStorage.removeItem('yadwor-user-data');
+  localStorage.removeItem('yadwor-avatar-preview');
+  localStorage.removeItem('yadwor-cover-preview');
+  localStorage.removeItem('yadwor-account-type');
+  localStorage.removeItem('yadwor-profile-type');
+  window.location.replace('index.html');
+}
+
 // ====================== SIDEBAR ======================
 function openSidebar() {
   const overlay = document.getElementById('sidebar-overlay');
@@ -374,7 +448,7 @@ function closePendingJoinModal() {
 }
 
 function getDefaultTab(type) {
-  if(type==='institution') return 'teachers';
+  if(type==='institution') return 'posts';
   if(type==='teacher') return 'posts';
   if(type==='student') return 'teachers';
 }
@@ -450,10 +524,10 @@ function renderProfile() {
       const acceptedTeachers = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted'&&(r.institutionId===vInstitutionId||r.institutionUid===vInstitutionId));
       const acceptedStudents = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted'&&(r.institutionId===vInstitutionId||r.institutionUid===vInstitutionId));
       vTabs = [
+        {id:'posts',    label:'المنشورات', count: vPosts.length},
         {id:'teachers', label:'الأساتذة', count: acceptedTeachers.length},
         {id:'students', label:'التلاميذ', count: acceptedStudents.length},
-        {id:'books',    label:'الكتب',    count: 0},
-        {id:'posts',    label:'المنشورات', count: vPosts.length}
+        {id:'books',    label:'الكتب',    count: 0}
       ];
     } else if (vAccountType === 'teacher') {
       const vTeacherId = _visitorUid || _visitorUsername;
@@ -569,7 +643,7 @@ function renderProfile() {
             </button>
             <button id="visitor-follow-btn" onclick="toggleVisitorFollow('${_visitorUid||''}','${_visitorUsername||''}')"
               class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[11px] font-extrabold cursor-pointer ${_visitorFollowing ? 'text-blue-600' : 'text-white'}"
-              style="${_visitorFollowing ? 'background:#eff6ff; border: 2px solid #3b82f6;' : 'background:#3b82f6;'}">
+              style="${_visitorFollowing ? 'background:#eff6ff; border: 1px solid #bfdbfe;' : 'background:#3b82f6;'}">
               ${_visitorFollowing ? '✓ تتابع' : '+ متابعة'}
             </button>
             ${vActionBtn3}
@@ -695,7 +769,7 @@ function renderProfile() {
           <div class="text-right">
             <h2 class="text-[20px] font-extrabold tracking-tight leading-snug">${displayName}</h2>
             <div class="mt-1.5 flex items-center gap-2 justify-start">
-              <span class="inline-flex items-center gap-1 rounded-full bg-zinc-900 px-2.5 py-1 text-[10px] font-bold text-white">
+              <span onclick="${(state.profileType==='teacher'||state.profileType==='student')?'showInstitutionInfoModal()':''}" class="inline-flex items-center gap-1 rounded-full bg-zinc-900 px-2.5 py-1 text-[10px] font-bold text-white ${(state.profileType==='teacher'||state.profileType==='student')?'cursor-pointer active:opacity-80':''}" style="${(state.profileType==='teacher'||state.profileType==='student')?'cursor:pointer;':''}" >
                 <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="${typeIcons}"/></svg>
                 ${tl}
               </span>
@@ -743,7 +817,7 @@ function getProfileTabs() {
   const myMedia = myPosts.filter(p => p.images && p.images.length && p.type !== 'video');
   const acceptedTeachers = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted').length;
   const acceptedStudents = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted').length;
-  if(state.profileType==='institution') return [{id:'teachers',label:'الأساتذة',count:acceptedTeachers},{id:'students',label:'التلاميذ',count:acceptedStudents},{id:'posts',label:'المنشورات',count:myPosts.length}];
+  if(state.profileType==='institution') return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'teachers',label:'الأساتذة',count:acceptedTeachers},{id:'students',label:'التلاميذ',count:acceptedStudents},{id:'books',label:'الكتب',count:0}];
   if(state.profileType==='teacher')    return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'students',label:'تلاميذي',count:0},{id:'books',label:'الكتب',count:0}];
   if(state.profileType==='student')    return [{id:'teachers',label:'أساتذتي',count:0},{id:'posts',label:'المنشورات',count:myPosts.length},{id:'certificates',label:'الشواهد',count:0},{id:'badges',label:'الألقاب',count:0}];
   if(state.profileType==='influencer') return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'media',label:'الوسائط',count:myMedia.length}];
@@ -971,7 +1045,7 @@ function toggleVisitorFollow(uid, username) {
     const btn = document.getElementById('visitor-follow-btn');
     if (btn) {
       btn.className = 'inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[11px] font-extrabold cursor-pointer text-blue-600';
-      btn.style.cssText = 'background:#eff6ff; border: 2px solid #3b82f6;';
+      btn.style.cssText = 'background:#eff6ff; border: 1px solid #bfdbfe;';
       btn.textContent = '✓ تتابع';
     }
     // تحديث عداد المتابعين في الواجهة
@@ -1437,6 +1511,11 @@ async function submitJoinRequest() {
   if(!state.selectedLevel || !state.selectedSubjects.length) { showToast('يرجى اختيار المستوى والمواد'); return; }
   const phone = document.getElementById('join-phone')?.value || '';
   if (!phone.trim()) { showToast('يرجى إدخال رقم الهاتف'); return; }
+
+  // إغلاق نافذة الانضمام وإظهار نافذة الإرسال
+  closeJoinModal();
+  _showJoinSendingModal();
+
   // البحث في المستويات المعيارية أولاً، ثم في كتالوج المؤسسة (المستويات المخصصة)
   let level = moroccanLevels.find(l=>l.id===state.selectedLevel);
   if (!level) {
@@ -1444,24 +1523,20 @@ async function submitJoinRequest() {
     const catalogEntry = catalogV3[state.selectedLevel];
     if (catalogEntry) level = { id: state.selectedLevel, name: catalogEntry.name, cycle: catalogEntry.cycle };
   }
-  if (!level) { showToast('المستوى غير موجود'); return; }
-  // جلب أسعار المواد من catalog-v3 (المصدر الرئيسي) أو catalog-v2 كإجراء احتياطي
+  if (!level) { _hideJoinSendingModal(); showToast('المستوى غير موجود'); return; }
+
   const catV3 = JSON.parse(localStorage.getItem('yadwor-catalog-v3') || '{}');
   const catV2 = JSON.parse(localStorage.getItem('yadwor-catalog-v2') || '{}');
   const customSubsList = JSON.parse(localStorage.getItem('yadwor-custom-subjects') || '[]');
   const subjects = state.selectedSubjects.map(s => {
-    // ابحث في catalog-v3
     const lvlData = catV3[state.selectedLevel];
     const v3Subj = lvlData?.subjects?.find(x => x.name === s);
     if (v3Subj) return {name:s, free:v3Subj.free !== false, price:Number(v3Subj.price||0)};
-    // ابحث في المواد المخصصة
     const customS = customSubsList.find(c => c.name === s && c.levelId === state.selectedLevel);
     if (customS) return {name:s, free:customS.free !== false, price:Number(customS.price||0)};
-    // ابحث في catalog-v2
     const v2key = state.selectedLevel + '_' + s;
     const v2 = catV2[v2key];
     if (v2) return {name:s, free:v2.free !== false, price:Number(v2.price||0)};
-    // افتراضي مجاني
     return {name:s, free:true, price:0};
   });
   const total = subjects.reduce((sum,s)=>sum+(s.free?0:s.price),0);
@@ -1485,26 +1560,70 @@ async function submitJoinRequest() {
     createdAt: new Date().toISOString()
   };
   state.joinRequests.push(req);
-  
-  // Save to localStorage so join-requests.html can read it
-  try {
-    localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests));
-  } catch(e) { console.warn('localStorage save failed:', e); }
-  
-  // Save to Firebase
+  try { localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests)); } catch(e) {}
+
   try {
     await fetch(FB_DB_URL + '/joinRequests/' + req.id + '.json?auth=' + FB_API_KEY, {
       method: 'PUT',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(req)
     });
-    showToast('تم إرسال طلب الانضمام بنجاح');
-  } catch(e) {
-    console.warn('Firebase join request save failed:', e);
-    showToast('تم إرسال طلب الانضمام بنجاح ✓');
+  } catch(e) { console.warn('Firebase join request save failed:', e); }
+
+  // إظهار نافذة النجاح
+  _showJoinSuccessModal();
+}
+
+function _showJoinSendingModal() {
+  let el = document.getElementById('join-sending-modal');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'join-sending-modal';
+    el.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);';
+    el.innerHTML = `<div style="background:#fff;border-radius:24px;padding:32px 24px;text-align:center;width:280px;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+      <div style="width:52px;height:52px;border-radius:50%;background:#f0f9ff;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+        <svg style="width:28px;height:28px;animation:spin 1s linear infinite;" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+        </svg>
+      </div>
+      <p style="font-size:16px;font-weight:800;color:#18181b;font-family:Tajawal,sans-serif;">جاري الإرسال...</p>
+      <p style="font-size:13px;color:#71717a;margin-top:4px;font-family:Tajawal,sans-serif;">يرجى الانتظار</p>
+    </div>`;
+    document.body.appendChild(el);
   }
-  
-  closeJoinModal();
+  el.style.display = 'flex';
+  // إضافة animation spin
+  if (!document.getElementById('spin-style')) {
+    const s = document.createElement('style');
+    s.id = 'spin-style';
+    s.textContent = '@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}';
+    document.head.appendChild(s);
+  }
+}
+
+function _hideJoinSendingModal() {
+  const el = document.getElementById('join-sending-modal');
+  if (el) el.style.display = 'none';
+}
+
+function _showJoinSuccessModal() {
+  _hideJoinSendingModal();
+  let el = document.getElementById('join-success-modal');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'join-success-modal';
+    el.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);';
+    el.innerHTML = `<div style="background:#fff;border-radius:24px;padding:32px 24px;text-align:center;width:300px;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+      <div style="width:56px;height:56px;border-radius:50%;background:#f0fdf4;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+        <svg style="width:30px;height:30px;" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+      </div>
+      <p style="font-size:17px;font-weight:800;color:#18181b;font-family:Tajawal,sans-serif;">تم الإرسال بنجاح</p>
+      <p style="font-size:13px;color:#71717a;margin-top:6px;line-height:1.6;font-family:Tajawal,sans-serif;">تم إرسال طلب انضمامك بنجاح،<br>انتظر موافقة المؤسسة.</p>
+      <button onclick="document.getElementById('join-success-modal').style.display='none';renderProfile();" style="margin-top:20px;width:100%;border-radius:14px;background:#18181b;border:none;padding:12px;font-size:14px;font-weight:800;color:white;cursor:pointer;font-family:Tajawal,sans-serif;">حسناً</button>
+    </div>`;
+    document.body.appendChild(el);
+  }
+  el.style.display = 'flex';
 }
 
 // ====================== VISITOR TABS ======================
