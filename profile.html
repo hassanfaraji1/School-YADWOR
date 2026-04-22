@@ -466,7 +466,7 @@ function renderProfile() {
         vActionBtn3 = `<button onclick="openJoinModal()" class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[10px] font-bold text-white" style="background:#f97316;">+ انضمام</button>`;
       }
     } else if (vAccountType === 'teacher') {
-      vActionBtn3 = `<button onclick="openExercisesModal()" class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[10px] font-bold text-white" style="background:#6366f1;">
+      vActionBtn3 = `<button onclick="openExercisesModal()" class="inline-flex h-8 flex-1 items-center justify-center gap-0.5 rounded-full text-[9px] font-bold text-white whitespace-nowrap px-1" style="background:#6366f1;">
         <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
         تمارين واختبارات
       </button>`;
@@ -527,8 +527,8 @@ function renderProfile() {
               رسالة
             </button>
             <button id="visitor-follow-btn" onclick="toggleVisitorFollow('${_visitorUid||''}','${_visitorUsername||''}')"
-              class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[10px] font-bold cursor-pointer ${_visitorFollowing ? 'text-blue-700' : 'text-white'}"
-              style="${_visitorFollowing ? 'background:#dbeafe;' : 'background:#3b82f6;'}">
+              class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[11px] font-extrabold cursor-pointer ${_visitorFollowing ? 'text-blue-600' : 'text-white'}"
+              style="${_visitorFollowing ? 'background:#eff6ff; border: 2px solid #3b82f6;' : 'background:#3b82f6;'}">
               ${_visitorFollowing ? '✓ تتابع' : '+ متابعة'}
             </button>
             ${vActionBtn3}
@@ -596,13 +596,13 @@ function renderProfile() {
   </button>`;
   // زر التمارين/الاختبارات
   const exercisesBtn = state.profileType === 'teacher'
-    ? `<button onclick="openExercisesModal()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-2 text-[10px] font-bold text-white" style="background:#6366f1;">
+    ? `<button onclick="openExercisesModal()" class="inline-flex h-8 w-full items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-bold text-white whitespace-nowrap" style="background:#6366f1;">
         <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
         تمارين واختبارات
       </button>`
     : state.profileType === 'institution'
       ? (state.joinedInstitution
-          ? `<button onclick="openExercisesModal()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-2 text-[10px] font-bold text-white" style="background:#6366f1;">
+          ? `<button onclick="openExercisesModal()" class="inline-flex h-8 w-full items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-bold text-white whitespace-nowrap" style="background:#6366f1;">
               <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
               تمارين واختبارات
             </button>`
@@ -915,7 +915,8 @@ function toggleVisitorFollow(uid, username) {
     // تحديث الزر مباشرة
     const btn = document.getElementById('visitor-follow-btn');
     if (btn) {
-      btn.className = 'inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[10px] font-bold border border-blue-300 bg-blue-50 text-blue-700 cursor-pointer';
+      btn.className = 'inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[11px] font-extrabold cursor-pointer text-blue-600';
+      btn.style.cssText = 'background:#eff6ff; border: 2px solid #3b82f6;';
       btn.textContent = '✓ تتابع';
     }
     // تحديث عداد المتابعين في الواجهة
@@ -939,7 +940,8 @@ function confirmUnfollow() {
   // تحديث الزر
   const btn = document.getElementById('visitor-follow-btn');
   if (btn) {
-    btn.className = 'inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full bg-blue-500 text-[10px] font-bold text-white cursor-pointer';
+    btn.className = 'inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[11px] font-extrabold cursor-pointer text-white';
+    btn.style.cssText = 'background:#3b82f6;';
     btn.textContent = '+ متابعة';
   }
   // تحديث العداد
