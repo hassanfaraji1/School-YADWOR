@@ -379,6 +379,47 @@ function getDefaultTab(type) {
   if(type==='student') return 'teachers';
 }
 
+// ====================== جلب صور الأعضاء من Firebase ======================
+async function enrichAvatarsFromFirebase(members, containerId) {
+  for (const r of members) {
+    if (!r.uid) continue;
+    // إذا كانت الصورة موجودة مسبقاً لا حاجة للجلب
+    if (r.avatar || r.avatarUrl) continue;
+    try {
+      const res = await fetch(`${FB_DB_URL}/users/${r.uid}.json?auth=${FB_API_KEY}`);
+      if (!res.ok) continue;
+      const userData = await res.json();
+      if (!userData || !userData.avatar) continue;
+      // تحديث بيانات الطلب محلياً
+      r.avatar = userData.avatar;
+      r.avatarUrl = userData.avatar;
+      // تحديث DOM مباشرة
+      const container = document.getElementById(containerId);
+      if (!container) continue;
+      const links = container.querySelectorAll('a');
+      links.forEach(link => {
+        const href = link.getAttribute('href') || '';
+        if (href.includes(r.uid)) {
+          const imgEl = link.querySelector('img');
+          const initials = link.querySelector('div.absolute:not([class*="shimmer"])');
+          if (imgEl) {
+            imgEl.src = userData.avatar;
+            imgEl.style.display = '';
+            if (initials) initials.style.display = 'none';
+          } else {
+            // أضف الصورة
+            const avatarContainer = link.querySelector('.rounded-full.overflow-hidden');
+            if (avatarContainer) {
+              avatarContainer.innerHTML = `<img src="${userData.avatar}" class="h-11 w-11 rounded-full object-cover absolute inset-0 w-full h-full" onerror="this.style.display='none';" />
+              <div class="absolute inset-0 hidden items-center justify-center rounded-full bg-indigo-500 text-white text-[15px] font-extrabold">${(r.fullName||'U').charAt(0).toUpperCase()}</div>`;
+            }
+          }
+        }
+      });
+    } catch(e) {}
+  }
+}
+
 function renderProfile() {
   // ── إذا كنا نعرض ملف شخص آخر (زائر) ──
   if (state._viewingUsername && _visitorProfile) {
@@ -734,13 +775,22 @@ function renderProfileTabContent() {
     const uid = r.uid || '';
     const username = r.username || '';
     const href = uid ? `profile.html?uid=${uid}` : (username ? `profile.html?username=${username}` : '#');
-    const avatarSrc = r.avatarUrl || r.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.fullName||'U')}&background=e4e6eb&color=555&size=200`;
+    // جلب الصورة: من الطلب مباشرة، أو من المنشورات، أو ui-avatars كـ fallback
+    const fromPost = uid
+      ? state.posts.find(p => p.uid && String(p.uid) === String(uid))
+      : state.posts.find(p => p.username && p.username === username);
+    const avatarSrc = r.avatarUrl || r.avatar || (fromPost && fromPost.avatar) || '';
+    const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(r.fullName||'U')}&background=6366f1&color=fff&size=200`;
     const name = r.fullName || 'مستخدم';
     const sub  = r.role === 'teacher' ? (r.subjects?.map(s=>s.name||s).join('، ')||'') : (r.levelName||'');
     return `<a href="${href}" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition">
-      <div class="relative h-11 w-11 shrink-0 rounded-full overflow-hidden">
-        <div class="shimmer absolute inset-0"></div>
-        <img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=e4e6eb&color=555&size=200';var e=this.previousElementSibling;if(e)e.remove();" />
+      <div class="relative h-11 w-11 shrink-0 rounded-full overflow-hidden bg-indigo-100">
+        ${avatarSrc
+          ? `<img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover absolute inset-0 w-full h-full"
+              onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+             <div class="absolute inset-0 hidden items-center justify-center rounded-full bg-indigo-500 text-white text-[15px] font-extrabold">${name.charAt(0).toUpperCase()}</div>`
+          : `<div class="absolute inset-0 flex items-center justify-center rounded-full bg-indigo-500 text-white text-[15px] font-extrabold">${name.charAt(0).toUpperCase()}</div>`
+        }
       </div>
       <div class="flex-1 min-w-0">
         <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${name}</h3>
@@ -766,14 +816,19 @@ function renderProfileTabContent() {
   if(t==='institution' && tab==='teachers') {
     const accepted = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted');
     if(!accepted.length) return emptyState('<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>', 'لم ينضم أي أستاذ بعد');
-    return `<div class="grid gap-2">${accepted.map(r=>personCard(r)).join('')}</div>`;
+    // جلب الصور من Firebase بشكل غير متزامن وتحديث البطاقات
+    const html = `<div class="grid gap-2" id="teachers-list-grid">${accepted.map(r=>personCard(r)).join('')}</div>`;
+    setTimeout(() => enrichAvatarsFromFirebase(accepted, 'teachers-list-grid'), 0);
+    return html;
   }
 
   // ── مؤسسة: التلاميذ ──
   if(t==='institution' && tab==='students') {
     const accepted = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted');
     if(!accepted.length) return emptyState('<circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/>', 'لم ينضم أي تلميذ بعد');
-    return `<div class="grid gap-2">${accepted.map(r=>personCard(r)).join('')}</div>`;
+    const html = `<div class="grid gap-2" id="students-list-grid">${accepted.map(r=>personCard(r)).join('')}</div>`;
+    setTimeout(() => enrichAvatarsFromFirebase(accepted, 'students-list-grid'), 0);
+    return html;
   }
 
   // ── مؤسسة / أستاذ / مؤثر: المنشورات ──
@@ -1634,6 +1689,31 @@ async function loadVisitorProfile(username, uid) {
   return null;
 }
 
+// ====================== مزامنة طلبات الانضمام من Firebase ======================
+async function syncJoinRequestsFromFirebase() {
+  try {
+    const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data) {
+      // لا يوجد شيء في Firebase — امسح المحلي أيضاً
+      state.joinRequests = [];
+      localStorage.setItem('yadwor-join-requests', '[]');
+      return;
+    }
+    // استبدل state.joinRequests بالبيانات الحديثة من Firebase
+    const fbRequests = Object.values(data).filter(r => r && r.id);
+    state.joinRequests = fbRequests;
+    localStorage.setItem('yadwor-join-requests', JSON.stringify(fbRequests));
+  } catch(e) {
+    // fallback: استخدم localStorage
+    try {
+      const saved = localStorage.getItem('yadwor-join-requests');
+      if (saved) state.joinRequests = JSON.parse(saved);
+    } catch(e2) {}
+  }
+}
+
 // Init
 (async function() {
   const myUid      = localStorage.getItem('yadwor-uid')      || '';
@@ -1652,12 +1732,14 @@ async function loadVisitorProfile(username, uid) {
     state._viewingUid      = _visitorUid;
     state._viewingUsername = _visitorUsername || _visitorUid;
     await syncPostsFromFirebase();
+    await syncJoinRequestsFromFirebase();
     _visitorProfile = await loadVisitorProfile(_visitorUsername, _visitorUid);
   } else {
     // ملفي أنا — لا يوجد viewing
     state._viewingUid      = null;
     state._viewingUsername = null;
     await syncPostsFromFirebase();
+    await syncJoinRequestsFromFirebase();
   }
 
   renderProfile();
