@@ -28,7 +28,11 @@ function isStudentMatchingTeacher(student, teacher) {
   const teacherLevel = (teacher.levelId  || '').trim();
   if (!studentLevel || !teacherLevel || studentLevel !== teacherLevel) return false;
   const studentSubjects = (student.subjects || []).map(s => (s.name || s).trim());
-  const teacherSubject  = (teacher.subject  || '').trim();
+  // دعم كلا الحالتين: teacher.subject (string) أو teacher.subjects (array)
+  let teacherSubject = (teacher.subject || '').trim();
+  if (!teacherSubject && teacher.subjects && teacher.subjects.length) {
+    teacherSubject = (teacher.subjects[0].name || teacher.subjects[0] || '').trim();
+  }
   if (!teacherSubject) return false;
   return studentSubjects.includes(teacherSubject);
 }
