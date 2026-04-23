@@ -1066,31 +1066,76 @@ function renderProfileTabContent() {
   // ── أستاذ: تلاميذه ──
   if(t==='teacher' && tab==='students') {
     const myUidT = localStorage.getItem('yadwor-uid') || '';
-    const allReqsT = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
-    // بيانات انضمام الأستاذ الحالي
-    const teacherReq = allReqsT.find(r => r.status === 'accepted' && (r.uid === myUidT || r.userId === myUidT) && r.role === 'teacher');
-    if (!teacherReq) {
-      return emptyState('<circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/>', 'انضم لمؤسسة أولاً لعرض تلاميذك');
-    }
-    const teacherInstUid = teacherReq.institutionUid || teacherReq.institutionId || '';
-    const teacherLevelId = teacherReq.levelId || '';
-    // جميع مواد الأستاذ (قد تكون أكثر من مادة)
-    const teacherSubjectNames = (teacherReq.subjects || []).map(s => (s.name || s).trim()).filter(Boolean);
-    // فلترة التلاميذ المقبولين الذين يطابقون الأستاذ
-    const matchedStudents = allReqsT.filter(r => {
-      if (r.role !== 'student' || r.status !== 'accepted') return false;
-      const sInstUid = r.institutionUid || r.institutionId || '';
-      const sLevelId = r.levelId || '';
-      const sSubjectNames = (r.subjects || []).map(s => (s.name || s).trim());
-      // نفس المؤسسة + نفس المستوى + تقاطع في المواد
-      return sInstUid && sInstUid === teacherInstUid &&
-             sLevelId && sLevelId === teacherLevelId &&
-             teacherSubjectNames.some(ts => sSubjectNames.includes(ts));
-    });
-    if (!matchedStudents.length) {
-      return emptyState('<circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/>', 'لا يوجد تلاميذ بعد');
-    }
-    return `<div class="grid gap-2" id="teacher-students-grid">${matchedStudents.map(r => personCard(r)).join('')}</div>`;
+    // عرض shimmer أولاً ثم جلب من Firebase
+    const gridId = 'teacher-students-grid';
+    setTimeout(async () => {
+      const container = document.getElementById(gridId);
+      if (!container) return;
+      // 1) جلب طلب انضمام الأستاذ من Firebase
+      let teacherReq = null;
+      try {
+        const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+        if (res.ok) {
+          const allInst = await res.json();
+          if (allInst) {
+            for (const instUid of Object.keys(allInst)) {
+              const instReqs = allInst[instUid];
+              if (!instReqs) continue;
+              const found = Object.values(instReqs).find(r =>
+                r && r.status === 'accepted' && r.role === 'teacher' &&
+                (r.uid === myUidT || r.userId === myUidT)
+              );
+              if (found) { teacherReq = found; break; }
+            }
+          }
+        }
+      } catch(e) {}
+      // fallback: localStorage
+      if (!teacherReq) {
+        const allReqs = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
+        teacherReq = allReqs.find(r => r.status === 'accepted' && r.role === 'teacher' && (r.uid === myUidT || r.userId === myUidT));
+      }
+      if (!teacherReq) {
+        container.innerHTML = emptyState('<circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/>', 'انضم لمؤسسة أولاً لعرض تلاميذك');
+        return;
+      }
+      const teacherInstUid = teacherReq.institutionUid || teacherReq.institutionId || '';
+      // 2) جلب جميع طلبات المؤسسة من Firebase
+      let allInstReqs = [];
+      try {
+        const res2 = await fetch(`${FB_DB_URL}/joinRequests/${teacherInstUid}.json?auth=${FB_API_KEY}`);
+        if (res2.ok) {
+          const instData = await res2.json();
+          if (instData) allInstReqs = Object.values(instData).filter(r => r && r.status === 'accepted');
+        }
+      } catch(e) {}
+      // fallback: state.joinRequests
+      if (!allInstReqs.length) {
+        allInstReqs = (state.joinRequests || []).filter(r =>
+          r.status === 'accepted' && (r.institutionUid === teacherInstUid || r.institutionId === teacherInstUid)
+        );
+      }
+      // 3) فلترة التلاميذ باستخدام isStudentMatchingTeacher
+      const matchedStudents = allInstReqs.filter(r => {
+        if (r.role !== 'student') return false;
+        return isStudentMatchingTeacher(r, teacherReq);
+      });
+      if (!matchedStudents.length) {
+        container.innerHTML = emptyState('<circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/>', 'لا يوجد تلاميذ بعد');
+        return;
+      }
+      container.innerHTML = matchedStudents.map(r => personCard(r)).join('');
+      enrichAvatarsFromFirebase(matchedStudents, gridId);
+    }, 0);
+    // shimmer placeholder أثناء التحميل
+    return `<div id="${gridId}" class="grid gap-2">${[1,2,3].map(()=>`
+      <div class="flex items-center gap-3 rounded-[16px] bg-white border border-zinc-100 p-3">
+        <div class="shimmer h-11 w-11 rounded-full shrink-0"></div>
+        <div class="flex-1 space-y-1.5">
+          <div class="shimmer h-3.5 w-28 rounded-full"></div>
+          <div class="shimmer h-3 w-20 rounded-full"></div>
+        </div>
+      </div>`).join('')}</div>`;
   }
 
   // ── أستاذ: كتبه ──
