@@ -1067,19 +1067,26 @@ function renderProfileTabContent() {
   if(t==='teacher' && tab==='students') {
     const myUidT = localStorage.getItem('yadwor-uid') || '';
     const allReqsT = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
-    // بيانات انضمام الأستاذ الحالي (مؤسسة + مستوى + مادة)
+    // بيانات انضمام الأستاذ الحالي
     const teacherReq = allReqsT.find(r => r.status === 'accepted' && (r.uid === myUidT || r.userId === myUidT) && r.role === 'teacher');
     if (!teacherReq) {
       return emptyState('<circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/>', 'انضم لمؤسسة أولاً لعرض تلاميذك');
     }
-    // بناء كائن الأستاذ من بيانات انضمامه
-    const teacherInfo = {
-      institutionUid: teacherReq.institutionUid || teacherReq.institutionId || '',
-      levelId: teacherReq.levelId || '',
-      subject: (teacherReq.subjects && teacherReq.subjects[0]) ? (teacherReq.subjects[0].name || teacherReq.subjects[0]) : ''
-    };
+    const teacherInstUid = teacherReq.institutionUid || teacherReq.institutionId || '';
+    const teacherLevelId = teacherReq.levelId || '';
+    // جميع مواد الأستاذ (قد تكون أكثر من مادة)
+    const teacherSubjectNames = (teacherReq.subjects || []).map(s => (s.name || s).trim()).filter(Boolean);
     // فلترة التلاميذ المقبولين الذين يطابقون الأستاذ
-    const matchedStudents = allReqsT.filter(r => r.role === 'student' && r.status === 'accepted' && isStudentMatchingTeacher(r, teacherInfo));
+    const matchedStudents = allReqsT.filter(r => {
+      if (r.role !== 'student' || r.status !== 'accepted') return false;
+      const sInstUid = r.institutionUid || r.institutionId || '';
+      const sLevelId = r.levelId || '';
+      const sSubjectNames = (r.subjects || []).map(s => (s.name || s).trim());
+      // نفس المؤسسة + نفس المستوى + تقاطع في المواد
+      return sInstUid && sInstUid === teacherInstUid &&
+             sLevelId && sLevelId === teacherLevelId &&
+             teacherSubjectNames.some(ts => sSubjectNames.includes(ts));
+    });
     if (!matchedStudents.length) {
       return emptyState('<circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/>', 'لا يوجد تلاميذ بعد');
     }
@@ -1094,7 +1101,30 @@ function renderProfileTabContent() {
 
   // ── تلميذ: أساتذته ──
   if(t==='student' && tab==='teachers') {
-    return emptyState('<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>', 'لا يوجد أساتذة بعد');
+    const myUidS = localStorage.getItem('yadwor-uid') || '';
+    const allReqsS = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
+    // بيانات انضمام التلميذ الحالي
+    const studentReq = allReqsS.find(r => r.status === 'accepted' && (r.uid === myUidS || r.userId === myUidS) && r.role === 'student');
+    if (!studentReq) {
+      return emptyState('<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>', 'انضم لمؤسسة أولاً لعرض أساتذتك');
+    }
+    const studentInstUid = studentReq.institutionUid || studentReq.institutionId || '';
+    const studentLevelId = studentReq.levelId || '';
+    const studentSubjectNames = (studentReq.subjects || []).map(s => (s.name || s).trim());
+    // فلترة الأساتذة المقبولين الذين يطابقون التلميذ
+    const matchedTeachers = allReqsS.filter(r => {
+      if (r.role !== 'teacher' || r.status !== 'accepted') return false;
+      const tInstUid = r.institutionUid || r.institutionId || '';
+      const tLevelId = r.levelId || '';
+      const tSubject = (r.subjects && r.subjects[0]) ? (r.subjects[0].name || r.subjects[0]).trim() : '';
+      return tInstUid && tInstUid === studentInstUid &&
+             tLevelId && tLevelId === studentLevelId &&
+             tSubject && studentSubjectNames.includes(tSubject);
+    });
+    if (!matchedTeachers.length) {
+      return emptyState('<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>', 'لا يوجد أساتذة بعد');
+    }
+    return `<div class="grid gap-2" id="student-teachers-grid">${matchedTeachers.map(r => personCard(r)).join('')}</div>`;
   }
 
   // ── تلميذ: الألقاب ──
@@ -1270,17 +1300,44 @@ function openExercisesModal() {
   let notSameInstitution = false;
 
   if (myProfileType === 'student') {
-    // التلميذ: تحقق من أنه في نفس المؤسسة
+    // التلميذ لم ينضم لأي مؤسسة
     if (!myAcceptedReq) {
-      // لم ينضم لأي مؤسسة
       notSameInstitution = true;
     } else {
       const myInstitutionUid = myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '';
-      if (viewingInstitutionUid && myInstitutionUid !== viewingInstitutionUid) {
-        // التلميذ في مؤسسة مختلفة
-        notSameInstitution = true;
+      const myLevelId = myAcceptedReq.levelId || '';
+      const mySubjectNames = (myAcceptedReq.subjects || []).map(s => (s.name || s).trim());
+
+      // إذا فتح التلميذ النافذة من ملف أستاذ أو مؤسسة آخر
+      if (viewingInstitutionUid && viewingInstitutionUid !== myUid) {
+        // تحقق أن الملف المعروض ينتمي لنفس مؤسسة التلميذ
+        // (viewingInstitutionUid قد يكون uid الأستاذ أو uid المؤسسة)
+        const allRequests2 = allRequests;
+        const viewerReq = allRequests2.find(r =>
+          r.status === 'accepted' &&
+          (r.uid === viewingInstitutionUid || r.userId === viewingInstitutionUid)
+        );
+        const viewerInstUid = viewerReq
+          ? (viewerReq.institutionUid || viewerReq.institutionId || '')
+          : viewingInstitutionUid; // إذا كان الملف هو المؤسسة نفسها
+
+        if (myInstitutionUid && viewerInstUid && myInstitutionUid !== viewerInstUid &&
+            viewingInstitutionUid !== myInstitutionUid) {
+          notSameInstitution = true;
+        } else {
+          // التمارين المنشورة من هذا الأستاذ/المؤسسة التي تطابق التلميذ
+          filteredExams = activeExams.filter(e => {
+            const isFromViewer = e.teacherUid === viewingInstitutionUid ||
+                                 e.institutionUid === viewingInstitutionUid ||
+                                 e.institutionUid === myInstitutionUid;
+            const levelMatch = !e.levelId || e.levelId === myLevelId;
+            const subjectMatch = !e.subject || mySubjectNames.includes((e.subject || '').trim());
+            const instMatch = !e.institutionUid || e.institutionUid === myInstitutionUid;
+            return isFromViewer && levelMatch && subjectMatch && instMatch;
+          });
+        }
       } else {
-        // فلترة الاختبارات باستخدام canStudentSeeExercise (نفس المؤسسة + نفس المستوى + المادة موجودة)
+        // التلميذ يفتح من ملفه الشخصي — يرى جميع تماريننه المطابقة
         filteredExams = activeExams.filter(e => canStudentSeeExercise(myAcceptedReq, e));
       }
     }
@@ -1289,7 +1346,6 @@ function openExercisesModal() {
     filteredExams = activeExams.filter(e => e.teacherUid === myUid || e.institutionUid === myUid);
     // إذا كانوا يفتحون من ملف مؤسسة أخرى أو أستاذ آخر
     if (viewingInstitutionUid && viewingInstitutionUid !== myUid) {
-      // يرون اختبارات تلك المؤسسة/ذلك الأستاذ فقط إذا كانوا في نفس المؤسسة
       const myInstitutionUid = myAcceptedReq ? (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '') : '';
       if (myInstitutionUid !== viewingInstitutionUid) {
         notSameInstitution = true;
