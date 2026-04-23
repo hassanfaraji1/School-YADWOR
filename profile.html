@@ -1147,93 +1147,114 @@ function goToVisitorChat(name, avatar) {
 }
 
 // ====================== EXERCISES MODAL ======================
-// ── بناء HTML عرض الاختبارات ──
-function _buildExamsModalHTML(list) {
-  const hdr = `<div class="flex items-center justify-between mb-5">
-    <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
-    <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
-      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-    </button>
-  </div>`;
-  if (!list.length) {
-    return hdr + `<div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
+function openExercisesModal() {
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  const myProfileType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
+  const allExams = JSON.parse(localStorage.getItem('yadwor-exams') || '[]');
+  const activeExams = allExams.filter(e => Date.now() < e.expiresAt);
+
+  const modal = document.getElementById('exercises-modal');
+  const content = document.getElementById('exercises-modal-content');
+
+  // ── جلب بيانات انضمام المستخدم الحالي ──
+  const allRequests = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
+  const myAcceptedReq = allRequests.find(r =>
+    r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
+  );
+
+  // ── إذا كان التلميذ يفتح النافذة من ملف مؤسسة/أستاذ آخر ──
+  // _visitorUid = uid الملف الذي يُعرض حالياً (المؤسسة أو الأستاذ الآخر)
+  const viewingInstitutionUid = _visitorUid || '';
+
+  let filteredExams = activeExams;
+  let notSameInstitution = false;
+
+  if (myProfileType === 'student') {
+    // التلميذ: تحقق من أنه في نفس المؤسسة
+    if (!myAcceptedReq) {
+      // لم ينضم لأي مؤسسة
+      notSameInstitution = true;
+    } else {
+      const myInstitutionUid = myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '';
+      if (viewingInstitutionUid && myInstitutionUid !== viewingInstitutionUid) {
+        // التلميذ في مؤسسة مختلفة
+        notSameInstitution = true;
+      } else {
+        // فلترة الاختبارات بالمستوى والمادة
+        const myLevelId = myAcceptedReq.levelId || '';
+        const mySubjects = (myAcceptedReq.subjects || []).map(s => (s.name || s).trim().toLowerCase());
+        filteredExams = activeExams.filter(e => {
+          const examLevel = (e.levelId || '').trim();
+          const examSubject = (e.subject || '').trim().toLowerCase();
+          const levelMatch = !examLevel || !myLevelId || examLevel === myLevelId;
+          const subjectMatch = !examSubject || mySubjects.length === 0 || mySubjects.some(s => s === examSubject || examSubject.includes(s) || s.includes(examSubject));
+          // فلترة بالمؤسسة أيضاً: إذا كان الاختبار مرتبطاً بمؤسسة فيجب أن تكون نفس مؤسسة التلميذ
+          const examInstUid = e.institutionUid || '';
+          const instMatch = !examInstUid || examInstUid === myInstitutionUid;
+          return levelMatch && subjectMatch && instMatch;
+        });
+      }
+    }
+  } else if (myProfileType === 'teacher' || myProfileType === 'institution') {
+    // الأستاذ والمؤسسة: يرون اختباراتهم فقط
+    filteredExams = activeExams.filter(e => e.teacherUid === myUid || e.institutionUid === myUid);
+    // إذا كانوا يفتحون من ملف مؤسسة أخرى أو أستاذ آخر
+    if (viewingInstitutionUid && viewingInstitutionUid !== myUid) {
+      // يرون اختبارات تلك المؤسسة/ذلك الأستاذ فقط إذا كانوا في نفس المؤسسة
+      const myInstitutionUid = myAcceptedReq ? (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '') : '';
+      if (myInstitutionUid !== viewingInstitutionUid) {
+        notSameInstitution = true;
+      } else {
+        filteredExams = activeExams.filter(e =>
+          e.teacherUid === viewingInstitutionUid ||
+          e.institutionUid === viewingInstitutionUid
+        );
+      }
+    }
+  }
+
+  // ── عرض رسالة "ليس في نفس المؤسسة" ──
+  if (notSameInstitution) {
+    content.innerHTML = `
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
+      <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
+      <div class="h-16 w-16 rounded-full flex items-center justify-center" style="background:#fef3c7;">
+        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-amber-500" stroke-width="1.6" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+        </svg>
+      </div>
+      <p class="text-[16px] font-extrabold text-zinc-800">غير مسموح بالوصول</p>
+      <p class="text-[13px] text-zinc-500 leading-relaxed px-4">لا يمكنك مشاهدة هذه الاختبارات لأنك لست في نفس المؤسسة.<br>انضم أولاً للمؤسسة لتتمكن من الوصول إلى الاختبارات والتمارين.</p>
+    </div>`;
+    modal.classList.remove('hidden');
+    return;
+  }
+
+  // ── عرض الاختبارات المفلترة ──
+  if (!filteredExams.length) {
+    content.innerHTML = `
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
+      <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
       <div class="h-16 w-16 rounded-full bg-zinc-100 flex items-center justify-center">
         <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.5" stroke-linecap="round">
           <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/>
         </svg>
       </div>
       <p class="text-[15px] font-bold text-zinc-800">لا يوجد اختبار أو تمرين حالياً</p>
-      <p class="text-[13px] text-zinc-400">لم يتم نشر أي اختبار أو تمرين بعد.</p>
+      <p class="text-[13px] text-zinc-400">لم يتم نشر أي اختبار أو تمرين بعد.<br>تابع الصفحة لتصلك الاختبارات القادمة.</p>
     </div>`;
-  }
-  return hdr + `<div class="space-y-3">${list.map(e => {
-    const totalPts = e.questions.reduce((s,q)=>s+(q.points||1),0);
-    const remaining = Math.max(0, e.expiresAt - Date.now());
-    const remH = Math.floor(remaining/3600000);
-    const remM = Math.floor((remaining%3600000)/60000);
-    const timeStr = remH > 0 ? `${remH}س ${remM}د` : `${remM} دقيقة`;
-    return `<div class="rounded-[18px] border border-zinc-100 bg-zinc-50 p-4">
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-[11px] font-bold bg-violet-100 text-violet-700 rounded-full px-2.5 py-1">${e.type}</span>
-        <span class="text-[11px] text-orange-500 font-bold">⏳ ${timeStr}</span>
-      </div>
-      <h4 class="text-[15px] font-extrabold text-zinc-900 mb-1">${e.title}</h4>
-      <div class="flex items-center gap-3 text-[12px] text-zinc-400 mb-3 flex-wrap">
-        <span>📝 ${e.questions.length} سؤال</span>
-        <span>⭐ ${totalPts} نقطة</span>
-        ${e.subject ? `<span>📚 ${e.subject}</span>` : ''}
-      </div>
-      <div class="rounded-[12px] bg-amber-50 border border-amber-200 p-3 mb-3">
-        <p class="text-[12px] text-amber-700 font-bold leading-relaxed">⚠️ استعد جيداً! لكل سؤال وقت محدد ولا يمكن تخطي الأسئلة.</p>
-      </div>
-      <button onclick="startExamFromProfile(${e.id})"
-        class="h-11 w-full rounded-[14px] bg-zinc-900 text-[14px] font-extrabold text-white">
-        بدء الآن ←
-      </button>
-    </div>`;
-  }).join('')}</div>`;
-}
-
-// ── فلترة الاختبارات بمنطق المؤسسة + المستوى + مادة الأستاذ الناشر ──
-function _filterExamsForStudent(allExams, myAcceptedReq) {
-  const now        = Date.now();
-  const myInstUid  = (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '').trim();
-  const myLevelId  = (myAcceptedReq.levelId || '').trim();
-  // مواد التلميذ بالأحرف الصغيرة
-  const mySubjects = (myAcceptedReq.subjects || []).map(s => (s.name || s).trim().toLowerCase());
-
-  return allExams.filter(e => {
-    if (now >= (e.expiresAt || 0)) return false;                          // منتهي
-
-    const eInst    = (e.institutionUid || '').trim();
-    const eLevel   = (e.levelId        || '').trim();
-    const eSubject = (e.subject        || '').trim().toLowerCase();
-
-    // 1) نفس المؤسسة
-    const instOk = !eInst || !myInstUid || eInst === myInstUid;
-    // 2) نفس المستوى
-    const levelOk = !eLevel || !myLevelId || eLevel === myLevelId;
-    // 3) مادة الاختبار موجودة ضمن مواد التلميذ (تطابق تام أو جزئي)
-    const subjOk = !eSubject || mySubjects.length === 0 ||
-      mySubjects.some(s => s === eSubject || eSubject.includes(s) || s.includes(eSubject));
-
-    return instOk && levelOk && subjOk;
-  });
-}
-
-function openExercisesModal() {
-  const myUid         = localStorage.getItem('yadwor-uid') || '';
-  const myProfileType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
-  const modal         = document.getElementById('exercises-modal');
-  const elContent     = document.getElementById('exercises-modal-content');
-  const allRequests   = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
-  const myAcceptedReq = allRequests.find(r =>
-    r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
-  );
-  const viewingUid = _visitorUid || '';
-
-  // shimmer
-  elContent.innerHTML = `
+  } else {
+    content.innerHTML = `
     <div class="flex items-center justify-between mb-5">
       <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
       <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
@@ -1241,111 +1262,41 @@ function openExercisesModal() {
       </button>
     </div>
     <div class="space-y-3">
-      ${[1,2].map(()=>`<div class="rounded-[18px] border border-zinc-100 bg-zinc-50 p-4 space-y-2">
-        <div class="shimmer h-4 w-1/3 rounded-full"></div>
-        <div class="shimmer h-5 w-2/3 rounded-full"></div>
-        <div class="shimmer h-10 w-full rounded-[14px] mt-2"></div>
-      </div>`).join('')}
+      ${filteredExams.map(e => {
+        const totalPts = e.questions.reduce((s,q)=>s+(q.points||1),0);
+        const remaining = Math.max(0, e.expiresAt - Date.now());
+        const remH = Math.floor(remaining/3600000);
+        const remM = Math.floor((remaining%3600000)/60000);
+        const timeStr = remH > 0 ? `${remH}س ${remM}د` : `${remM} دقيقة`;
+        const levelLabel = e.levelId ? ` · ${e.levelId}` : '';
+        const subjectLabel = e.subject ? ` · ${e.subject}` : '';
+        return `
+        <div class="rounded-[18px] border border-zinc-100 bg-zinc-50 p-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[11px] font-bold bg-violet-100 text-violet-700 rounded-full px-2.5 py-1">${e.type}</span>
+            <span class="text-[11px] text-orange-500 font-bold">⏳ ${timeStr}</span>
+          </div>
+          <h4 class="text-[15px] font-extrabold text-zinc-900 mb-1">${e.title}</h4>
+          <div class="flex items-center gap-3 text-[12px] text-zinc-400 mb-3 flex-wrap">
+            <span>📝 ${e.questions.length} سؤال</span>
+            <span>⭐ ${totalPts} نقطة</span>
+            ${e.subject ? `<span>📚 ${e.subject}</span>` : ''}
+          </div>
+          <div class="rounded-[12px] bg-amber-50 border border-amber-200 p-3 mb-3">
+            <p class="text-[12px] text-amber-700 font-bold leading-relaxed">
+              ⚠️ استعد جيداً! لكل سؤال وقت محدد ولا يمكن تخطي الأسئلة.
+            </p>
+          </div>
+          <button onclick="startExamFromProfile(${e.id})"
+            class="h-11 w-full rounded-[14px] bg-zinc-900 text-[14px] font-extrabold text-white">
+            بدء الآن ←
+          </button>
+        </div>`;
+      }).join('')}
     </div>`;
-  modal.classList.remove('hidden');
-
-  const FB  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
-  const KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
-  const localExams = JSON.parse(localStorage.getItem('yadwor-exams') || '[]');
-
-  function applyAndRender(allRaw) {
-    const seen   = new Set();
-    const merged = allRaw.filter(e => { if (!e||!e.id||seen.has(e.id)) return false; seen.add(e.id); return true; });
-
-    // ── التلميذ: فلترة صارمة بالمؤسسة + المستوى + مادة الأستاذ الناشر ──
-    if (myProfileType === 'student') {
-      if (!myAcceptedReq) {
-        elContent.innerHTML = `
-          <div class="flex items-center justify-between mb-5">
-            <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
-            <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
-              <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            </button>
-          </div>
-          <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
-            <div class="h-16 w-16 rounded-full flex items-center justify-center" style="background:#fef3c7;">
-              <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-amber-500" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-            </div>
-            <p class="text-[16px] font-extrabold text-zinc-800">لم تنضم لأي مؤسسة بعد</p>
-            <p class="text-[13px] text-zinc-500 leading-relaxed px-4">انضم لمؤسستك أولاً لتتمكن من مشاهدة التمارين والاختبارات.</p>
-          </div>`;
-        return;
-      }
-      const myInstUid = (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '').trim();
-      // إذا فتح من ملف مؤسسة مختلفة
-      if (viewingUid && myInstUid && viewingUid !== myInstUid) {
-        elContent.innerHTML = `
-          <div class="flex items-center justify-between mb-5">
-            <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
-            <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
-              <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            </button>
-          </div>
-          <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
-            <div class="h-16 w-16 rounded-full flex items-center justify-center" style="background:#fef3c7;">
-              <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-amber-500" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-            </div>
-            <p class="text-[16px] font-extrabold text-zinc-800">غير مسموح بالوصول</p>
-            <p class="text-[13px] text-zinc-500 leading-relaxed px-4">لا يمكنك مشاهدة اختبارات مؤسسة أخرى.</p>
-          </div>`;
-        return;
-      }
-      const filtered = _filterExamsForStudent(merged, myAcceptedReq);
-      elContent.innerHTML = _buildExamsModalHTML(filtered);
-      return;
-    }
-
-    // ── الأستاذ والمؤسسة: يرون اختباراتهم فقط ──
-    if (myProfileType === 'teacher' || myProfileType === 'institution') {
-      if (viewingUid && viewingUid !== myUid) {
-        const myInstUid = myAcceptedReq
-          ? (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '')
-          : (myProfileType === 'institution' ? myUid : '');
-        if (myInstUid !== viewingUid) {
-          elContent.innerHTML = `
-            <div class="flex items-center justify-between mb-5">
-              <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
-              <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
-                <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-              </button>
-            </div>
-            <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
-              <div class="h-16 w-16 rounded-full flex items-center justify-center" style="background:#fef3c7;">
-                <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-amber-500" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-              </div>
-              <p class="text-[16px] font-extrabold text-zinc-800">غير مسموح بالوصول</p>
-            </div>`;
-          return;
-        }
-        const now = Date.now();
-        const filtered = merged.filter(e => now < (e.expiresAt||0) && (e.institutionUid===viewingUid||e.teacherUid===viewingUid));
-        elContent.innerHTML = _buildExamsModalHTML(filtered);
-        return;
-      }
-      const now = Date.now();
-      const filtered = merged.filter(e => now < (e.expiresAt||0) && (e.teacherUid===myUid||e.institutionUid===myUid));
-      elContent.innerHTML = _buildExamsModalHTML(filtered);
-      return;
-    }
-
-    elContent.innerHTML = _buildExamsModalHTML([]);
   }
 
-  fetch(`${FB}/exams.json?auth=${KEY}`)
-    .then(r => r.ok ? r.json() : null)
-    .then(data => {
-      let fbExams = [];
-      if (data && typeof data === 'object') {
-        fbExams = Object.values(data).filter(e => e && e.id && e.expiresAt);
-      }
-      applyAndRender([...fbExams, ...localExams]);
-    })
-    .catch(() => applyAndRender(localExams));
+  modal.classList.remove('hidden');
 }
 
 function closeExercisesModal() {
@@ -1359,6 +1310,24 @@ function startExamFromProfile(examId) {
 
 
 function openJoinModal() {
+  // منع الانضمام إذا كان المستخدم في مؤسسة بالفعل
+  const myUid2 = localStorage.getItem('yadwor-uid') || '';
+  const allReqs2 = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
+  const alreadyAccepted = allReqs2.find(r =>
+    r.status === 'accepted' && (r.uid === myUid2 || r.userId === myUid2)
+  );
+  const alreadyPending = allReqs2.find(r =>
+    r.status === 'pending' && (r.uid === myUid2 || r.userId === myUid2) &&
+    (r.institutionUid || r.institutionId || '') === (_visitorUid || '')
+  );
+  if (alreadyAccepted) {
+    showToast('أنت منتسب لمؤسسة بالفعل. يجب مغادرتها أولاً للانضمام لمؤسسة أخرى.');
+    return;
+  }
+  if (alreadyPending) {
+    showToast('لديك طلب انضمام قيد الانتظار لهذه المؤسسة.');
+    return;
+  }
   state.joinStep = 1; state.joinRole = null;
   renderJoinModalContent();
   document.getElementById('join-modal').classList.remove('hidden');
@@ -1467,8 +1436,12 @@ function buildSubjectsHTML(availSubjects, total, levelId) {
       + '</div>';
   }
 
+  const sectionTitle = isTeacher
+    ? '<p class="mb-1 text-[13px] font-extrabold text-zinc-700">المادة التي تدرّسها</p><p class="mb-2 text-[11px] text-zinc-400 font-bold">اختر مادة واحدة فقط</p>'
+    : '<p class="mb-2 text-[13px] font-extrabold text-zinc-700">اختيار المواد</p>';
+
   return '<div class="mb-4">'
-    + '<p class="mb-2 text-[13px] font-extrabold text-zinc-700">اختيار المواد</p>'
+    + sectionTitle
     + '<div class="rounded-[18px] border border-zinc-200 bg-zinc-50 p-3">'
     + '<div class="grid grid-cols-2 gap-2">' + subjectBtns + '</div>'
     + '</div></div>'
@@ -1606,7 +1579,7 @@ function renderJoinModalContent() {
           <p class="text-[12px] mt-1" style="color:#60a5fa;">يرجى التواصل مع إدارة المؤسسة</p>
         </div>`;
       } else {
-        subjectsSection = buildSubjectsHTML(availSubjects, total, state.selectedLevel);
+        subjectsSection = buildSubjectsHTML(availSubjects, total, state.selectedLevel, state.joinRole === 'teacher');
       }
     }
 
@@ -1655,10 +1628,15 @@ function renderJoinModalContent() {
 }
 function selectJoinRole(role) { state.joinRole = role; state.joinStep = 2; state.selectedSubjects = []; renderJoinModalContent(); }
 function toggleJoinSubject(subject, checked) {
-  if(checked) {
-    if(!state.selectedSubjects.includes(subject)) state.selectedSubjects.push(subject);
+  if (checked) {
+    if (state.joinRole === 'teacher') {
+      // الأستاذ: مادة واحدة فقط — يستبدل القديم
+      state.selectedSubjects = [subject];
+    } else {
+      if (!state.selectedSubjects.includes(subject)) state.selectedSubjects.push(subject);
+    }
   } else {
-    state.selectedSubjects = state.selectedSubjects.filter(s=>s!==subject);
+    state.selectedSubjects = state.selectedSubjects.filter(s => s !== subject);
   }
   renderJoinModalContent();
 }
@@ -1718,7 +1696,9 @@ async function submitJoinRequest() {
   try { localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests)); } catch(e) {}
 
   try {
-    await fetch(FB_DB_URL + '/joinRequests/' + req.id + '.json?auth=' + FB_API_KEY, {
+    // الحفظ تحت مسار المؤسسة المعينة فقط — لا علاقة للمؤسسات الأخرى
+    const instUid3 = req.institutionUid || req.institutionId || 'unknown';
+    await fetch(FB_DB_URL + '/joinRequests/' + instUid3 + '/' + req.id + '.json?auth=' + FB_API_KEY, {
       method: 'PUT',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(req)
