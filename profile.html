@@ -333,20 +333,32 @@ async function showInstitutionInfoModal() {
   // البحث عن اسم المؤسسة من joinRequests
   const myUid = localStorage.getItem('yadwor-uid') || '';
 
-  // أولاً: جلب جميع joinRequests من Firebase للتأكد من أحدث بيانات
+  // أولاً: جلب طلبات المستخدم الحالي من المؤسسة التي ينتمي إليها
   let allRequests = state.joinRequests || [];
-  try {
-    const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data) {
-        const fbReqs = Object.values(data).filter(r => r && r.id);
-        allRequests = fbReqs;
-        state.joinRequests = fbReqs;
-        localStorage.setItem('yadwor-join-requests', JSON.stringify(fbReqs));
+  // ابحث أولاً في الطلبات المحلية عن طلب مقبول لهذا المستخدم
+  const localAccepted = allRequests.find(r =>
+    r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
+  );
+  // إذا وجدنا مؤسسة محلياً، نجلب من Firebase مسار تلك المؤسسة تحديداً
+  const knownInstUid = localAccepted ? (localAccepted.institutionUid || localAccepted.institutionId || '') : '';
+  if (knownInstUid) {
+    try {
+      const res = await fetch(`${FB_DB_URL}/joinRequests/${knownInstUid}.json?auth=${FB_API_KEY}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data) {
+          const fbReqs = Object.values(data).filter(r => r && r.id);
+          // دمج مع state.joinRequests
+          fbReqs.forEach(r => {
+            const idx = allRequests.findIndex(x => x.id === r.id);
+            if (idx === -1) allRequests.push(r); else allRequests[idx] = r;
+          });
+          state.joinRequests = allRequests;
+          localStorage.setItem('yadwor-join-requests', JSON.stringify(allRequests));
+        }
       }
-    }
-  } catch(e) {}
+    } catch(e) {}
+  }
 
   const myReq = allRequests.find(r =>
     r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
@@ -574,12 +586,17 @@ function renderProfile() {
     // زر الانضمام للمؤسسة
     const myUidForJoin = localStorage.getItem('yadwor-uid') || '';
     const vInstitutionId2 = _visitorUid || _visitorUsername;
+    // البحث عن طلب المستخدم الحالي لهذه المؤسسة تحديداً
     const existingJoinReq = (state.joinRequests||[]).find(r=>
-      (r.uid===myUidForJoin||r.userId===myUidForJoin) &&
-      (r.institutionId===vInstitutionId2||r.institutionUid===vInstitutionId2)
+      (r.uid === myUidForJoin || r.userId === myUidForJoin) &&
+      (
+        (r.institutionUid && vInstitutionId2 && r.institutionUid === vInstitutionId2) ||
+        (r.institutionId  && vInstitutionId2 && r.institutionId  === vInstitutionId2) ||
+        (r.institutionUsername && _visitorUsername && r.institutionUsername === _visitorUsername)
+      )
     );
     const isAlreadyMember = existingJoinReq && existingJoinReq.status === 'accepted';
-    const hasPendingJoin = existingJoinReq && existingJoinReq.status === 'pending';
+    const hasPendingJoin  = existingJoinReq && existingJoinReq.status === 'pending';
 
     // حالة المتابعة: نقرأها من localStorage
     const _vFollowKey = 'yadwor-following-' + (_visitorUid || _visitorUsername);
@@ -1326,19 +1343,24 @@ function openJoinModal() {
   const myUid2 = localStorage.getItem('yadwor-uid') || '';
   const allReqs2 = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
 
-  // التحقق إذا كان منتسباً لأي مؤسسة
+  // التحقق إذا كان منتسباً لأي مؤسسة (طلب مقبول بـ uid المستخدم الحالي)
   const alreadyAccepted = allReqs2.find(r =>
-    r.status === 'accepted' && (r.uid === myUid2 || r.userId === myUid2)
+    r.status === 'accepted' &&
+    (r.uid === myUid2 || r.userId === myUid2)
   );
 
-  // التحقق إذا كان لديه طلب معلق لأي مؤسسة (ليس فقط هذه المؤسسة)
+  // التحقق إذا كان لديه طلب معلق لأي مؤسسة (بـ uid المستخدم الحالي)
   const alreadyPendingAny = allReqs2.find(r =>
-    r.status === 'pending' && (r.uid === myUid2 || r.userId === myUid2)
+    r.status === 'pending' &&
+    (r.uid === myUid2 || r.userId === myUid2)
   );
 
-  // التحقق إذا كان لديه طلب معلق لنفس هذه المؤسسة تحديداً
-  const alreadyPendingThisInst = alreadyPendingAny &&
-    (alreadyPendingAny.institutionUid || alreadyPendingAny.institutionId || '') === (_visitorUid || '');
+  // هل الطلب المعلق لنفس هذه المؤسسة تحديداً؟
+  const alreadyPendingThisInst = alreadyPendingAny && (
+    (alreadyPendingAny.institutionUid && _visitorUid && alreadyPendingAny.institutionUid === _visitorUid) ||
+    (alreadyPendingAny.institutionId  && _visitorUid && alreadyPendingAny.institutionId  === _visitorUid) ||
+    (alreadyPendingAny.institutionUsername && _visitorUsername && alreadyPendingAny.institutionUsername === _visitorUsername)
+  );
 
   if (alreadyAccepted) {
     // إظهار نافذة توضيحية: منتسب لمؤسسة ويجب الخروج منها أولاً
@@ -2017,21 +2039,70 @@ async function loadVisitorProfile(username, uid) {
 }
 
 // ====================== مزامنة طلبات الانضمام من Firebase ======================
+// هذه الدالة تجلب طلبات الانضمام بطريقة صحيحة:
+// - إذا كنا نعرض ملف مؤسسة (isVisitor): نجلب طلبات تلك المؤسسة من /joinRequests/{institutionUid}
+// - إذا كنا في ملفنا الشخصي: نجلب طلبات المستخدم الحالي من جميع المؤسسات
 async function syncJoinRequestsFromFirebase() {
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  const rejectedIds = (() => { try { return JSON.parse(localStorage.getItem('yadwor-rejected-request-ids') || '[]'); } catch(e) { return []; } })();
+
   try {
-    const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
-    if (!res.ok) return;
-    const data = await res.json();
-    if (!data) {
-      // لا يوجد شيء في Firebase — امسح المحلي أيضاً
-      state.joinRequests = [];
-      localStorage.setItem('yadwor-join-requests', '[]');
-      return;
+    // --- حالة 1: نعرض ملف مؤسسة ---
+    // نجلب طلبات تلك المؤسسة تحديداً من /joinRequests/{visitorUid}
+    if (_visitorUid) {
+      const res = await fetch(`${FB_DB_URL}/joinRequests/${_visitorUid}.json?auth=${FB_API_KEY}`);
+      if (res.ok) {
+        const data = await res.json();
+        const fbReqs = data ? Object.values(data).filter(r => r && r.id && !rejectedIds.includes(r.id)) : [];
+        // دمج مع ما هو محلي: ابقِ الطلبات المحلية الخاصة بمؤسسات أخرى وأضف/حدّث طلبات هذه المؤسسة
+        const otherReqs = (state.joinRequests || []).filter(r =>
+          (r.institutionUid || r.institutionId || '') !== _visitorUid
+        );
+        const merged = [...otherReqs];
+        fbReqs.forEach(r => {
+          const idx = merged.findIndex(x => x.id === r.id);
+          if (idx === -1) merged.push(r); else merged[idx] = r;
+        });
+        state.joinRequests = merged;
+        localStorage.setItem('yadwor-join-requests', JSON.stringify(merged));
+        return;
+      }
     }
-    // استبدل state.joinRequests بالبيانات الحديثة من Firebase
-    const fbRequests = Object.values(data).filter(r => r && r.id);
-    state.joinRequests = fbRequests;
-    localStorage.setItem('yadwor-join-requests', JSON.stringify(fbRequests));
+
+    // --- حالة 2: ملفي الشخصي أو لا يوجد visitorUid ---
+    // نجلب طلبات المستخدم الحالي من Firebase
+    if (!myUid) return;
+
+    // أولاً: حاول جلب من localStorage كـ seed
+    let localReqs = [];
+    try { localReqs = JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]'); } catch(e) {}
+    state.joinRequests = localReqs;
+
+    // جمع كل مؤسسات معروفة: من الطلبات المحلية + من Firebase user data
+    const fbStoredInstUid = localStorage.getItem('yadwor-institution-uid') || '';
+    const instUidsSet = new Set(localReqs.map(r => r.institutionUid || r.institutionId).filter(Boolean));
+    if (fbStoredInstUid) instUidsSet.add(fbStoredInstUid);
+    const instUids = [...instUidsSet];
+
+    for (const instUid of instUids) {
+      try {
+        const res = await fetch(`${FB_DB_URL}/joinRequests/${instUid}.json?auth=${FB_API_KEY}`);
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (!data) continue;
+        // فقط طلبات المستخدم الحالي
+        const fbReqs = Object.values(data).filter(r =>
+          r && r.id && !rejectedIds.includes(r.id) &&
+          (r.uid === myUid || r.userId === myUid)
+        );
+        fbReqs.forEach(r => {
+          const idx = state.joinRequests.findIndex(x => x.id === r.id);
+          if (idx === -1) state.joinRequests.push(r); else state.joinRequests[idx] = r;
+        });
+      } catch(e) {}
+    }
+    localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests));
+
   } catch(e) {
     // fallback: استخدم localStorage
     try {
