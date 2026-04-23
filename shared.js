@@ -8,6 +8,107 @@ const FB_API_KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
 const CLD_NAME   = 'dlujoziwz';
 const CLD_PRESET = 'my_app_upload';
 
+// ============================================================
+// دوال المطابقة المنطقية بين الأستاذ والتلميذ والتمارين
+// ============================================================
+
+/**
+ * isStudentMatchingTeacher(student, teacher)
+ * ترجع true فقط إذا:
+ *   - نفس institutionId/institutionUid
+ *   - نفس levelId
+ *   - student.subjects تحتوي على teacher.subject
+ */
+function isStudentMatchingTeacher(student, teacher) {
+  if (!student || !teacher) return false;
+  const studentInst = (student.institutionUid || student.institutionId || '').trim();
+  const teacherInst = (teacher.institutionUid  || teacher.institutionId  || '').trim();
+  if (!studentInst || !teacherInst || studentInst !== teacherInst) return false;
+  const studentLevel = (student.levelId || '').trim();
+  const teacherLevel = (teacher.levelId  || '').trim();
+  if (!studentLevel || !teacherLevel || studentLevel !== teacherLevel) return false;
+  const studentSubjects = (student.subjects || []).map(s => (s.name || s).trim());
+  const teacherSubject  = (teacher.subject  || '').trim();
+  if (!teacherSubject) return false;
+  return studentSubjects.includes(teacherSubject);
+}
+
+/**
+ * canStudentSeeExercise(student, exercise)
+ * ترجع true إذا:
+ *   - نفس institutionId/institutionUid
+ *   - نفس levelId
+ *   - نفس subject (موجود في مواد التلميذ)
+ */
+function canStudentSeeExercise(student, exercise) {
+  if (!student || !exercise) return false;
+  const studentInst = (student.institutionUid || student.institutionId || '').trim();
+  const examInst    = (exercise.institutionUid || exercise.institutionId || '').trim();
+  // إذا لم يُحدَّد institutionUid في التمرين → لا يُعرض (شرط صارم)
+  if (!examInst || !studentInst || studentInst !== examInst) return false;
+  const studentLevel = (student.levelId  || '').trim();
+  const examLevel    = (exercise.levelId || '').trim();
+  if (!examLevel || !studentLevel || studentLevel !== examLevel) return false;
+  const studentSubjects = (student.subjects || []).map(s => (s.name || s).trim());
+  const examSubject     = (exercise.subject  || '').trim();
+  if (!examSubject) return false;
+  return studentSubjects.includes(examSubject);
+}
+
+// ============================================================
+// جلب بيانات المستخدم الحالي كاملةً من Firebase (async)
+// ============================================================
+async function fetchMyUserDataFromFirebase() {
+  const uid = localStorage.getItem('yadwor-uid') || '';
+  if (!uid) return null;
+  try {
+    const res = await fetch(`${FB_DB_URL}/users/${uid}.json?auth=${FB_API_KEY}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data || null;
+  } catch(e) { return null; }
+}
+
+/**
+ * جلب طلب الانضمام المقبول للمستخدم الحالي من Firebase
+ * يبحث في /joinRequests/* عن طلب status=accepted يخص uid الحالي
+ */
+async function fetchMyAcceptedJoinRequestFromFirebase() {
+  const uid = localStorage.getItem('yadwor-uid') || '';
+  if (!uid) return null;
+  try {
+    // جلب كل طلبات الانضمام لجميع المؤسسات
+    const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+    if (!res.ok) return null;
+    const allInstitutions = await res.json();
+    if (!allInstitutions) return null;
+    // البحث في كل مؤسسة عن طلب مقبول يخص المستخدم الحالي
+    for (const instUid of Object.keys(allInstitutions)) {
+      const instReqs = allInstitutions[instUid];
+      if (!instReqs) continue;
+      const found = Object.values(instReqs).find(r =>
+        r && r.status === 'accepted' && (r.uid === uid || r.userId === uid)
+      );
+      if (found) return found;
+    }
+    return null;
+  } catch(e) { return null; }
+}
+
+/**
+ * جلب جميع طلبات الانضمام المقبولة من Firebase لمؤسسة محددة
+ */
+async function fetchAcceptedRequestsForInstitution(institutionUid) {
+  if (!institutionUid) return [];
+  try {
+    const res = await fetch(`${FB_DB_URL}/joinRequests/${institutionUid}.json?auth=${FB_API_KEY}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data) return [];
+    return Object.values(data).filter(r => r && r.status === 'accepted');
+  } catch(e) { return []; }
+}
+
 // =================== بيانات المستخدم الحالي ===================
 function _myUid()      { return localStorage.getItem('yadwor-uid')            || ''; }
 function _myUsername() { return localStorage.getItem('yadwor-username')        || ''; }
