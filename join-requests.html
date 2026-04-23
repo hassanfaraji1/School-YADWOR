@@ -470,6 +470,14 @@ async function acceptRequest(id) {
 async function rejectRequest(id) {
   state.joinRequests = state.joinRequests.filter(x => x.id !== id);
   try { localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests)); } catch(e) {}
+
+  // حفظ الـ id في قائمة المرفوضات لمنع إعادة ظهوره
+  try {
+    const rejected = JSON.parse(localStorage.getItem('yadwor-rejected-request-ids') || '[]');
+    if (!rejected.includes(id)) rejected.push(id);
+    localStorage.setItem('yadwor-rejected-request-ids', JSON.stringify(rejected));
+  } catch(e) {}
+
   // حذف من Firebase — مسار المؤسسة الحالية
   try {
     const myUidRej = localStorage.getItem('yadwor-uid') || '';
@@ -520,6 +528,13 @@ async function removeMember(id) {
     await fetch(`${FB_JR_URL}/joinRequests/${myUidRem}/${id}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' });
   } catch(e) { console.warn(e); }
 
+  // حفظ في قائمة المرفوضات لمنع إعادة الظهور
+  try {
+    const rejected = JSON.parse(localStorage.getItem('yadwor-rejected-request-ids') || '[]');
+    if (!rejected.includes(id)) rejected.push(id);
+    localStorage.setItem('yadwor-rejected-request-ids', JSON.stringify(rejected));
+  } catch(e) {}
+
   closeMemberModal();
   showToast('تم إزالة العضو وتحويل حسابه إلى مؤثر تعليمي');
   renderMembers();
@@ -566,11 +581,19 @@ async function initPage() {
   ensureDemoRequests();
   checkAccess();
 
+  // تحميل قائمة الطلبات المرفوضة من localStorage
+  let rejectedIds = [];
+  try {
+    rejectedIds = JSON.parse(localStorage.getItem('yadwor-rejected-request-ids') || '[]');
+  } catch(e) {}
+
   // 2. محاولة جلب طلبات من Firebase ودمجها
   const firebaseRequests = await loadJoinRequestsFromFirebase();
   if (firebaseRequests && firebaseRequests.length > 0) {
     const existingIds = new Set(state.joinRequests.map(r => r.id));
     firebaseRequests.forEach(r => {
+      // تجاهل الطلبات التي تم رفضها مسبقاً
+      if (rejectedIds.includes(r.id)) return;
       if (!existingIds.has(r.id)) {
         state.joinRequests.push(r);
       } else {
