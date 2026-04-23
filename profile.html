@@ -333,24 +333,17 @@ async function showInstitutionInfoModal() {
   // البحث عن اسم المؤسسة من joinRequests
   const myUid = localStorage.getItem('yadwor-uid') || '';
 
-  // أولاً: جلب joinRequests الخاصة بالمستخدم الحالي فقط
+  // أولاً: جلب جميع joinRequests من Firebase للتأكد من أحدث بيانات
   let allRequests = state.joinRequests || [];
   try {
     const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
     if (res.ok) {
       const data = await res.json();
       if (data) {
-        const myType2 = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
-        const allFb = Object.values(data).filter(r => r && r.id);
-        let relevant;
-        if (myType2 === 'institution') {
-          relevant = allFb.filter(r => (r.institutionUid || r.institutionId || '') === myUid);
-        } else {
-          relevant = allFb.filter(r => r.uid === myUid || r.userId === myUid);
-        }
-        allRequests = relevant;
-        state.joinRequests = relevant;
-        localStorage.setItem('yadwor-join-requests', JSON.stringify(relevant));
+        const fbReqs = Object.values(data).filter(r => r && r.id);
+        allRequests = fbReqs;
+        state.joinRequests = fbReqs;
+        localStorage.setItem('yadwor-join-requests', JSON.stringify(fbReqs));
       }
     }
   } catch(e) {}
@@ -1154,15 +1147,15 @@ function goToVisitorChat(name, avatar) {
 }
 
 // ====================== EXERCISES MODAL ======================
-// ── مساعد: بناء HTML الاختبارات ──
-function _buildExamsHTML(filteredExams) {
+// ── بناء HTML عرض الاختبارات ──
+function _buildExamsModalHTML(list) {
   const hdr = `<div class="flex items-center justify-between mb-5">
-      <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
-      <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
-        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </div>`;
-  if (!filteredExams.length) {
+    <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
+    <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>`;
+  if (!list.length) {
     return hdr + `<div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
       <div class="h-16 w-16 rounded-full bg-zinc-100 flex items-center justify-center">
         <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.5" stroke-linecap="round">
@@ -1173,100 +1166,74 @@ function _buildExamsHTML(filteredExams) {
       <p class="text-[13px] text-zinc-400">لم يتم نشر أي اختبار أو تمرين بعد.</p>
     </div>`;
   }
-  return hdr + `<div class="space-y-3">${filteredExams.map(e => {
+  return hdr + `<div class="space-y-3">${list.map(e => {
     const totalPts = e.questions.reduce((s,q)=>s+(q.points||1),0);
     const remaining = Math.max(0, e.expiresAt - Date.now());
     const remH = Math.floor(remaining/3600000);
     const remM = Math.floor((remaining%3600000)/60000);
     const timeStr = remH > 0 ? `${remH}س ${remM}د` : `${remM} دقيقة`;
     return `<div class="rounded-[18px] border border-zinc-100 bg-zinc-50 p-4">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-[11px] font-bold bg-violet-100 text-violet-700 rounded-full px-2.5 py-1">${e.type}</span>
-          <span class="text-[11px] text-orange-500 font-bold">⏳ ${timeStr}</span>
-        </div>
-        <h4 class="text-[15px] font-extrabold text-zinc-900 mb-1">${e.title}</h4>
-        <div class="flex items-center gap-3 text-[12px] text-zinc-400 mb-3 flex-wrap">
-          <span>📝 ${e.questions.length} سؤال</span>
-          <span>⭐ ${totalPts} نقطة</span>
-          ${e.subject ? `<span>📚 ${e.subject}</span>` : ''}
-        </div>
-        <div class="rounded-[12px] bg-amber-50 border border-amber-200 p-3 mb-3">
-          <p class="text-[12px] text-amber-700 font-bold leading-relaxed">⚠️ استعد جيداً! لكل سؤال وقت محدد ولا يمكن تخطي الأسئلة.</p>
-        </div>
-        <button onclick="startExamFromProfile(${e.id})"
-          class="h-11 w-full rounded-[14px] bg-zinc-900 text-[14px] font-extrabold text-white">
-          بدء الآن ←
-        </button>
-      </div>`;
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[11px] font-bold bg-violet-100 text-violet-700 rounded-full px-2.5 py-1">${e.type}</span>
+        <span class="text-[11px] text-orange-500 font-bold">⏳ ${timeStr}</span>
+      </div>
+      <h4 class="text-[15px] font-extrabold text-zinc-900 mb-1">${e.title}</h4>
+      <div class="flex items-center gap-3 text-[12px] text-zinc-400 mb-3 flex-wrap">
+        <span>📝 ${e.questions.length} سؤال</span>
+        <span>⭐ ${totalPts} نقطة</span>
+        ${e.subject ? `<span>📚 ${e.subject}</span>` : ''}
+      </div>
+      <div class="rounded-[12px] bg-amber-50 border border-amber-200 p-3 mb-3">
+        <p class="text-[12px] text-amber-700 font-bold leading-relaxed">⚠️ استعد جيداً! لكل سؤال وقت محدد ولا يمكن تخطي الأسئلة.</p>
+      </div>
+      <button onclick="startExamFromProfile(${e.id})"
+        class="h-11 w-full rounded-[14px] bg-zinc-900 text-[14px] font-extrabold text-white">
+        بدء الآن ←
+      </button>
+    </div>`;
   }).join('')}</div>`;
 }
 
-// ── مساعد: فلترة الاختبارات ──
-function _filterExams(allExamsRaw, myProfileType, myUid, myAcceptedReq, viewingUid) {
-  const now    = Date.now();
-  const active = allExamsRaw.filter(e => now < (e.expiresAt || 0));
+// ── فلترة الاختبارات بمنطق المؤسسة + المستوى + مادة الأستاذ الناشر ──
+function _filterExamsForStudent(allExams, myAcceptedReq) {
+  const now        = Date.now();
+  const myInstUid  = (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '').trim();
+  const myLevelId  = (myAcceptedReq.levelId || '').trim();
+  // مواد التلميذ بالأحرف الصغيرة
+  const mySubjects = (myAcceptedReq.subjects || []).map(s => (s.name || s).trim().toLowerCase());
 
-  if (myProfileType === 'student') {
-    // التلميذ يجب أن يكون منضماً
-    if (!myAcceptedReq) return { notAllowed: true };
+  return allExams.filter(e => {
+    if (now >= (e.expiresAt || 0)) return false;                          // منتهي
 
-    const myInstUid  = (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '').trim();
-    const myLevelId  = (myAcceptedReq.levelId || '').trim();
-    const mySubjects = (myAcceptedReq.subjects || []).map(s => (s.name || s).trim().toLowerCase());
+    const eInst    = (e.institutionUid || '').trim();
+    const eLevel   = (e.levelId        || '').trim();
+    const eSubject = (e.subject        || '').trim().toLowerCase();
 
-    // إذا فتح من ملف مؤسسة مختلفة عن مؤسسته
-    if (viewingUid && myInstUid && viewingUid !== myInstUid) return { notAllowed: true };
+    // 1) نفس المؤسسة
+    const instOk = !eInst || !myInstUid || eInst === myInstUid;
+    // 2) نفس المستوى
+    const levelOk = !eLevel || !myLevelId || eLevel === myLevelId;
+    // 3) مادة الاختبار موجودة ضمن مواد التلميذ (تطابق تام أو جزئي)
+    const subjOk = !eSubject || mySubjects.length === 0 ||
+      mySubjects.some(s => s === eSubject || eSubject.includes(s) || s.includes(eSubject));
 
-    // فلترة: نفس المؤسسة + نفس المستوى + إحدى موادي
-    const filtered = active.filter(e => {
-      const eInst    = (e.institutionUid || '').trim();
-      const eLevel   = (e.levelId        || '').trim();
-      const eSubject = (e.subject        || '').trim().toLowerCase();
-      // نفس المؤسسة (إذا كان الاختبار مرتبطاً بمؤسسة)
-      const instOk   = !eInst   || !myInstUid  || eInst   === myInstUid;
-      // نفس المستوى
-      const levelOk  = !eLevel  || !myLevelId  || eLevel  === myLevelId;
-      // إحدى المواد التي يدرسها التلميذ
-      const subjOk   = !eSubject || mySubjects.length === 0 ||
-        mySubjects.some(s => s === eSubject || eSubject.includes(s) || s.includes(eSubject));
-      return instOk && levelOk && subjOk;
-    });
-    return { filtered };
-  }
-
-  if (myProfileType === 'teacher' || myProfileType === 'institution') {
-    // عند فتح ملف مؤسسة أخرى
-    if (viewingUid && viewingUid !== myUid) {
-      const myInstUid = myAcceptedReq
-        ? (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '')
-        : (myProfileType === 'institution' ? myUid : '');
-      if (myInstUid !== viewingUid) return { notAllowed: true };
-      return { filtered: active.filter(e =>
-        e.institutionUid === viewingUid || e.teacherUid === viewingUid
-      )};
-    }
-    // ملفه الخاص
-    return { filtered: active.filter(e =>
-      e.teacherUid === myUid || e.institutionUid === myUid
-    )};
-  }
-
-  return { filtered: active };
+    return instOk && levelOk && subjOk;
+  });
 }
 
 function openExercisesModal() {
   const myUid         = localStorage.getItem('yadwor-uid') || '';
   const myProfileType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
   const modal         = document.getElementById('exercises-modal');
-  const content       = document.getElementById('exercises-modal-content');
+  const elContent     = document.getElementById('exercises-modal-content');
   const allRequests   = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
   const myAcceptedReq = allRequests.find(r =>
     r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
   );
   const viewingUid = _visitorUid || '';
 
-  // shimmer أثناء التحميل
-  content.innerHTML = `
+  // shimmer
+  elContent.innerHTML = `
     <div class="flex items-center justify-between mb-5">
       <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
       <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
@@ -1282,10 +1249,92 @@ function openExercisesModal() {
     </div>`;
   modal.classList.remove('hidden');
 
-  // جلب الاختبارات من Firebase + المحلية
-  const localExams = JSON.parse(localStorage.getItem('yadwor-exams') || '[]');
   const FB  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
   const KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+  const localExams = JSON.parse(localStorage.getItem('yadwor-exams') || '[]');
+
+  function applyAndRender(allRaw) {
+    const seen   = new Set();
+    const merged = allRaw.filter(e => { if (!e||!e.id||seen.has(e.id)) return false; seen.add(e.id); return true; });
+
+    // ── التلميذ: فلترة صارمة بالمؤسسة + المستوى + مادة الأستاذ الناشر ──
+    if (myProfileType === 'student') {
+      if (!myAcceptedReq) {
+        elContent.innerHTML = `
+          <div class="flex items-center justify-between mb-5">
+            <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
+            <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+              <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
+            <div class="h-16 w-16 rounded-full flex items-center justify-center" style="background:#fef3c7;">
+              <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-amber-500" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            </div>
+            <p class="text-[16px] font-extrabold text-zinc-800">لم تنضم لأي مؤسسة بعد</p>
+            <p class="text-[13px] text-zinc-500 leading-relaxed px-4">انضم لمؤسستك أولاً لتتمكن من مشاهدة التمارين والاختبارات.</p>
+          </div>`;
+        return;
+      }
+      const myInstUid = (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '').trim();
+      // إذا فتح من ملف مؤسسة مختلفة
+      if (viewingUid && myInstUid && viewingUid !== myInstUid) {
+        elContent.innerHTML = `
+          <div class="flex items-center justify-between mb-5">
+            <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
+            <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+              <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
+            <div class="h-16 w-16 rounded-full flex items-center justify-center" style="background:#fef3c7;">
+              <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-amber-500" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            </div>
+            <p class="text-[16px] font-extrabold text-zinc-800">غير مسموح بالوصول</p>
+            <p class="text-[13px] text-zinc-500 leading-relaxed px-4">لا يمكنك مشاهدة اختبارات مؤسسة أخرى.</p>
+          </div>`;
+        return;
+      }
+      const filtered = _filterExamsForStudent(merged, myAcceptedReq);
+      elContent.innerHTML = _buildExamsModalHTML(filtered);
+      return;
+    }
+
+    // ── الأستاذ والمؤسسة: يرون اختباراتهم فقط ──
+    if (myProfileType === 'teacher' || myProfileType === 'institution') {
+      if (viewingUid && viewingUid !== myUid) {
+        const myInstUid = myAcceptedReq
+          ? (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '')
+          : (myProfileType === 'institution' ? myUid : '');
+        if (myInstUid !== viewingUid) {
+          elContent.innerHTML = `
+            <div class="flex items-center justify-between mb-5">
+              <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
+              <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+                <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
+              <div class="h-16 w-16 rounded-full flex items-center justify-center" style="background:#fef3c7;">
+                <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-amber-500" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+              </div>
+              <p class="text-[16px] font-extrabold text-zinc-800">غير مسموح بالوصول</p>
+            </div>`;
+          return;
+        }
+        const now = Date.now();
+        const filtered = merged.filter(e => now < (e.expiresAt||0) && (e.institutionUid===viewingUid||e.teacherUid===viewingUid));
+        elContent.innerHTML = _buildExamsModalHTML(filtered);
+        return;
+      }
+      const now = Date.now();
+      const filtered = merged.filter(e => now < (e.expiresAt||0) && (e.teacherUid===myUid||e.institutionUid===myUid));
+      elContent.innerHTML = _buildExamsModalHTML(filtered);
+      return;
+    }
+
+    elContent.innerHTML = _buildExamsModalHTML([]);
+  }
 
   fetch(`${FB}/exams.json?auth=${KEY}`)
     .then(r => r.ok ? r.json() : null)
@@ -1294,36 +1343,9 @@ function openExercisesModal() {
       if (data && typeof data === 'object') {
         fbExams = Object.values(data).filter(e => e && e.id && e.expiresAt);
       }
-      const seen = new Set(fbExams.map(e => String(e.id)));
-      const merged = [...fbExams, ...localExams.filter(e => !seen.has(String(e.id)))];
-      const result = _filterExams(merged, myProfileType, myUid, myAcceptedReq, viewingUid);
-      if (result.notAllowed) {
-        content.innerHTML = `
-        <div class="flex items-center justify-between mb-5">
-          <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
-          <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
-            <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-          </button>
-        </div>
-        <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
-          <div class="h-16 w-16 rounded-full flex items-center justify-center" style="background:#fef3c7;">
-            <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-amber-500" stroke-width="1.6" stroke-linecap="round">
-              <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
-            </svg>
-          </div>
-          <p class="text-[16px] font-extrabold text-zinc-800">غير مسموح بالوصول</p>
-          <p class="text-[13px] text-zinc-500 leading-relaxed px-4">لا يمكنك مشاهدة هذه الاختبارات لأنك لست في نفس المؤسسة.<br>انضم أولاً للمؤسسة لتتمكن من الوصول.</p>
-        </div>`;
-      } else {
-        content.innerHTML = _buildExamsHTML(result.filtered || []);
-      }
+      applyAndRender([...fbExams, ...localExams]);
     })
-    .catch(() => {
-      const result = _filterExams(localExams, myProfileType, myUid, myAcceptedReq, viewingUid);
-      content.innerHTML = result.notAllowed
-        ? `<p class="text-center text-zinc-500 py-10 font-bold">غير مسموح بالوصول.</p>`
-        : _buildExamsHTML(result.filtered || []);
-    });
+    .catch(() => applyAndRender(localExams));
 }
 
 function closeExercisesModal() {
@@ -1943,58 +1965,22 @@ async function loadVisitorProfile(username, uid) {
 
 // ====================== مزامنة طلبات الانضمام من Firebase ======================
 async function syncJoinRequestsFromFirebase() {
-  const myUid      = localStorage.getItem('yadwor-uid')      || '';
-  const myType     = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
-  // uid الصفحة التي نعرضها حالياً (المؤسسة الزائرة أو ملفنا)
-  const viewingUid = _visitorUid || myUid;
-
   try {
     const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
     if (!res.ok) return;
     const data = await res.json();
     if (!data) {
+      // لا يوجد شيء في Firebase — امسح المحلي أيضاً
       state.joinRequests = [];
       localStorage.setItem('yadwor-join-requests', '[]');
       return;
     }
-    const allFb = Object.values(data).filter(r => r && r.id);
-
-    // ── فلترة ذكية: كل حساب يرى فقط الطلبات المعنية به ──
-    let relevant;
-    if (myType === 'institution') {
-      // المؤسسة: طلبات انضمام إليها فقط
-      relevant = allFb.filter(r =>
-        (r.institutionUid || r.institutionId || '') === myUid
-      );
-    } else if (myType === 'teacher') {
-      // الأستاذ: طلبه الخاص فقط
-      relevant = allFb.filter(r =>
-        (r.uid === myUid || r.userId === myUid)
-      );
-    } else if (myType === 'student') {
-      // التلميذ: طلبه الخاص فقط
-      relevant = allFb.filter(r =>
-        (r.uid === myUid || r.userId === myUid)
-      );
-    } else {
-      // عند عرض ملف مؤسسة من قِبل غير المؤسسة: اجلب طلبات تلك المؤسسة وطلب المستخدم الحالي
-      relevant = allFb.filter(r =>
-        (r.uid === myUid || r.userId === myUid) ||
-        (viewingUid && (r.institutionUid || r.institutionId || '') === viewingUid)
-      );
-    }
-
-    // دمج مع الطلبات المحفوظة محلياً لضمان عدم الفقدان
-    const localReqs = JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
-    const seenIds = new Set(relevant.map(r => r.id));
-    const merged = [...relevant, ...localReqs.filter(r => r.id && !seenIds.has(r.id) && (
-      (r.uid === myUid || r.userId === myUid) ||
-      (myType === 'institution' && (r.institutionUid || r.institutionId || '') === myUid)
-    ))];
-
-    state.joinRequests = merged;
-    localStorage.setItem('yadwor-join-requests', JSON.stringify(merged));
+    // استبدل state.joinRequests بالبيانات الحديثة من Firebase
+    const fbRequests = Object.values(data).filter(r => r && r.id);
+    state.joinRequests = fbRequests;
+    localStorage.setItem('yadwor-join-requests', JSON.stringify(fbRequests));
   } catch(e) {
+    // fallback: استخدم localStorage
     try {
       const saved = localStorage.getItem('yadwor-join-requests');
       if (saved) state.joinRequests = JSON.parse(saved);
