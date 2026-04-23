@@ -1310,22 +1310,44 @@ function startExamFromProfile(examId) {
 
 
 function openJoinModal() {
-  // منع الانضمام إذا كان المستخدم في مؤسسة بالفعل
+  // منع حساب المؤسسة من الانضمام لأي مؤسسة
+  const myAccountType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || state.profileType || '';
+  if (myAccountType === 'institution') {
+    // إظهار نافذة التنبيه الخاصة بالمؤسسة
+    const instBlockModal = document.getElementById('inst-block-modal');
+    if (instBlockModal) {
+      instBlockModal.classList.remove('hidden');
+    } else {
+      showToast('لا يمكن لحساب مؤسسة الانضمام إلى مؤسسة أخرى.');
+    }
+    return;
+  }
+
   const myUid2 = localStorage.getItem('yadwor-uid') || '';
   const allReqs2 = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
+
+  // التحقق إذا كان منتسباً لأي مؤسسة
   const alreadyAccepted = allReqs2.find(r =>
     r.status === 'accepted' && (r.uid === myUid2 || r.userId === myUid2)
   );
-  const alreadyPending = allReqs2.find(r =>
-    r.status === 'pending' && (r.uid === myUid2 || r.userId === myUid2) &&
-    (r.institutionUid || r.institutionId || '') === (_visitorUid || '')
+
+  // التحقق إذا كان لديه طلب معلق لأي مؤسسة (ليس فقط هذه المؤسسة)
+  const alreadyPendingAny = allReqs2.find(r =>
+    r.status === 'pending' && (r.uid === myUid2 || r.userId === myUid2)
   );
+
+  // التحقق إذا كان لديه طلب معلق لنفس هذه المؤسسة تحديداً
+  const alreadyPendingThisInst = alreadyPendingAny &&
+    (alreadyPendingAny.institutionUid || alreadyPendingAny.institutionId || '') === (_visitorUid || '');
+
   if (alreadyAccepted) {
-    showToast('أنت منتسب لمؤسسة بالفعل. يجب مغادرتها أولاً للانضمام لمؤسسة أخرى.');
+    // إظهار نافذة توضيحية: منتسب لمؤسسة ويجب الخروج منها أولاً
+    _showAlreadyMemberModal(alreadyAccepted);
     return;
   }
-  if (alreadyPending) {
-    showToast('لديك طلب انضمام قيد الانتظار لهذه المؤسسة.');
+  if (alreadyPendingAny) {
+    // إظهار نافذة توضيحية: لديه طلب معلق لمؤسسة ما
+    _showAlreadyPendingModal(alreadyPendingAny, alreadyPendingThisInst);
     return;
   }
   state.joinStep = 1; state.joinRole = null;
@@ -1356,6 +1378,55 @@ async function _loadInstitutionCatalogFromFirebase() {
   } catch(e) { console.warn('load institution catalog failed:', e); }
 }
 function closeJoinModal() { document.getElementById('join-modal').classList.add('hidden'); }
+
+// نافذة: المستخدم منتسب لمؤسسة بالفعل
+function _showAlreadyMemberModal(req) {
+  const instName = req.institutionUsername || req.institutionName || 'مؤسسة أخرى';
+  let el = document.getElementById('already-member-modal');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'already-member-modal';
+    el.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);padding:16px;';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `<div style="background:#fff;border-radius:24px;padding:28px 22px;text-align:center;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+    <div style="width:56px;height:56px;border-radius:50%;background:#fef3c7;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+      <svg viewBox="0 0 24 24" style="width:28px;height:28px;" fill="none" stroke="#d97706" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+    </div>
+    <p style="font-size:17px;font-weight:800;color:#18181b;font-family:Tajawal,sans-serif;margin:0 0 8px;">أنت منتسب لمؤسسة بالفعل</p>
+    <p style="font-size:13px;color:#71717a;line-height:1.7;font-family:Tajawal,sans-serif;margin:0 0 20px;">أنت عضو في مؤسسة <strong>${instName}</strong>.<br>يجب الخروج منها أولاً قبل الانضمام لمؤسسة أخرى.</p>
+    <button onclick="document.getElementById('already-member-modal').style.display='none';" style="width:100%;border-radius:14px;background:#18181b;border:none;padding:12px;font-size:14px;font-weight:800;color:white;cursor:pointer;font-family:Tajawal,sans-serif;">حسناً</button>
+  </div>`;
+  el.style.display = 'flex';
+}
+
+// نافذة: المستخدم لديه طلب معلق لمؤسسة أخرى
+function _showAlreadyPendingModal(req, isSameInst) {
+  const instName = req.institutionUsername || req.institutionName || 'مؤسسة أخرى';
+  let el = document.getElementById('already-pending-modal');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'already-pending-modal';
+    el.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);padding:16px;';
+    document.body.appendChild(el);
+  }
+  const instId = req.institutionUid || req.institutionId || '';
+  const msg = isSameInst
+    ? 'لقد أرسلت طلب انضمام لهذه المؤسسة مسبقاً وهو قيد المراجعة. انتظر رد المؤسسة.'
+    : `لديك طلب انضمام قيد الانتظار في مؤسسة <strong>${instName}</strong>.<br>لا يمكنك إرسال طلب لمؤسسة أخرى في نفس الوقت. يمكنك إلغاء طلبك الحالي أولاً.`;
+  el.innerHTML = `<div style="background:#fff;border-radius:24px;padding:28px 22px;text-align:center;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+    <div style="width:56px;height:56px;border-radius:50%;background:#fef3c7;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+      <svg viewBox="0 0 24 24" style="width:28px;height:28px;" fill="none" stroke="#d97706" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+    </div>
+    <p style="font-size:17px;font-weight:800;color:#18181b;font-family:Tajawal,sans-serif;margin:0 0 8px;">طلب انضمام موجود مسبقاً</p>
+    <p style="font-size:13px;color:#71717a;line-height:1.7;font-family:Tajawal,sans-serif;margin:0 0 20px;">${msg}</p>
+    <div style="display:flex;gap:10px;">
+      <button onclick="document.getElementById('already-pending-modal').style.display='none';" style="flex:1;border-radius:14px;background:#f4f4f5;border:none;padding:12px;font-size:13px;font-weight:800;color:#18181b;cursor:pointer;font-family:Tajawal,sans-serif;">إغلاق</button>
+      ${!isSameInst ? `<button onclick="document.getElementById('already-pending-modal').style.display='none';cancelMyJoinRequest('${instId}');" style="flex:1;border-radius:14px;background:#dc2626;border:none;padding:12px;font-size:13px;font-weight:800;color:white;cursor:pointer;font-family:Tajawal,sans-serif;">إلغاء طلبي</button>` : `<button onclick="document.getElementById('already-pending-modal').style.display='none';showPendingJoinModal();" style="flex:1;border-radius:14px;background:#f97316;border:none;padding:12px;font-size:13px;font-weight:800;color:white;cursor:pointer;font-family:Tajawal,sans-serif;">تفاصيل الطلب</button>`}
+    </div>
+  </div>`;
+  el.style.display = 'flex';
+}
 
 function calcJoinTotal() {
   const catV3 = JSON.parse(localStorage.getItem('yadwor-catalog-v3') || '{}');
@@ -1785,12 +1856,14 @@ function cancelMyJoinRequest(institutionId) {
     (r.institutionId===institutionId||r.institutionUid===institutionId)
   );
   if(idx > -1) {
-    const reqId = state.joinRequests[idx].id;
+    const req = state.joinRequests[idx];
+    const reqId = req.id;
+    const instUid = req.institutionUid || req.institutionId || institutionId;
     state.joinRequests.splice(idx, 1);
     localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests));
-    try { fetch(FB_DB_URL+'/joinRequests/'+reqId+'.json?auth='+FB_API_KEY, {method:'DELETE'}); } catch(e){}
+    // المسار الصحيح: /joinRequests/{institutionUid}/{requestId}
+    try { fetch(FB_DB_URL+'/joinRequests/'+instUid+'/'+reqId+'.json?auth='+FB_API_KEY, {method:'DELETE'}); } catch(e){}
     showToast('تم إزالة طلب الانضمام');
-    // أعد تحميل الصفحة لتحديث الحالة
     setTimeout(()=>window.location.reload(), 800);
   }
 }
