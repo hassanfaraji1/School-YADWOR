@@ -202,13 +202,43 @@ function isStudentMatchingTeacher(student, teacher) {
   return sameInstitution && sameLevel && subjectMatch;
 }
 
-// ---- Local data ----
+// ---- Firebase & Local data ----
+const _FB  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
+const _KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+
+// cache للاختبارات المجلوبة من Firebase
+let _examsCacheLoaded = false;
+let _examsCache = [];
+
+// جلب الاختبارات من Firebase
+async function fetchExamsFromFirebase() {
+  try {
+    const res = await fetch(`${_FB}/exams.json?auth=${_KEY}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data) return [];
+    return Object.values(data).filter(e => e && e.id);
+  } catch(e) { return null; }
+}
+
 function getExams() {
+  if (_examsCacheLoaded) return [..._examsCache];
   try { return JSON.parse(localStorage.getItem('yadwor-exams') || '[]'); } catch(e) { return []; }
 }
+
 function saveExams(list) {
-  localStorage.setItem('yadwor-exams', JSON.stringify(list));
+  _examsCache = list;
+  _examsCacheLoaded = true;
+  // احتفظ بـ localStorage كـ fallback فقط
+  try { localStorage.setItem('yadwor-exams', JSON.stringify(list)); } catch(e) {}
 }
+
+async function deleteExamFromFirebase(examId) {
+  try {
+    await fetch(`${_FB}/exams/${examId}.json?auth=${_KEY}`, { method: 'DELETE' });
+  } catch(e) {}
+}
+
 function getPendingQuestions() {
   try { return JSON.parse(localStorage.getItem('yadwor-pending-questions') || '[]'); } catch(e) { return []; }
 }
@@ -273,12 +303,47 @@ function renderMainContent() {
 // ============================================================
 
 // ---- جلب بيانات المستخدم الحالي (نوع الحساب + بيانات انضمامه) ----
+// نسخة متزامنة (للاستخدام الفوري) تعتمد على state المحلي المحدَّث
 function _getMyAccountInfo() {
-  const myUid   = localStorage.getItem('yadwor-uid') || '';
-  const myType  = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || 'influencer';
-  const allReqs = (() => { try { return JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]'); } catch(e) { return []; } })();
-  const myReq   = allReqs.find(r => r.status === 'accepted' && (r.uid === myUid || r.userId === myUid));
+  const myUid  = localStorage.getItem('yadwor-uid') || '';
+  const myType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || 'influencer';
+  // أولاً: ابحث في state.joinRequests إن وُجد (تم تحميله من Firebase)
+  const allReqs = (typeof state !== 'undefined' && state.joinRequests)
+    ? state.joinRequests
+    : (() => { try { return JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]'); } catch(e) { return []; } })();
+  const myReq = allReqs.find(r => r.status === 'accepted' && (r.uid === myUid || r.userId === myUid));
   return { myUid, myType, myReq };
+}
+
+// ---- جلب بيانات الانضمام من Firebase (async) ----
+async function _fetchMyAccountInfoFromFirebase() {
+  const myUid  = localStorage.getItem('yadwor-uid') || '';
+  const myType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || 'influencer';
+  const FB  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
+  const KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+  if (!myUid) return { myUid, myType, myReq: null };
+  try {
+    const res = await fetch(`${FB}/joinRequests.json?auth=${KEY}`);
+    if (!res.ok) return { myUid, myType, myReq: _getMyAccountInfo().myReq };
+    const allInstitutions = await res.json();
+    if (!allInstitutions) return { myUid, myType, myReq: null };
+    for (const instUid of Object.keys(allInstitutions)) {
+      const instReqs = allInstitutions[instUid];
+      if (!instReqs) continue;
+      const found = Object.values(instReqs).find(r =>
+        r && r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
+      );
+      if (found) {
+        // حفظ في localStorage للاستخدام الفوري لاحقاً
+        const local = (() => { try { return JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]'); } catch(e) { return []; } })();
+        if (!local.find(r => r.id === found.id)) { local.push(found); localStorage.setItem('yadwor-join-requests', JSON.stringify(local)); }
+        return { myUid, myType, myReq: found };
+      }
+    }
+    return { myUid, myType, myReq: null };
+  } catch(e) {
+    return { myUid, myType, myReq: _getMyAccountInfo().myReq };
+  }
 }
 
 // ---- بناء قسم المستوى والمادة حسب نوع الحساب ----
@@ -889,43 +954,61 @@ function publishExam() {
 // ============================================================
 function renderEdit() {
   const el = document.getElementById('main-content');
-  const { myUid, myType, myReq } = _getMyAccountInfo();
+  // عرض shimmer أثناء التحميل
+  el.innerHTML = `<div class="space-y-3">${[1,2].map(()=>`
+    <div class="rounded-[16px] bg-white border border-zinc-100 shadow-sm p-4">
+      <div class="shimmer h-4 w-24 rounded-full mb-3"></div>
+      <div class="shimmer h-5 w-3/4 rounded-full mb-2"></div>
+      <div class="shimmer h-3 w-16 rounded-full"></div>
+    </div>`).join('')}</div>`;
 
-  // حذف المنتهية من التخزين
-  const allExams = getExams();
-  const activeExams = allExams.filter(e => Date.now() < e.expiresAt);
-  saveExams(activeExams);
+  // جلب البيانات من Firebase ثم عرض
+  (async () => {
+    const { myUid, myType, myReq } = await _fetchMyAccountInfoFromFirebase();
+    const fbExams = await fetchExamsFromFirebase();
+    if (fbExams !== null) {
+      // دمج مع اختبارات محلية غير مرفوعة بعد
+      const localExams = (() => { try { return JSON.parse(localStorage.getItem('yadwor-exams') || '[]'); } catch(e) { return []; } })();
+      const fbIds = new Set(fbExams.map(e => String(e.id)));
+      const localPending = localExams.filter(e => !fbIds.has(String(e.id)));
+      saveExams([...fbExams, ...localPending]);
+    }
 
-  let exams = activeExams;
+    const allExams = getExams();
+    const activeExams = allExams.filter(e => Date.now() < e.expiresAt);
+    saveExams(activeExams);
 
-  // ── الأستاذ والمؤسسة: يرون اختباراتهم التي نشروها فقط ──
-  if (myType === 'teacher' || myType === 'institution') {
-    exams = activeExams.filter(e => e.teacherUid === myUid || e.institutionUid === myUid);
-  }
+    let exams = activeExams;
 
-  // ── التلميذ: يرى فقط الاختبارات التي تحقق شروط المطابقة ──
-  if (myType === 'student') {
-    exams = myReq ? activeExams.filter(e => canStudentSeeExercise(myReq, e)) : [];
-  }
+    // الأستاذ والمؤسسة: يرون اختباراتهم فقط
+    if (myType === 'teacher' || myType === 'institution') {
+      exams = activeExams.filter(e => e.teacherUid === myUid || e.institutionUid === myUid);
+    }
 
-  if (!exams.length) {
+    // التلميذ: يرى فقط الاختبارات التي تطابقه (بيانات من Firebase)
+    if (myType === 'student') {
+      exams = myReq ? activeExams.filter(e => canStudentSeeExercise(myReq, e)) : [];
+    }
+
+    if (!exams.length) {
+      el.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-20 text-center gap-3">
+        <div class="h-16 w-16 rounded-full bg-zinc-100 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round">
+            <path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+          </svg>
+        </div>
+        <p class="text-[14px] font-bold text-zinc-400">لا توجد اختبارات منشورة حالياً</p>
+        <button onclick="setMainTab('create')" class="mt-2 rounded-[12px] bg-zinc-900 px-6 py-3 text-[13px] font-bold text-white">إنشاء اختبار</button>
+      </div>`;
+      return;
+    }
+
     el.innerHTML = `
-    <div class="flex flex-col items-center justify-center py-20 text-center gap-3">
-      <div class="h-16 w-16 rounded-full bg-zinc-100 flex items-center justify-center">
-        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round">
-          <path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.414-9.414a2 2 0 1 1 2.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-        </svg>
-      </div>
-      <p class="text-[14px] font-bold text-zinc-400">لا توجد اختبارات منشورة حالياً</p>
-      <button onclick="setMainTab('create')" class="mt-2 rounded-[12px] bg-zinc-900 px-6 py-3 text-[13px] font-bold text-white">إنشاء اختبار</button>
+    <div class="space-y-3">
+      ${exams.map(e => renderExamEditCard(e)).join('')}
     </div>`;
-    return;
-  }
-
-  el.innerHTML = `
-  <div class="space-y-3">
-    ${exams.map(e => renderExamEditCard(e)).join('')}
-  </div>`;
+  })();
 }
 
 function renderExamEditCard(exam) {
@@ -958,6 +1041,7 @@ function deleteExam(id) {
   if (!confirm('هل تريد حذف هذا الاختبار؟')) return;
   const exams = getExams().filter(e => e.id !== id);
   saveExams(exams);
+  deleteExamFromFirebase(id); // حذف من Firebase (async في الخلفية)
   showToast('تم الحذف');
   renderEdit();
 }
@@ -968,7 +1052,19 @@ function viewResults(id) {
 
 // ---- Init ----
 updatePendingBadge();
-renderMainContent();
+// تحميل الاختبارات من Firebase عند البدء، ثم عرض المحتوى
+(async () => {
+  try {
+    const fbExams = await fetchExamsFromFirebase();
+    if (fbExams !== null) {
+      const localExams = (() => { try { return JSON.parse(localStorage.getItem('yadwor-exams') || '[]'); } catch(e) { return []; } })();
+      const fbIds = new Set(fbExams.map(e => String(e.id)));
+      const localPending = localExams.filter(e => !fbIds.has(String(e.id)));
+      saveExams([...fbExams, ...localPending]);
+    }
+  } catch(e) {}
+  renderMainContent();
+})();
 </script>
 </body>
 </html>
