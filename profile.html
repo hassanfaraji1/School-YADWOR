@@ -856,29 +856,7 @@ function getProfileTabs() {
   const acceptedTeachers = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted'&&(r.institutionUid===myInstUid||r.institutionId===myInstUid)).length;
   const acceptedStudents = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted'&&(r.institutionUid===myInstUid||r.institutionId===myInstUid)).length;
   if(state.profileType==='institution') return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'teachers',label:'الأساتذة',count:acceptedTeachers},{id:'students',label:'التلاميذ',count:acceptedStudents},{id:'books',label:'الكتب',count:0}];
-  if(state.profileType==='teacher') {
-    const myUidT2 = localStorage.getItem('yadwor-uid') || '';
-    const allReqsT2 = state.joinRequests || [];
-    const teacherReq2 = allReqsT2.find(r =>
-      r.status === 'accepted' && r.role === 'teacher' &&
-      (r.uid === myUidT2 || r.userId === myUidT2)
-    );
-    let teacherStudentCount = 0;
-    if (teacherReq2) {
-      const tInstUid2 = teacherReq2.institutionUid || teacherReq2.institutionId || '';
-      const tLevelId2 = teacherReq2.levelId || '';
-      const tSubjects2 = (teacherReq2.subjects || []).map(s => (s.name || s).trim().toLowerCase()).filter(Boolean);
-      teacherStudentCount = allReqsT2.filter(r => {
-        if (r.status !== 'accepted' || r.role !== 'student') return false;
-        const sInst = r.institutionUid || r.institutionId || '';
-        const sLvl  = r.levelId || '';
-        if (sInst !== tInstUid2 || sLvl !== tLevelId2) return false;
-        const sSubs = (r.subjects || []).map(s => (s.name || s).trim().toLowerCase()).filter(Boolean);
-        return tSubjects2.length > 0 && sSubs.some(ss => tSubjects2.includes(ss));
-      }).length;
-    }
-    return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'students',label:'تلاميذي',count:teacherStudentCount},{id:'books',label:'الكتب',count:0}];
-  }
+  if(state.profileType==='teacher')    return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'students',label:'تلاميذي',count:0},{id:'books',label:'الكتب',count:0}];
   if(state.profileType==='student')    return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'teachers',label:'أساتذتي',count:0},{id:'certificates',label:'الشواهد',count:0},{id:'badges',label:'الألقاب',count:0}];
   if(state.profileType==='influencer') return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'media',label:'الوسائط',count:myMedia.length}];
   return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'media',label:'الوسائط',count:myMedia.length}];
@@ -903,6 +881,38 @@ function setProfileTab(id) {
 
 function renderProfileTabContent() {
   const t = state.profileType, tab = state.activeTab;
+
+  // ── دالة مطابقة التلميذ مع الأستاذ (نفس المؤسسة + نفس المستوى + المادة موجودة في مواد التلميذ) ──
+  function isStudentMatchingTeacher(student, teacher) {
+    if (!student || !teacher) return false;
+    const sameInstitution =
+      (student.institutionUid || student.institutionId || '') !== '' &&
+      (teacher.institutionUid || teacher.institutionId || '') !== '' &&
+      (student.institutionUid || student.institutionId) === (teacher.institutionUid || teacher.institutionId);
+    const sameLevel =
+      (student.levelId || '') !== '' &&
+      (teacher.levelId || '') !== '' &&
+      student.levelId === teacher.levelId;
+    const studentSubjectNames = (student.subjects || []).map(s => (s.name || s).trim());
+    const teacherSubject = (teacher.subject || '').trim();
+    const subjectMatch = teacherSubject !== '' && studentSubjectNames.includes(teacherSubject);
+    return sameInstitution && sameLevel && subjectMatch;
+  }
+
+  // ── دالة التحقق من أحقية التلميذ في رؤية تمرين ──
+  function canStudentSeeExercise(student, exercise) {
+    if (!student || !exercise) return false;
+    const studentInstUid = student.institutionUid || student.institutionId || '';
+    const examInstUid    = exercise.institutionUid || '';
+    const sameInstitution = !examInstUid || (studentInstUid !== '' && studentInstUid === examInstUid);
+    const studentLevelId  = student.levelId || '';
+    const examLevelId     = exercise.levelId || '';
+    const sameLevel = !examLevelId || (studentLevelId !== '' && studentLevelId === examLevelId);
+    const studentSubjectNames = (student.subjects || []).map(s => (s.name || s).trim());
+    const examSubject = (exercise.subject || '').trim();
+    const subjectMatch = !examSubject || studentSubjectNames.includes(examSubject);
+    return sameInstitution && sameLevel && subjectMatch;
+  }
 
   // ── دالة مساعدة: بطاقة شخص قابلة للنقر ──
   function personCard(r) {
@@ -1056,31 +1066,24 @@ function renderProfileTabContent() {
   // ── أستاذ: تلاميذه ──
   if(t==='teacher' && tab==='students') {
     const myUidT = localStorage.getItem('yadwor-uid') || '';
-    // جلب بيانات الانضمام للأستاذ: مؤسسته + مستواه + موادّه
     const allReqsT = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
-    const teacherReq = allReqsT.find(r =>
-      r.status === 'accepted' && r.role === 'teacher' &&
-      (r.uid === myUidT || r.userId === myUidT)
-    );
-    if (!teacherReq) return emptyState('<circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/>', 'لا يوجد تلاميذ بعد');
-    const teacherInstUid = teacherReq.institutionUid || teacherReq.institutionId || '';
-    const teacherLevelId = teacherReq.levelId || '';
-    const teacherSubjects = (teacherReq.subjects || []).map(s => (s.name || s).trim().toLowerCase()).filter(Boolean);
-    // جلب كل التلاميذ المقبولين في نفس المؤسسة + نفس المستوى + مادة مشتركة واحدة على الأقل
-    const matchingStudents = allReqsT.filter(r => {
-      if (r.status !== 'accepted' || r.role !== 'student') return false;
-      const sInstUid = r.institutionUid || r.institutionId || '';
-      const sLevelId = r.levelId || '';
-      if (sInstUid !== teacherInstUid || sLevelId !== teacherLevelId) return false;
-      if (teacherSubjects.length === 0) return false;
-      const sSubjects = (r.subjects || []).map(s => (s.name || s).trim().toLowerCase()).filter(Boolean);
-      // يكفي أن يكون لدى التلميذ مادة واحدة تطابق مادة الأستاذ
-      return sSubjects.some(ss => teacherSubjects.includes(ss));
-    });
-    if (!matchingStudents.length) return emptyState('<circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/>', 'لا يوجد تلاميذ بعد');
-    const html = `<div class="grid gap-2" id="teacher-students-list-grid">${matchingStudents.map(r=>personCard(r)).join('')}</div>`;
-    setTimeout(() => enrichAvatarsFromFirebase(matchingStudents, 'teacher-students-list-grid'), 0);
-    return html;
+    // بيانات انضمام الأستاذ الحالي (مؤسسة + مستوى + مادة)
+    const teacherReq = allReqsT.find(r => r.status === 'accepted' && (r.uid === myUidT || r.userId === myUidT) && r.role === 'teacher');
+    if (!teacherReq) {
+      return emptyState('<circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/>', 'انضم لمؤسسة أولاً لعرض تلاميذك');
+    }
+    // بناء كائن الأستاذ من بيانات انضمامه
+    const teacherInfo = {
+      institutionUid: teacherReq.institutionUid || teacherReq.institutionId || '',
+      levelId: teacherReq.levelId || '',
+      subject: (teacherReq.subjects && teacherReq.subjects[0]) ? (teacherReq.subjects[0].name || teacherReq.subjects[0]) : ''
+    };
+    // فلترة التلاميذ المقبولين الذين يطابقون الأستاذ
+    const matchedStudents = allReqsT.filter(r => r.role === 'student' && r.status === 'accepted' && isStudentMatchingTeacher(r, teacherInfo));
+    if (!matchedStudents.length) {
+      return emptyState('<circle cx="12" cy="7.5" r="2.5"/><path d="M6 19v-.5a6 6 0 0 1 12 0v.5"/>', 'لا يوجد تلاميذ بعد');
+    }
+    return `<div class="grid gap-2" id="teacher-students-grid">${matchedStudents.map(r => personCard(r)).join('')}</div>`;
   }
 
   // ── أستاذ: كتبه ──
@@ -1211,6 +1214,39 @@ function goToVisitorChat(name, avatar) {
 }
 
 // ====================== EXERCISES MODAL ======================
+
+// ── مطابقة التلميذ مع الأستاذ (نفس المؤسسة + نفس المستوى + المادة موجودة في مواد التلميذ) ──
+function isStudentMatchingTeacher(student, teacher) {
+  if (!student || !teacher) return false;
+  const sameInstitution =
+    (student.institutionUid || student.institutionId || '') !== '' &&
+    (teacher.institutionUid || teacher.institutionId || '') !== '' &&
+    (student.institutionUid || student.institutionId) === (teacher.institutionUid || teacher.institutionId);
+  const sameLevel =
+    (student.levelId || '') !== '' &&
+    (teacher.levelId || '') !== '' &&
+    student.levelId === teacher.levelId;
+  const studentSubjectNames = (student.subjects || []).map(s => (s.name || s).trim());
+  const teacherSubject = (teacher.subject || '').trim();
+  const subjectMatch = teacherSubject !== '' && studentSubjectNames.includes(teacherSubject);
+  return sameInstitution && sameLevel && subjectMatch;
+}
+
+// ── تحقق من أحقية التلميذ في رؤية تمرين (مؤسسة + مستوى + مادة) ──
+function canStudentSeeExercise(student, exercise) {
+  if (!student || !exercise) return false;
+  const studentInstUid = student.institutionUid || student.institutionId || '';
+  const examInstUid    = exercise.institutionUid || '';
+  const sameInstitution = !examInstUid || (studentInstUid !== '' && studentInstUid === examInstUid);
+  const studentLevelId  = student.levelId || '';
+  const examLevelId     = exercise.levelId || '';
+  const sameLevel = !examLevelId || (studentLevelId !== '' && studentLevelId === examLevelId);
+  const studentSubjectNames = (student.subjects || []).map(s => (s.name || s).trim());
+  const examSubject = (exercise.subject || '').trim();
+  const subjectMatch = !examSubject || studentSubjectNames.includes(examSubject);
+  return sameInstitution && sameLevel && subjectMatch;
+}
+
 function openExercisesModal() {
   const myUid = localStorage.getItem('yadwor-uid') || '';
   const myProfileType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
@@ -1244,23 +1280,8 @@ function openExercisesModal() {
         // التلميذ في مؤسسة مختلفة
         notSameInstitution = true;
       } else {
-        // فلترة الاختبارات بالمستوى والمادة
-        const myLevelId = myAcceptedReq.levelId || '';
-        const mySubjects = (myAcceptedReq.subjects || []).map(s => (s.name || s).trim().toLowerCase()).filter(Boolean);
-        filteredExams = activeExams.filter(e => {
-          const examLevel = (e.levelId || '').trim();
-          const examSubject = (e.subject || '').trim().toLowerCase();
-          // يجب أن يتطابق المستوى
-          const levelMatch = !examLevel || !myLevelId || examLevel === myLevelId;
-          // يجب أن تكون مادة الاختبار موجودة في مواد التلميذ
-          // إذا لم يكن للتلميذ مواد أو لم يحدد الاختبار مادة → لا يُعرض
-          const subjectMatch = examSubject && mySubjects.length > 0 &&
-            mySubjects.some(s => s === examSubject || examSubject.includes(s) || s.includes(examSubject));
-          // فلترة بالمؤسسة أيضاً: إذا كان الاختبار مرتبطاً بمؤسسة فيجب أن تكون نفس مؤسسة التلميذ
-          const examInstUid = e.institutionUid || '';
-          const instMatch = !examInstUid || examInstUid === myInstitutionUid;
-          return levelMatch && subjectMatch && instMatch;
-        });
+        // فلترة الاختبارات باستخدام canStudentSeeExercise (نفس المؤسسة + نفس المستوى + المادة موجودة)
+        filteredExams = activeExams.filter(e => canStudentSeeExercise(myAcceptedReq, e));
       }
     }
   } else if (myProfileType === 'teacher' || myProfileType === 'institution') {
