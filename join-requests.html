@@ -510,6 +510,25 @@ async function removeMember(id) {
     await fetch(`${FB_JR_URL}/joinRequests/${id}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' });
   } catch(e) { console.warn(e); }
 
+  // ── إذا كان العضو المُزال أستاذاً: احذف اختباراته وتمارينه من Firebase ──
+  if (r && r.role === 'teacher' && r.uid) {
+    try {
+      const examsRes = await fetch(`${FB_JR_URL}/exams.json?auth=${FB_JR_KEY}`);
+      if (examsRes.ok) {
+        const examsData = await examsRes.json();
+        if (examsData && typeof examsData === 'object') {
+          const toDelete = Object.values(examsData).filter(e => e && e.teacherUid === r.uid);
+          for (const ex of toDelete) {
+            // حذف الاختبار
+            fetch(`${FB_JR_URL}/exams/${ex.id}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' }).catch(()=>{});
+            // حذف إشعاره
+            fetch(`${FB_JR_URL}/notifications/${ex.id}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' }).catch(()=>{});
+          }
+        }
+      }
+    } catch(e) { console.warn('delete teacher exams failed:', e); }
+  }
+
   closeMemberModal();
   showToast('تم إزالة العضو وتحويل حسابه إلى مؤثر تعليمي');
   renderMembers();
