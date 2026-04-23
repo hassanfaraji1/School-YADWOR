@@ -156,7 +156,8 @@ async function applyAccountTypeOnAcceptance(request) {
 // حفظ طلب الانضمام في Firebase
 async function saveJoinRequestToFirebase(request) {
   try {
-    await fetch(`${FB_JR_URL}/joinRequests/${request.id}.json?auth=${FB_JR_KEY}`, {
+    const myUid = localStorage.getItem('yadwor-uid') || '';
+    await fetch(`${FB_JR_URL}/joinRequests/${myUid}/${request.id}.json?auth=${FB_JR_KEY}`, {
       method: 'PUT',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(request)
@@ -167,7 +168,8 @@ async function saveJoinRequestToFirebase(request) {
 // تحديث حالة الطلب في Firebase
 async function updateJoinRequestStatusInFirebase(id, status) {
   try {
-    await fetch(`${FB_JR_URL}/joinRequests/${id}.json?auth=${FB_JR_KEY}`, {
+    const myUid = localStorage.getItem('yadwor-uid') || '';
+    await fetch(`${FB_JR_URL}/joinRequests/${myUid}/${id}.json?auth=${FB_JR_KEY}`, {
       method: 'PATCH',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ status: status, updatedAt: Date.now() })
@@ -175,14 +177,20 @@ async function updateJoinRequestStatusInFirebase(id, status) {
   } catch(e) { console.warn('Firebase joinRequest update failed:', e); }
 }
 
-// جلب طلبات الانضمام من Firebase
+// جلب طلبات الانضمام من Firebase — طلبات هذه المؤسسة فقط
 async function loadJoinRequestsFromFirebase() {
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  if (!myUid) return null;
   try {
-    const res = await fetch(`${FB_JR_URL}/joinRequests.json?auth=${FB_JR_KEY}`);
+    // المسار الجديد: /joinRequests/{institutionUid}/
+    const res = await fetch(`${FB_JR_URL}/joinRequests/${myUid}.json?auth=${FB_JR_KEY}`);
     if (!res.ok) return null;
     const data = await res.json();
     if (!data) return [];
-    return Object.values(data);
+    if (typeof data === 'object' && !Array.isArray(data)) {
+      return Object.values(data).filter(r => r && r.id);
+    }
+    return [];
   } catch(e) {
     console.warn('Firebase joinRequests load failed:', e);
     return null;
@@ -462,9 +470,10 @@ async function acceptRequest(id) {
 async function rejectRequest(id) {
   state.joinRequests = state.joinRequests.filter(x => x.id !== id);
   try { localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests)); } catch(e) {}
-  // حذف من Firebase
+  // حذف من Firebase — مسار المؤسسة الحالية
   try {
-    await fetch(`${FB_JR_URL}/joinRequests/${id}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' });
+    const myUidRej = localStorage.getItem('yadwor-uid') || '';
+    await fetch(`${FB_JR_URL}/joinRequests/${myUidRej}/${id}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' });
   } catch(e) { console.warn(e); }
   closeRequestModal();
   showToast('تم رفض الطلب');
@@ -507,27 +516,9 @@ async function removeMember(id) {
 
   // حذف الطلب من Firebase
   try {
-    await fetch(`${FB_JR_URL}/joinRequests/${id}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' });
+    const myUidRem = localStorage.getItem('yadwor-uid') || '';
+    await fetch(`${FB_JR_URL}/joinRequests/${myUidRem}/${id}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' });
   } catch(e) { console.warn(e); }
-
-  // ── إذا كان العضو المُزال أستاذاً: احذف اختباراته وتمارينه من Firebase ──
-  if (r && r.role === 'teacher' && r.uid) {
-    try {
-      const examsRes = await fetch(`${FB_JR_URL}/exams.json?auth=${FB_JR_KEY}`);
-      if (examsRes.ok) {
-        const examsData = await examsRes.json();
-        if (examsData && typeof examsData === 'object') {
-          const toDelete = Object.values(examsData).filter(e => e && e.teacherUid === r.uid);
-          for (const ex of toDelete) {
-            // حذف الاختبار
-            fetch(`${FB_JR_URL}/exams/${ex.id}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' }).catch(()=>{});
-            // حذف إشعاره
-            fetch(`${FB_JR_URL}/notifications/${ex.id}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' }).catch(()=>{});
-          }
-        }
-      }
-    } catch(e) { console.warn('delete teacher exams failed:', e); }
-  }
 
   closeMemberModal();
   showToast('تم إزالة العضو وتحويل حسابه إلى مؤثر تعليمي');
