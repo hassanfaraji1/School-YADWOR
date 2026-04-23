@@ -235,8 +235,147 @@ function renderMainContent() {
 // ============================================================
 //  TAB 1: إنشاء
 // ============================================================
+
+// ---- جلب بيانات المستخدم الحالي (نوع الحساب + بيانات انضمامه) ----
+function _getMyAccountInfo() {
+  const myUid   = localStorage.getItem('yadwor-uid') || '';
+  const myType  = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || 'influencer';
+  const allReqs = (() => { try { return JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]'); } catch(e) { return []; } })();
+  const myReq   = allReqs.find(r => r.status === 'accepted' && (r.uid === myUid || r.userId === myUid));
+  return { myUid, myType, myReq };
+}
+
+// ---- بناء قسم المستوى والمادة حسب نوع الحساب ----
+function _buildLevelSubjectSection() {
+  const { myType, myReq } = _getMyAccountInfo();
+
+  // ── حساب الأستاذ: المستوى والمادة محددان تلقائياً من طلب انضمامه ──
+  if (myType === 'teacher') {
+    if (!myReq) {
+      return `<div class="rounded-[14px] bg-amber-50 border border-amber-200 p-4 text-center">
+        <p class="text-[13px] font-bold text-amber-700">⚠️ لم تنضم لأي مؤسسة بعد. انضم لمؤسسة أولاً لتتمكن من نشر اختبارات.</p>
+      </div>`;
+    }
+    // استخدم المستوى والمادة من طلب الانضمام
+    const levelName = myReq.levelName || myReq.levelId || '';
+    const subjectsList = (myReq.subjects || []).map(s => s.name || s).filter(Boolean);
+    const subjectName  = subjectsList[0] || '';
+    // احفظ تلقائياً في currentExam
+    currentExam.levelId = myReq.levelId || myReq.levelName || '';
+    currentExam.subject = subjectName;
+    return `
+    <div class="rounded-[14px] bg-indigo-50 border border-indigo-200 p-4 space-y-2">
+      <p class="text-[11px] font-extrabold text-indigo-500 uppercase tracking-wide">بياناتك التعليمية (تُملأ تلقائياً)</p>
+      <div class="flex items-center gap-3">
+        <div class="flex-1 rounded-[10px] bg-white border border-indigo-100 px-3 py-2.5">
+          <p class="text-[10px] text-zinc-400 font-bold mb-0.5">المستوى الدراسي</p>
+          <p class="text-[14px] font-extrabold text-zinc-900">${levelName || '—'}</p>
+        </div>
+        <div class="flex-1 rounded-[10px] bg-white border border-indigo-100 px-3 py-2.5">
+          <p class="text-[10px] text-zinc-400 font-bold mb-0.5">المادة</p>
+          <p class="text-[14px] font-extrabold text-zinc-900">${subjectName || '—'}</p>
+        </div>
+      </div>
+      ${subjectsList.length > 1 ? `
+      <div>
+        <p class="text-[11px] font-bold text-indigo-600 mb-1">اختر المادة التي تريد استهدافها:</p>
+        <div class="flex flex-wrap gap-2">
+          ${subjectsList.map(s => `<button type="button" onclick="selectTeacherSubject('${s}')" id="tsubj-${s.replace(/\s/g,'_')}"
+            class="rounded-full px-3 py-1.5 text-[12px] font-bold border-2 transition
+            ${currentExam.subject === s ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-zinc-700 border-zinc-200'}">${s}</button>`).join('')}
+        </div>
+      </div>` : ''}
+    </div>`;
+  }
+
+  // ── حساب المؤسسة: تختار من المستويات والمواد التي أضافتها في الكتالوج ──
+  if (myType === 'institution') {
+    const catV3 = (() => { try { return JSON.parse(localStorage.getItem('yadwor-catalog-v3') || '{}'); } catch(e) { return {}; } })();
+    const enabledLevelIds = (() => { try { return JSON.parse(localStorage.getItem('yadwor-enabled-levels') || 'null'); } catch(e) { return null; } })();
+    const customLevels = (() => { try { return JSON.parse(localStorage.getItem('yadwor-custom-levels') || '[]'); } catch(e) { return []; } })();
+    const allLevelNames = {
+      '1p':'الأولى ابتدائي','2p':'الثانية ابتدائي','3p':'الثالثة ابتدائي','4p':'الرابعة ابتدائي',
+      '5p':'الخامسة ابتدائي','6p':'السادسة ابتدائي','1c':'الأولى إعدادي','2c':'الثانية إعدادي',
+      '3c':'الثالثة إعدادي','tc':'الجذع المشترك','1b':'الأولى باكالوريا','2b':'الثانية باكالوريا'
+    };
+    customLevels.forEach(l => { allLevelNames[l.id] = l.name; });
+
+    // المستويات المفعّلة في الكتالوج
+    const catalogLevelIds = Object.keys(catV3).filter(lid => {
+      const lvl = catV3[lid];
+      return lvl && lvl.subjects && lvl.subjects.some(s => s.enabled !== false);
+    });
+    const activeLevelIds = enabledLevelIds
+      ? catalogLevelIds.filter(lid => enabledLevelIds.includes(lid))
+      : catalogLevelIds;
+
+    if (!activeLevelIds.length) {
+      return `<div class="rounded-[14px] bg-amber-50 border border-amber-200 p-4 text-center">
+        <p class="text-[13px] font-bold text-amber-700">⚠️ لم تضف أي مستويات أو مواد بعد. أضفها من <a href="catalog.html" class="underline">إدارة المواد</a> أولاً.</p>
+      </div>`;
+    }
+
+    // المواد للمستوى المختار
+    const activeSubjects = currentExam.levelId
+      ? ((catV3[currentExam.levelId] || {}).subjects || []).filter(s => s.enabled !== false).map(s => s.name)
+      : [];
+
+    return `
+    <div>
+      <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">المستوى الدراسي</label>
+      <select id="exam-level" onchange="onInstitutionLevelChange(this.value)"
+        class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]">
+        <option value="">اختر المستوى</option>
+        ${activeLevelIds.map(lid => `<option value="${lid}" ${currentExam.levelId === lid ? 'selected' : ''}>${allLevelNames[lid] || lid}</option>`).join('')}
+      </select>
+    </div>
+    ${currentExam.levelId ? `
+    <div>
+      <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">المادة الدراسية</label>
+      ${activeSubjects.length ? `
+      <div class="flex flex-wrap gap-2">
+        ${activeSubjects.map(s => `<button type="button" onclick="selectInstitutionSubject('${s}')" id="isubj-${s.replace(/\s/g,'_')}"
+          class="rounded-full px-3 py-1.5 text-[12px] font-bold border-2 transition
+          ${currentExam.subject === s ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-700 border-zinc-200'}">${s}</button>`).join('')}
+      </div>` : `<p class="text-[12px] text-zinc-400">لا توجد مواد مفعّلة لهذا المستوى</p>`}
+    </div>` : ''}`;
+  }
+
+  // ── حسابات أخرى (مؤثر / مستخدم): حقل نصي عادي ──
+  return `
+  <div>
+    <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">المستوى الدراسي</label>
+    <select id="exam-level" onchange="currentExam.levelId=this.value"
+      class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]">
+      <option value="">اختر المستوى</option>
+      ${Object.entries({'1p':'الأولى ابتدائي','2p':'الثانية ابتدائي','3p':'الثالثة ابتدائي','4p':'الرابعة ابتدائي','5p':'الخامسة ابتدائي','6p':'السادسة ابتدائي','1c':'الأولى إعدادي','2c':'الثانية إعدادي','3c':'الثالثة إعدادي','tc':'الجذع المشترك','1b':'الأولى باكالوريا','2b':'الثانية باكالوريا'}).map(([v,n])=>`<option value="${v}" ${currentExam.levelId===v?'selected':''}>${n}</option>`).join('')}
+    </select>
+  </div>
+  <div>
+    <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">المادة الدراسية</label>
+    <input id="exam-subject" value="${currentExam.subject}" placeholder="مثال: الرياضيات"
+      oninput="currentExam.subject=this.value"
+      class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]" />
+  </div>`;
+}
+
+function selectTeacherSubject(s) {
+  currentExam.subject = s;
+  renderCreate();
+}
+function selectInstitutionSubject(s) {
+  currentExam.subject = s;
+  renderCreate();
+}
+function onInstitutionLevelChange(val) {
+  currentExam.levelId = val;
+  currentExam.subject = '';
+  renderCreate();
+}
+
 function renderCreate() {
   const el = document.getElementById('main-content');
+  const levelSubjectSection = _buildLevelSubjectSection();
   el.innerHTML = `
   <div class="space-y-4">
     <!-- بيانات الاختبار/التمرين -->
@@ -256,34 +395,8 @@ function renderCreate() {
         </div>
       </div>
 
-      <!-- المستوى الدراسي والمادة -->
-      <div>
-        <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">المستوى الدراسي</label>
-        <select id="exam-level" onchange="currentExam.levelId=this.value"
-          class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]">
-          <option value="">اختر المستوى</option>
-          <option value="1p">الأولى ابتدائي</option>
-          <option value="2p">الثانية ابتدائي</option>
-          <option value="3p">الثالثة ابتدائي</option>
-          <option value="4p">الرابعة ابتدائي</option>
-          <option value="5p">الخامسة ابتدائي</option>
-          <option value="6p">السادسة ابتدائي</option>
-          <option value="1c">الأولى إعدادي</option>
-          <option value="2c">الثانية إعدادي</option>
-          <option value="3c">الثالثة إعدادي</option>
-          <option value="tc">الجذع المشترك</option>
-          <option value="1b">الأولى باكالوريا</option>
-          <option value="2b">الثانية باكالوريا</option>
-        </select>
-      </div>
-
-      <!-- المادة -->
-      <div>
-        <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">المادة الدراسية</label>
-        <input id="exam-subject" value="" placeholder="مثال: الرياضيات"
-          oninput="currentExam.subject=this.value"
-          class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]" />
-      </div>
+      <!-- المستوى والمادة (يتغير حسب نوع الحساب) -->
+      ${levelSubjectSection}
 
       <div>
         <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">العنوان (اختياري)</label>
@@ -657,22 +770,27 @@ function clearPending() {
 function publishExam() {
   const pq = getPendingQuestions();
   if (!pq.length) { showToast('لا توجد أسئلة للنشر'); return; }
+
+  const { myUid, myType, myReq } = _getMyAccountInfo();
+
+  // ── للأستاذ: تأكد من وجود بيانات الانضمام ──
+  if (myType === 'teacher') {
+    if (!myReq) { showToast('يجب أن تنضم لمؤسسة أولاً لنشر اختبار'); return; }
+    // تعبئة تلقائية من بيانات الانضمام
+    if (!currentExam.levelId) currentExam.levelId = myReq.levelId || myReq.levelName || '';
+    if (!currentExam.subject) currentExam.subject = (myReq.subjects?.[0]?.name || myReq.subjects?.[0] || '');
+  }
+
   if (!currentExam.levelId) { showToast('يرجى اختيار المستوى الدراسي'); return; }
-  if (!currentExam.subject || !currentExam.subject.trim()) { showToast('يرجى إدخال المادة الدراسية'); return; }
+  if (!currentExam.subject || !currentExam.subject.trim()) { showToast('يرجى تحديد المادة الدراسية'); return; }
 
   const durationMap = {'1h':3600,'2h':7200,'4h':14400,'8h':28800,'12h':43200,'24h':86400,'48h':172800,'72h':259200,'1w':604800};
   const durationSec = durationMap[currentExam.duration] || 86400;
 
-  const myUid     = localStorage.getItem('yadwor-uid') || '';
-  const myType2   = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
-  const allRequests = JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
-  const myAcceptedReq = allRequests.find(r =>
-    r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
-  );
   // institutionUid: المؤسسة = uid نفسها / الأستاذ = uid المؤسسة التي قبلته
-  const institutionUid = myType2 === 'institution'
+  const institutionUid = myType === 'institution'
     ? myUid
-    : (myAcceptedReq ? (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '') : '');
+    : (myReq ? (myReq.institutionUid || myReq.institutionId || '') : '');
 
   const exam = {
     id: Date.now(),
@@ -693,18 +811,16 @@ function publishExam() {
   saveExams(exams);
   savePendingQuestions([]);
 
-  // ── حفظ الاختبار كاملاً في Firebase ليراه التلاميذ من أجهزتهم ──
+  // ── حفظ الاختبار في Firebase ──
   try {
     const FB  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
     const KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
     const myName = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'أستاذ';
-    // 1) الاختبار
     fetch(`${FB}/exams/${exam.id}.json?auth=${KEY}`, {
       method: 'PUT',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(exam)
     }).catch(()=>{});
-    // 2) الإشعار
     fetch(`${FB}/notifications/${exam.id}.json?auth=${KEY}`, {
       method: 'PUT',
       headers: {'Content-Type':'application/json'},
@@ -720,8 +836,13 @@ function publishExam() {
     }).catch(()=>{});
   } catch(e) {}
 
-  // Reset exam meta
-  currentExam = { type: 'تمرين', title: '', duration: '24h', levelId: '', subject: '', questions: [] };
+  // Reset exam meta (احتفظ بالمستوى والمادة للأستاذ لأنهما ثابتان)
+  currentExam = {
+    type: 'تمرين', title: '', duration: '24h',
+    levelId: myType === 'teacher' ? currentExam.levelId : '',
+    subject:  myType === 'teacher' ? currentExam.subject  : '',
+    questions: []
+  };
 
   showToast(`✓ تم نشر ${exam.type} بنجاح`);
   setMainTab('edit');
