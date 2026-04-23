@@ -166,6 +166,42 @@ let currentQuestion = {
   time: 30
 };
 
+// ============================================================
+//  دوال المطابقة المنطقية
+// ============================================================
+
+// تحقق من أحقية التلميذ في رؤية تمرين (نفس المؤسسة + نفس المستوى + المادة موجودة في مواده)
+function canStudentSeeExercise(student, exercise) {
+  if (!student || !exercise) return false;
+  const studentInstUid = student.institutionUid || student.institutionId || '';
+  const examInstUid    = exercise.institutionUid || '';
+  const sameInstitution = !examInstUid || (studentInstUid !== '' && studentInstUid === examInstUid);
+  const studentLevelId  = student.levelId || '';
+  const examLevelId     = exercise.levelId || '';
+  const sameLevel = !examLevelId || (studentLevelId !== '' && studentLevelId === examLevelId);
+  const studentSubjectNames = (student.subjects || []).map(s => (s.name || s).trim());
+  const examSubject = (exercise.subject || '').trim();
+  const subjectMatch = !examSubject || studentSubjectNames.includes(examSubject);
+  return sameInstitution && sameLevel && subjectMatch;
+}
+
+// تحقق من مطابقة التلميذ مع الأستاذ (نفس المؤسسة + نفس المستوى + مادة الأستاذ في مواد التلميذ)
+function isStudentMatchingTeacher(student, teacher) {
+  if (!student || !teacher) return false;
+  const sameInstitution =
+    (student.institutionUid || student.institutionId || '') !== '' &&
+    (teacher.institutionUid || teacher.institutionId || '') !== '' &&
+    (student.institutionUid || student.institutionId) === (teacher.institutionUid || teacher.institutionId);
+  const sameLevel =
+    (student.levelId || '') !== '' &&
+    (teacher.levelId || '') !== '' &&
+    student.levelId === teacher.levelId;
+  const studentSubjectNames = (student.subjects || []).map(s => (s.name || s).trim());
+  const teacherSubject = (teacher.subject || '').trim();
+  const subjectMatch = teacherSubject !== '' && studentSubjectNames.includes(teacherSubject);
+  return sameInstitution && sameLevel && subjectMatch;
+}
+
 // ---- Local data ----
 function getExams() {
   try { return JSON.parse(localStorage.getItem('yadwor-exams') || '[]'); } catch(e) { return []; }
@@ -853,10 +889,24 @@ function publishExam() {
 // ============================================================
 function renderEdit() {
   const el = document.getElementById('main-content');
-  let exams = getExams();
-  // Filter expired
-  exams = exams.filter(e => Date.now() < e.expiresAt);
-  saveExams(exams);
+  const { myUid, myType, myReq } = _getMyAccountInfo();
+
+  // حذف المنتهية من التخزين
+  const allExams = getExams();
+  const activeExams = allExams.filter(e => Date.now() < e.expiresAt);
+  saveExams(activeExams);
+
+  let exams = activeExams;
+
+  // ── الأستاذ والمؤسسة: يرون اختباراتهم التي نشروها فقط ──
+  if (myType === 'teacher' || myType === 'institution') {
+    exams = activeExams.filter(e => e.teacherUid === myUid || e.institutionUid === myUid);
+  }
+
+  // ── التلميذ: يرى فقط الاختبارات التي تحقق شروط المطابقة ──
+  if (myType === 'student') {
+    exams = myReq ? activeExams.filter(e => canStudentSeeExercise(myReq, e)) : [];
+  }
 
   if (!exams.length) {
     el.innerHTML = `
