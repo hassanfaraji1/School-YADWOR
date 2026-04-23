@@ -442,6 +442,14 @@ async function syncAccountTypeFromFirebase() {
         localStorage.setItem('yadwor-user-data', JSON.stringify(ru));
       } catch(e) {}
     }
+    // مزامنة institutionUid و joinedInstitution
+    if (data.institutionUid) {
+      localStorage.setItem('yadwor-institution-uid', data.institutionUid);
+    }
+    if (data.joinedInstitution !== undefined) {
+      localStorage.setItem('yadwor-joined-institution', data.joinedInstitution ? 'true' : 'false');
+      if (typeof state !== 'undefined') state.joinedInstitution = !!data.joinedInstitution;
+    }
     const remoteType = data.accountType || data.profileType || '';
     if (!remoteType) return;
     const localType = localStorage.getItem('yadwor-account-type') || 'influencer';
