@@ -235,179 +235,8 @@ function renderMainContent() {
 // ============================================================
 //  TAB 1: إنشاء
 // ============================================================
-// ─── helpers للحصول على مستويات ومواد المؤسسة/الأستاذ ──────────────
-function _getMyAccountType() {
-  return localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
-}
-function _getMyUid() { return localStorage.getItem('yadwor-uid') || ''; }
-
-// بيانات الأستاذ من طلب الانضمام المقبول
-function _getTeacherInfoEx() {
-  const myUid = _getMyUid();
-  const allReqs = JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
-  const req = allReqs.find(r =>
-    r.status === 'accepted' && (r.uid === myUid || r.userId === myUid) && r.role === 'teacher'
-  );
-  if (!req) return null;
-  const subjectName = req.subjects && req.subjects.length > 0
-    ? (req.subjects[0].name || req.subjects[0])
-    : '';
-  return {
-    levelId:   req.levelId   || '',
-    levelName: req.levelName || req.levelId || '',
-    subjectName,
-    institutionUid: req.institutionUid || req.institutionId || ''
-  };
-}
-
-// مستويات المؤسسة (من catalog-v3 / enabled-levels)
-function _getInstitutionLevels() {
-  const catV3 = JSON.parse(localStorage.getItem('yadwor-catalog-v3') || '{}');
-  const enabledIds = JSON.parse(localStorage.getItem('yadwor-enabled-levels') || 'null');
-  const moroccan = [
-    {id:'1p',name:'الأولى ابتدائي'},{id:'2p',name:'الثانية ابتدائي'},
-    {id:'3p',name:'الثالثة ابتدائي'},{id:'4p',name:'الرابعة ابتدائي'},
-    {id:'5p',name:'الخامسة ابتدائي'},{id:'6p',name:'السادسة ابتدائي'},
-    {id:'1c',name:'الأولى إعدادي'},{id:'2c',name:'الثانية إعدادي'},
-    {id:'3c',name:'الثالثة إعدادي'},{id:'tc',name:'الجذع المشترك'},
-    {id:'1b',name:'الأولى باكالوريا'},{id:'2b',name:'الثانية باكالوريا'}
-  ];
-  const customLvls = JSON.parse(localStorage.getItem('yadwor-custom-levels') || '[]');
-  const allLvls = [...moroccan, ...customLvls];
-  if (enabledIds && enabledIds.length > 0) {
-    // أضف أيضاً المستويات من catV3 غير الموجودة في المغربية
-    const catLvls = Object.keys(catV3).map(id => {
-      const known = allLvls.find(l => l.id === id);
-      return known || { id, name: catV3[id].name || id };
-    });
-    const seen = new Set();
-    const merged = [...allLvls, ...catLvls].filter(l => {
-      if (seen.has(l.id)) return false;
-      seen.add(l.id);
-      return enabledIds.includes(l.id);
-    });
-    return merged;
-  }
-  return [];
-}
-
-// مواد مستوى معيّن في المؤسسة
-function _getInstitutionSubjects(levelId) {
-  const catV3 = JSON.parse(localStorage.getItem('yadwor-catalog-v3') || '{}');
-  const lvlData = catV3[levelId];
-  if (lvlData && lvlData.subjects) {
-    return lvlData.subjects.filter(s => s.enabled !== false).map(s => s.name || s);
-  }
-  return [];
-}
-
-function _onExamLevelChange(levelId) {
-  currentExam.levelId = levelId;
-  currentExam.subject = '';
-  renderCreate();
-  // restore level selection
-  const sel = document.getElementById('exam-level');
-  if (sel) sel.value = levelId;
-}
-
-function _onExamSubjectSelect(subj) {
-  currentExam.subject = subj;
-  renderCreate();
-  // restore level selection
-  const sel = document.getElementById('exam-level');
-  if (sel) sel.value = currentExam.levelId;
-}
-
 function renderCreate() {
   const el = document.getElementById('main-content');
-  const myType = _getMyAccountType();
-  const isTeacher = myType === 'teacher';
-  const isInstitution = myType === 'institution';
-
-  // ─── بيانات المستوى والمادة حسب نوع الحساب ───
-  let levelSubjectBlock = '';
-
-  if (isTeacher) {
-    // الأستاذ: مستواه ومادته تلقائياً
-    const info = _getTeacherInfoEx();
-    if (info && info.levelId) {
-      currentExam.levelId = info.levelId;
-      currentExam.subject = info.subjectName;
-    }
-    levelSubjectBlock = info && info.levelId ? `
-      <div class="rounded-[12px] border border-blue-100 bg-blue-50 px-4 py-3 flex items-center justify-between">
-        <div>
-          <p class="text-[11px] font-bold text-blue-400 mb-0.5">المستوى والمادة (تلقائي)</p>
-          <p class="text-[14px] font-extrabold text-blue-900">${info.levelName} — ${info.subjectName}</p>
-        </div>
-        <svg viewBox="0 0 24 24" class="h-5 w-5 shrink-0" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"><path d="M12 14l9-5-9-5-9 5 9 5ZM12 14v7M9 18h6"/></svg>
-      </div>` : `
-      <div class="rounded-[12px] border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] font-bold text-amber-700">
-        لم يتم قبول طلب انضمامك بعد. لا يمكنك نشر اختبارات حتى يتم قبولك في مؤسسة.
-      </div>`;
-  } else if (isInstitution) {
-    // المؤسسة: تختار من مستوياتها فقط ثم المواد
-    const instLevels = _getInstitutionLevels();
-    if (instLevels.length === 0) {
-      levelSubjectBlock = `
-      <div class="rounded-[12px] border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] font-bold text-amber-700">
-        لم تضف أي مستوى بعد. أضف المستويات من صفحة إدارة المواد أولاً.
-      </div>`;
-    } else {
-      const subjectsForLevel = currentExam.levelId ? _getInstitutionSubjects(currentExam.levelId) : [];
-      levelSubjectBlock = `
-      <div>
-        <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">المستوى الدراسي</label>
-        <select id="exam-level" onchange="_onExamLevelChange(this.value)"
-          class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]">
-          <option value="">اختر المستوى</option>
-          ${instLevels.map(l => `<option value="${l.id}" ${currentExam.levelId === l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
-        </select>
-      </div>
-      ${currentExam.levelId && subjectsForLevel.length > 0 ? `
-      <div>
-        <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">المادة الدراسية</label>
-        <div class="grid grid-cols-2 gap-2">
-          ${subjectsForLevel.map(s => `
-          <button type="button" onclick="_onExamSubjectSelect('${s.replace(/'/g, "\'")}')"
-            class="rounded-[12px] border-2 py-2.5 text-[13px] font-bold transition text-right px-3
-            ${currentExam.subject === s ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-700'}">${s}</button>`).join('')}
-        </div>
-      </div>` : currentExam.levelId ? `
-      <div class="rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[13px] text-zinc-400 font-bold">
-        لا توجد مواد مضافة لهذا المستوى.
-      </div>` : ''}`;
-    }
-  } else {
-    // مستخدم عادي: الحقول اليدوية
-    levelSubjectBlock = `
-      <div>
-        <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">المستوى الدراسي</label>
-        <select id="exam-level" onchange="currentExam.levelId=this.value"
-          class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]">
-          <option value="">اختر المستوى</option>
-          <option value="1p">الأولى ابتدائي</option>
-          <option value="2p">الثانية ابتدائي</option>
-          <option value="3p">الثالثة ابتدائي</option>
-          <option value="4p">الرابعة ابتدائي</option>
-          <option value="5p">الخامسة ابتدائي</option>
-          <option value="6p">السادسة ابتدائي</option>
-          <option value="1c">الأولى إعدادي</option>
-          <option value="2c">الثانية إعدادي</option>
-          <option value="3c">الثالثة إعدادي</option>
-          <option value="tc">الجذع المشترك</option>
-          <option value="1b">الأولى باكالوريا</option>
-          <option value="2b">الثانية باكالوريا</option>
-        </select>
-      </div>
-      <div>
-        <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">المادة الدراسية</label>
-        <input id="exam-subject" value="" placeholder="مثال: الرياضيات"
-          oninput="currentExam.subject=this.value"
-          class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]" />
-      </div>`;
-  }
-
   el.innerHTML = `
   <div class="space-y-4">
     <!-- بيانات الاختبار/التمرين -->
@@ -427,8 +256,34 @@ function renderCreate() {
         </div>
       </div>
 
-      <!-- المستوى والمادة -->
-      ${levelSubjectBlock}
+      <!-- المستوى الدراسي والمادة -->
+      <div>
+        <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">المستوى الدراسي</label>
+        <select id="exam-level" onchange="currentExam.levelId=this.value"
+          class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]">
+          <option value="">اختر المستوى</option>
+          <option value="1p">الأولى ابتدائي</option>
+          <option value="2p">الثانية ابتدائي</option>
+          <option value="3p">الثالثة ابتدائي</option>
+          <option value="4p">الرابعة ابتدائي</option>
+          <option value="5p">الخامسة ابتدائي</option>
+          <option value="6p">السادسة ابتدائي</option>
+          <option value="1c">الأولى إعدادي</option>
+          <option value="2c">الثانية إعدادي</option>
+          <option value="3c">الثالثة إعدادي</option>
+          <option value="tc">الجذع المشترك</option>
+          <option value="1b">الأولى باكالوريا</option>
+          <option value="2b">الثانية باكالوريا</option>
+        </select>
+      </div>
+
+      <!-- المادة -->
+      <div>
+        <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">المادة الدراسية</label>
+        <input id="exam-subject" value="" placeholder="مثال: الرياضيات"
+          oninput="currentExam.subject=this.value"
+          class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px]" />
+      </div>
 
       <div>
         <label class="text-[12px] font-bold text-zinc-500 mb-1.5 block">العنوان (اختياري)</label>
@@ -808,24 +663,16 @@ function publishExam() {
   const durationMap = {'1h':3600,'2h':7200,'4h':14400,'8h':28800,'12h':43200,'24h':86400,'48h':172800,'72h':259200,'1w':604800};
   const durationSec = durationMap[currentExam.duration] || 86400;
 
-  const myUid  = localStorage.getItem('yadwor-uid') || '';
-  const myType = _getMyAccountType();
+  const myUid     = localStorage.getItem('yadwor-uid') || '';
+  const myType2   = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
   const allRequests = JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
   const myAcceptedReq = allRequests.find(r =>
     r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
   );
-
-  // institutionUid:
-  // - إذا كان المستخدم مؤسسة → uid المؤسسة نفسها
-  // - إذا كان أستاذاً → uid المؤسسة التي قبلته
-  let institutionUid = '';
-  if (myType === 'institution') {
-    institutionUid = myUid;
-  } else if (myAcceptedReq) {
-    institutionUid = myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '';
-  }
-
-  const myName = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'أستاذ';
+  // institutionUid: المؤسسة = uid نفسها / الأستاذ = uid المؤسسة التي قبلته
+  const institutionUid = myType2 === 'institution'
+    ? myUid
+    : (myAcceptedReq ? (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '') : '');
 
   const exam = {
     id: Date.now(),
@@ -838,7 +685,6 @@ function publishExam() {
     questions: pq,
     publishedAt: Date.now(),
     teacherUid: myUid || 'teacher',
-    teacherName: myName,
     institutionUid: institutionUid
   };
 
@@ -847,31 +693,31 @@ function publishExam() {
   saveExams(exams);
   savePendingQuestions([]);
 
-  // ── حفظ الاختبار + إشعار في Firebase ──
+  // ── حفظ الاختبار كاملاً في Firebase ليراه التلاميذ من أجهزتهم ──
   try {
     const FB  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
     const KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
-    // 1) الاختبار كاملاً
+    const myName = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'أستاذ';
+    // 1) الاختبار
     fetch(`${FB}/exams/${exam.id}.json?auth=${KEY}`, {
       method: 'PUT',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(exam)
-    }).catch(() => {});
+    }).catch(()=>{});
     // 2) الإشعار
-    const notif = {
-      id: exam.id, type: 'exam', examType: exam.type,
-      title: exam.title, subject: exam.subject, levelId: exam.levelId,
-      teacherUid: exam.teacherUid, teacherName: myName,
-      institutionUid: exam.institutionUid,
-      publishedAt: exam.publishedAt, expiresAt: exam.expiresAt,
-      text: `نشر ${myName} ${exam.type}: ${exam.title}`,
-      unread: true
-    };
     fetch(`${FB}/notifications/${exam.id}.json?auth=${KEY}`, {
       method: 'PUT',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(notif)
-    }).catch(() => {});
+      body: JSON.stringify({
+        id: exam.id, type: 'exam', examType: exam.type,
+        title: exam.title, subject: exam.subject, levelId: exam.levelId,
+        teacherUid: exam.teacherUid, teacherName: myName,
+        institutionUid: exam.institutionUid,
+        publishedAt: exam.publishedAt, expiresAt: exam.expiresAt,
+        text: `نشر ${myName} ${exam.type}: ${exam.title}`,
+        unread: true
+      })
+    }).catch(()=>{});
   } catch(e) {}
 
   // Reset exam meta
