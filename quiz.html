@@ -324,14 +324,13 @@ const urlParams = new URLSearchParams(window.location.search);
 const examId = parseInt(urlParams.get('exam'));
 const teacherUid = urlParams.get('teacher') || '';
 
-function getExam() {
-  const exams = JSON.parse(localStorage.getItem('yadwor-exams') || '[]');
-  return exams.find(e => e.id === examId) || null;
-}
+const FB_DB_URL_Q  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
+const FB_API_KEY_Q = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
 
-const exam = getExam();
+// التمرين يُجلب من Firebase — يُملأ بعد التحميل
+let exam = null;
 
-if (!exam) {
+function showNotFound() {
   document.getElementById('intro-screen').innerHTML = `
   <div style="text-align:center;padding:40px 20px;">
     <p style="font-size:18px;font-weight:800;color:#f4f4f5;margin-bottom:16px;">لا يوجد اختبار نشط حالياً</p>
@@ -340,7 +339,9 @@ if (!exam) {
       العودة
     </button>
   </div>`;
-} else if (Date.now() > exam.expiresAt) {
+}
+
+function showExpired() {
   document.getElementById('intro-screen').innerHTML = `
   <div style="text-align:center;padding:40px 20px;">
     <div style="font-size:48px;margin-bottom:16px;">⏰</div>
@@ -350,15 +351,16 @@ if (!exam) {
       العودة
     </button>
   </div>`;
-} else {
-  // Populate intro
-  document.getElementById('intro-title').textContent = exam.title;
-  document.getElementById('intro-type').textContent = exam.type;
-  const totalPts = exam.questions.reduce((s, q) => s + (q.points || 1), 0);
-  const totalTime = exam.questions.reduce((s, q) => s + (q.time || 30), 0);
+}
+
+function showIntro(e) {
+  document.getElementById('intro-title').textContent = e.title;
+  document.getElementById('intro-type').textContent = e.type;
+  const totalPts  = e.questions.reduce((s, q) => s + (q.points || 1), 0);
+  const totalTime = e.questions.reduce((s, q) => s + (q.time   || 30), 0);
   document.getElementById('intro-stats').innerHTML = `
     <div style="background:rgba(255,255,255,0.05);border-radius:14px;padding:14px 20px;text-align:center;min-width:80px;">
-      <div style="font-size:22px;font-weight:900;color:#f4f4f5;">${exam.questions.length}</div>
+      <div style="font-size:22px;font-weight:900;color:#f4f4f5;">${e.questions.length}</div>
       <div style="font-size:11px;color:#71717a;font-weight:700;">سؤال</div>
     </div>
     <div style="background:rgba(255,255,255,0.05);border-radius:14px;padding:14px 20px;text-align:center;min-width:80px;">
@@ -370,6 +372,51 @@ if (!exam) {
       <div style="font-size:11px;color:#71717a;font-weight:700;">دقيقة تقريباً</div>
     </div>`;
 }
+
+// ── جلب التمرين من Firebase أولاً، ثم fallback إلى localStorage ──
+(async () => {
+  if (!examId && examId !== 0) { showNotFound(); return; }
+
+  // shimmer أثناء التحميل
+  document.getElementById('intro-screen').innerHTML = `
+  <div style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:48px 24px;">
+    <div style="width:200px;height:20px;border-radius:10px;background:rgba(255,255,255,0.08);animation:shimmer 1.2s infinite;"></div>
+    <div style="width:120px;height:14px;border-radius:7px;background:rgba(255,255,255,0.06);animation:shimmer 1.2s infinite;"></div>
+    <div style="display:flex;gap:12px;margin-top:8px;">
+      ${[1,2,3].map(()=>`<div style="width:80px;height:64px;border-radius:14px;background:rgba(255,255,255,0.07);animation:shimmer 1.2s infinite;"></div>`).join('')}
+    </div>
+  </div>`;
+
+  // 1) جلب من Firebase
+  try {
+    const res = await fetch(`${FB_DB_URL_Q}/exams/${examId}.json?auth=${FB_API_KEY_Q}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.id) {
+        exam = data;
+      }
+    }
+  } catch(e) {}
+
+  // 2) fallback: بحث في مسار exams كـ array
+  if (!exam) {
+    try {
+      const res2 = await fetch(`${FB_DB_URL_Q}/exams.json?auth=${FB_API_KEY_Q}`);
+      if (res2.ok) {
+        const allData = await res2.json();
+        if (allData && typeof allData === 'object') {
+          const all = Object.values(allData).filter(e => e && e.id);
+          exam = all.find(e => e.id === examId) || null;
+        }
+      }
+    } catch(e) {}
+  }
+
+  // 3) عرض النتيجة
+  if (!exam) { showNotFound(); return; }
+  if (Date.now() > exam.expiresAt) { showExpired(); return; }
+  showIntro(exam);
+})();
 
 function goBack() {
   if (document.referrer) history.back();
