@@ -174,16 +174,17 @@ let currentQuestion = {
 // تحقق من أحقية التلميذ في رؤية تمرين (نفس المؤسسة + نفس المستوى + المادة موجودة في مواده)
 function canStudentSeeExercise(student, exercise) {
   if (!student || !exercise) return false;
-  const studentInstUid = student.institutionUid || student.institutionId || '';
-  const examInstUid    = exercise.institutionUid || '';
-  const sameInstitution = !examInstUid || (studentInstUid !== '' && studentInstUid === examInstUid);
-  const studentLevelId  = student.levelId || '';
-  const examLevelId     = exercise.levelId || '';
-  const sameLevel = !examLevelId || (studentLevelId !== '' && studentLevelId === examLevelId);
+  // شرط صارم: يجب أن يتطابق المؤسسة والمستوى والمادة تماماً
+  const studentInstUid = (student.institutionUid || student.institutionId || '').trim();
+  const examInstUid    = (exercise.institutionUid || '').trim();
+  if (!studentInstUid || !examInstUid || studentInstUid !== examInstUid) return false;
+  const studentLevelId = (student.levelId || '').trim();
+  const examLevelId    = (exercise.levelId || '').trim();
+  if (!studentLevelId || !examLevelId || studentLevelId !== examLevelId) return false;
   const studentSubjectNames = (student.subjects || []).map(s => (s.name || s).trim());
   const examSubject = (exercise.subject || '').trim();
-  const subjectMatch = !examSubject || studentSubjectNames.includes(examSubject);
-  return sameInstitution && sameLevel && subjectMatch;
+  if (!examSubject) return false;
+  return studentSubjectNames.includes(examSubject);
 }
 
 // تحقق من مطابقة التلميذ مع الأستاذ (نفس المؤسسة + نفس المستوى + مادة الأستاذ في مواد التلميذ)
@@ -981,9 +982,13 @@ function renderEdit() {
 
     let exams = activeExams;
 
-    // الأستاذ والمؤسسة: يرون اختباراتهم فقط
-    if (myType === 'teacher' || myType === 'institution') {
-      exams = activeExams.filter(e => e.teacherUid === myUid || e.institutionUid === myUid);
+    // الأستاذ: يرى اختباراته هو فقط
+    if (myType === 'teacher') {
+      exams = activeExams.filter(e => String(e.teacherUid) === String(myUid));
+    }
+    // المؤسسة: تعرض فقط الاختبارات التي أنشأتها هي (teacherUid === myUid)
+    else if (myType === 'institution') {
+      exams = activeExams.filter(e => String(e.teacherUid) === String(myUid));
     }
 
     // التلميذ: يرى فقط الاختبارات التي تطابقه (بيانات من Firebase)
