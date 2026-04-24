@@ -936,8 +936,12 @@ async function updateBellBadgeFromFirebase() {
         const examList = Object.values(dataN).filter(n => n && n.type === 'exam');
 
         if (myType === 'teacher') {
+          // الأستاذ لا يرى إشعار تمارينه ولا تمارين الآخرين
+          examUnread = 0;
+        } else if (myType === 'institution') {
+          // صاحب المؤسسة يرى كل إشعارات مؤسسته
           examUnread = examList.filter(n =>
-            n.teacherUid === myUid && (n.publishedAt || 0) > lastRead
+            (n.institutionUid || '') === myUid && (n.publishedAt || 0) > lastRead
           ).length;
         } else if (myType === 'student') {
           // جلب طلب انضمام التلميذ
