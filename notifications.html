@@ -144,10 +144,14 @@ function renderList() {
   }
 
   el.innerHTML = `<div class="space-y-3">${list.map(n => {
-    // إشعار التمرين → ينقل لصفحة الأستاذ
-    const clickAttr = (n.type === 'exam' && n.teacherUid)
-      ? `onclick="window.location.href='profile.html?uid=${n.teacherUid}'" style="cursor:pointer;"`
-      : '';
+    // إشعار التمرين: إذا كان من مؤسسة → ينقل لصفحة المؤسسة، وإلا لصفحة الأستاذ
+    let clickAttr = '';
+    if (n.type === 'exam') {
+      // إذا كان institutionUid موجوداً وهو نفس teacherUid → نشره مؤسسة
+      const isInstExam = n.institutionUid && n.institutionUid === n.teacherUid;
+      const targetUid = isInstExam ? n.institutionUid : (n.teacherUid || n.institutionUid || '');
+      if (targetUid) clickAttr = `onclick="window.location.href='profile.html?uid=${targetUid}'" style="cursor:pointer;"`;
+    }
     return `
     <div class="rounded-[18px] border p-4 shadow-sm ${n.unread ? 'border-zinc-300 bg-white' : 'border-zinc-200 bg-zinc-50'}" ${clickAttr}>
       <div class="flex items-start gap-3">
@@ -157,7 +161,7 @@ function renderList() {
         <div class="flex-1 min-w-0">
           <p class="text-[14px] font-bold text-zinc-800 leading-snug">${n.text || 'إشعار جديد'}</p>
           ${n.subject ? `<p class="mt-0.5 text-[11px] font-bold text-indigo-600">${n.examType || ''} · ${n.subject}</p>` : ''}
-          ${n.type === 'exam' && n.teacherName ? `<p class="mt-0.5 text-[11px] text-zinc-400 font-bold">👨‍🏫 ${n.teacherName}</p>` : ''}
+          ${n.type === 'exam' && n.teacherName ? `<p class="mt-0.5 text-[11px] text-zinc-400 font-bold flex items-center gap-1"><svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>${n.teacherName}</p>` : ''}
           <p class="mt-1.5 text-[12px] text-zinc-500">${formatTimeAgoN(n.publishedAt || n.timestamp)}</p>
         </div>
         <div class="flex flex-col items-center gap-1">
