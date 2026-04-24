@@ -40,21 +40,23 @@ function isStudentMatchingTeacher(student, teacher) {
 /**
  * canStudentSeeExercise(student, exercise)
  * ترجع true إذا:
- *   - نفس institutionId/institutionUid
- *   - نفس levelId
- *   - نفس subject (موجود في مواد التلميذ)
+ *   - نفس institutionId/institutionUid (شرط صارم — لا يُعرض التمرين إذا غاب أي منهما)
+ *   - نفس levelId (شرط صارم)
+ *   - نفس subject (موجود في مواد التلميذ) (شرط صارم)
  */
 function canStudentSeeExercise(student, exercise) {
   if (!student || !exercise) return false;
   const studentInst = (student.institutionUid || student.institutionId || '').trim();
   const examInst    = (exercise.institutionUid || exercise.institutionId || '').trim();
-  // إذا لم يُحدَّد institutionUid في التمرين → لا يُعرض (شرط صارم)
+  // شرط صارم: يجب أن يكون التمرين محدد المؤسسة وأن تتطابق مع مؤسسة التلميذ
   if (!examInst || !studentInst || studentInst !== examInst) return false;
   const studentLevel = (student.levelId  || '').trim();
   const examLevel    = (exercise.levelId || '').trim();
+  // شرط صارم: يجب تطابق المستوى
   if (!examLevel || !studentLevel || studentLevel !== examLevel) return false;
   const studentSubjects = (student.subjects || []).map(s => (s.name || s).trim());
   const examSubject     = (exercise.subject  || '').trim();
+  // شرط صارم: يجب أن تكون المادة محددة وموجودة في مواد التلميذ
   if (!examSubject) return false;
   return studentSubjects.includes(examSubject);
 }
