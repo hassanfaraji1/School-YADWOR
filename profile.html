@@ -644,9 +644,10 @@ function renderProfile() {
         vActionBtn3 = `<button onclick="openJoinModal()" class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full text-[10px] font-bold text-white" style="background:#f97316;">+ انضمام</button>`;
       }
     } else if (vAccountType === 'teacher') {
-      vActionBtn3 = `<button onclick="openExercisesModal()" class="inline-flex h-8 flex-1 items-center justify-center gap-0.5 rounded-full text-[9px] font-bold text-white whitespace-nowrap px-1" style="background:#6366f1;">
+      vActionBtn3 = `<button onclick="openExercisesModal()" id="visitor-exam-btn" class="relative inline-flex h-8 flex-1 items-center justify-center gap-0.5 rounded-full text-[9px] font-bold text-white whitespace-nowrap px-1" style="background:#6366f1;">
         <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current shrink-0" stroke-width="1.8" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
         تمارين واختبارات
+        <span id="visitor-exam-badge" class="hidden absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-extrabold text-white ring-2 ring-white"></span>
       </button>`;
     }
 
@@ -1682,7 +1683,7 @@ function openExercisesModal() {
           const remH = Math.floor(remaining/3600000);
           const remM = Math.floor((remaining%3600000)/60000);
           const timeStr = remH > 0 ? `${remH}س ${remM}د` : `${remM} دقيقة`;
-          return `
+        return `
           <div class="rounded-[18px] border border-zinc-100 bg-zinc-50 p-4">
             <div class="flex items-center justify-between mb-2">
               <span class="text-[11px] font-bold bg-violet-100 text-violet-700 rounded-full px-2.5 py-1">${e.type}</span>
@@ -1699,13 +1700,15 @@ function openExercisesModal() {
                 ⚠️ استعد جيداً! لكل سؤال وقت محدد ولا يمكن تخطي الأسئلة.
               </p>
             </div>
-            <button onclick="startExamFromProfile(${e.id})"
+            <button id="exam-btn-${e.id}" onclick="checkAndStartExam(${e.id})"
               class="h-11 w-full rounded-[14px] bg-zinc-900 text-[14px] font-extrabold text-white">
               بدء الآن ←
             </button>
           </div>`;
         }).join('')}
       </div>`;
+      // تحقق async من حالة الاجتياز لكل تمرين وتحديث الأزرار
+      updateExamCompletedStates(filteredExams);
     }
   })();
 }
@@ -1717,6 +1720,57 @@ function closeExercisesModal() {
 function startExamFromProfile(examId) {
   closeExercisesModal();
   window.location.href = `quiz.html?exam=${examId}`;
+}
+
+// تحقق إذا أكمل التلميذ التمرين من Firebase قبل الانتقال
+async function checkAndStartExam(examId) {
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  if (!myUid) { startExamFromProfile(examId); return; }
+  try {
+    const res = await fetch(`${FB_DB_URL}/results/${examId}/${myUid}.json?auth=${FB_API_KEY}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.score !== undefined) {
+        const pct = Math.round(data.score / data.totalPts * 100);
+        const col = pct >= 70 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+        const btn = document.getElementById(`exam-btn-${examId}`);
+        if (btn) {
+          btn.outerHTML = `
+          <div class="h-11 w-full rounded-[14px] flex items-center justify-center gap-2 text-[13px] font-extrabold"
+            style="background:#f0fdf4;border:1.5px solid #86efac;color:#16a34a;">
+            ✅ اجتزت هذا التمرين — <span style="color:${col};">${pct}%</span>
+          </div>`;
+        }
+        return;
+      }
+    }
+  } catch(e) {}
+  startExamFromProfile(examId);
+}
+
+// بعد رسم بطاقات التمارين: تحقق من حالة الاجتياز لكل تمرين async
+async function updateExamCompletedStates(exams) {
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  if (!myUid || !exams || !exams.length) return;
+  for (const e of exams) {
+    try {
+      const res = await fetch(`${FB_DB_URL}/results/${e.id}/${myUid}.json?auth=${FB_API_KEY}`);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data && data.score !== undefined) {
+        const pct = Math.round(data.score / data.totalPts * 100);
+        const col = pct >= 70 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+        const btn = document.getElementById(`exam-btn-${e.id}`);
+        if (btn) {
+          btn.outerHTML = `
+          <div class="h-11 w-full rounded-[14px] flex items-center justify-center gap-2 text-[13px] font-extrabold"
+            style="background:#f0fdf4;border:1.5px solid #86efac;color:#16a34a;">
+            ✅ اجتزت هذا التمرين — <span style="color:${col};">${pct}%</span>
+          </div>`;
+        }
+      }
+    } catch(err) {}
+  }
 }
 
 
@@ -2795,6 +2849,38 @@ async function syncJoinRequestsFromFirebase() {
   updateSidebarButtons();
   // تحديث badge الإشعارات من Firebase
   updateBellBadgeFromFirebase();
+  // تحديث النقطة الحمراء على زر التمارين عند زيارة ملف أستاذ
+  (async () => {
+    const badgeEl = document.getElementById('visitor-exam-badge');
+    if (!badgeEl) return;
+    const myUid = localStorage.getItem('yadwor-uid') || '';
+    const vUid  = _visitorUid || '';
+    if (!vUid || !myUid) return;
+    try {
+      // جلب التمارين النشطة من Firebase
+      const res = await fetch(`${FB_DB_URL}/exams.json?auth=${FB_API_KEY}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data) return;
+      const now = Date.now();
+      // تمارين هذا الأستاذ النشطة التي لم يكملها التلميذ بعد
+      const allExams = Object.values(data).filter(e => e && e.id && e.teacherUid === vUid && now < e.expiresAt);
+      if (!allExams.length) return;
+      // تحقق من النتائج لمعرفة ما أكمله التلميذ
+      let completedIds = new Set();
+      try {
+        for (const e of allExams) {
+          const r = await fetch(`${FB_DB_URL}/results/${e.id}/${myUid}.json?auth=${FB_API_KEY}`);
+          if (r.ok) { const rd = await r.json(); if (rd && rd.score !== undefined) completedIds.add(e.id); }
+        }
+      } catch(err) {}
+      const pendingCount = allExams.filter(e => !completedIds.has(e.id)).length;
+      if (pendingCount > 0) {
+        badgeEl.textContent = pendingCount > 9 ? '9+' : String(pendingCount);
+        badgeEl.classList.remove('hidden');
+      }
+    } catch(e) {}
+  })();
 })();
 </script>
 <script src="floating-room.js"></script>
