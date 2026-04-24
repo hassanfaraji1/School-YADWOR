@@ -41,6 +41,7 @@
     <h1 class="text-[15px] font-extrabold tracking-tight">الملف الشخصي</h1>
     <a href="notifications.html" class="relative flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
       <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span id="notif-badge" class="absolute top-[2px] right-[3px] flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-rose-500 px-1 text-center text-[9px] font-extrabold leading-none text-white shadow ring-2 ring-white" style="display:none;"></span>
     </a>
   </div>
 </header>
@@ -1595,8 +1596,15 @@ function openExercisesModal() {
           if (myInstUid && viewerInstUid && myInstUid !== viewerInstUid) {
             notSameInstitution = true;
           } else {
-            // يرى تمارين هذا الأستاذ/المؤسسة التي تطابقه
-            filteredExams = activeExams.filter(e => canStudentSeeExercise(myAcceptedReq, e));
+            // يرى فقط تمارين هذا الأستاذ بالذات التي تطابقه
+            // إذا كنا في ملف أستاذ → نُقيد بـ teacherUid أو institutionUid الخاص بالأستاذ المُزار
+            filteredExams = activeExams.filter(e => {
+              // التمرين يجب أن يكون من هذا الأستاذ تحديداً
+              const fromThisTeacher = e.teacherUid === viewingUid || e.institutionUid === viewingUid;
+              if (!fromThisTeacher) return false;
+              // ثم يجب أن يتحقق canStudentSeeExercise (نفس المؤسسة + المستوى + المادة)
+              return canStudentSeeExercise(myAcceptedReq, e);
+            });
           }
         } else {
           // فتح من ملفه الشخصي
@@ -1616,8 +1624,9 @@ function openExercisesModal() {
         if (myInstUid && viewerInstUid && myInstUid !== viewerInstUid && viewingUid !== myInstUid) {
           notSameInstitution = true;
         } else {
+          // يرى فقط تمارين الأستاذ/المؤسسة المُزارة تحديداً
           filteredExams = activeExams.filter(e =>
-            e.teacherUid === viewingUid || e.institutionUid === viewingUid || e.institutionUid === myInstUid
+            e.teacherUid === viewingUid || e.institutionUid === viewingUid
           );
         }
       }
@@ -2784,6 +2793,8 @@ async function syncJoinRequestsFromFirebase() {
 
   renderProfile();
   updateSidebarButtons();
+  // تحديث badge الإشعارات من Firebase
+  updateBellBadgeFromFirebase();
 })();
 </script>
 <script src="floating-room.js"></script>
