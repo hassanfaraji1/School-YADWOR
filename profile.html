@@ -761,7 +761,38 @@ function renderProfile() {
   }[state.profileType] || "M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8";
 
   const tl = {institution:"مؤسسة تعليمية",teacher:"أستاذ",student:"تلميذ",user:"مستخدم",influencer:"مؤثر تعليمي"}[state.profileType] || "مؤثر تعليمي";
-  const stat3 = state.profileType==='institution' ? (prof.teachers||0) : state.profileType==='teacher' ? 0 : state.profileType==='student' ? 0 : 0;
+  // حساب العدادات الحقيقية من state.joinRequests
+  const myUidForStat = localStorage.getItem('yadwor-uid') || '';
+  let stat3 = 0;
+  if (state.profileType === 'institution') {
+    stat3 = prof.teachers || 0;
+  } else if (state.profileType === 'teacher') {
+    // عدد تلاميذ الأستاذ المطابقين
+    const teacherReqStat = (state.joinRequests||[]).find(r =>
+      r.status === 'accepted' && r.role === 'teacher' &&
+      (r.uid === myUidForStat || r.userId === myUidForStat)
+    );
+    const teacherInstStat = teacherReqStat ? (teacherReqStat.institutionUid || teacherReqStat.institutionId || '') : '';
+    stat3 = teacherReqStat
+      ? (state.joinRequests||[]).filter(r => {
+          if (r.role !== 'student' || r.status !== 'accepted') return false;
+          const rInst = r.institutionUid || r.institutionId || '';
+          return rInst && rInst === teacherInstStat && isStudentMatchingTeacher(r, teacherReqStat);
+        }).length
+      : 0;
+  } else if (state.profileType === 'student') {
+    // عدد أساتذة التلميذ المطابقين
+    const studentReqStat = (state.joinRequests||[]).find(r =>
+      r.status === 'accepted' && r.role === 'student' &&
+      (r.uid === myUidForStat || r.userId === myUidForStat)
+    );
+    stat3 = studentReqStat
+      ? (state.joinRequests||[]).filter(r => {
+          if (r.role !== 'teacher' || r.status !== 'accepted') return false;
+          return isStudentMatchingTeacher(studentReqStat, r);
+        }).length
+      : 0;
+  }
   const stat4 = state.profileType==='institution' ? formatNumber(prof.students||0) : 0;
   const stat3label = state.profileType==='institution' ? 'أستاذ' : state.profileType==='teacher' ? 'تلاميذ' : state.profileType==='student' ? 'أساتذة' : 'منشورات';
   const stat4label = state.profileType==='institution' ? 'تلميذ' : state.profileType==='teacher' ? 'كتب' : state.profileType==='student' ? 'ألقاب' : 'وسائط';
@@ -894,10 +925,33 @@ function getProfileTabs() {
           return isStudentMatchingTeacher(r, teacherReqForCount);
         }).length
       : 0;
+    // تشغيل جلب async لتحديث العداد بعد تحميل البيانات من Firebase
+    if (teacherReqForCount && teacherInstUidForCount) {
+      (async () => {
+        try {
+          const res = await fetch(`${FB_DB_URL}/joinRequests/${teacherInstUidForCount}.json?auth=${FB_API_KEY}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!data) return;
+          const allInstReqs = Object.values(data).filter(r => r && r.status === 'accepted');
+          const freshCount = allInstReqs.filter(r => {
+            if (r.role !== 'student') return false;
+            return isStudentMatchingTeacher(r, teacherReqForCount);
+          }).length;
+          // تحديث عداد tab تلاميذي في DOM مباشرة
+          const tabEl = document.getElementById('ptab-students');
+          if (tabEl) {
+            const spans = tabEl.querySelectorAll('span:not(.absolute)');
+            if (spans.length >= 2) spans[1].textContent = freshCount;
+          }
+        } catch(e) {}
+      })();
+    }
     return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'students',label:'تلاميذي',count:myStudentsCount},{id:'books',label:'الكتب',count:0}];
   }
   if(state.profileType==='student') {
     // حساب عدد أساتذة التلميذ باستخدام isStudentMatchingTeacher
+    // نستخدم state.joinRequests الذي تم تحميله كاملاً من Firebase (يشمل طلبات الأساتذة أيضاً)
     const allReqsForS = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
     const studentReqForCount = allReqsForS.find(r => r.status === 'accepted' && (r.uid === myUid || r.userId === myUid) && r.role === 'student');
     const myTeachersCount = studentReqForCount
@@ -906,6 +960,31 @@ function getProfileTabs() {
           return isStudentMatchingTeacher(studentReqForCount, r);
         }).length
       : 0;
+    // تشغيل جلب async لتحديث العداد بعد تحميل البيانات من Firebase
+    if (studentReqForCount) {
+      const studentInstUidForFetch = studentReqForCount.institutionUid || studentReqForCount.institutionId || '';
+      if (studentInstUidForFetch) {
+        (async () => {
+          try {
+            const res = await fetch(`${FB_DB_URL}/joinRequests/${studentInstUidForFetch}.json?auth=${FB_API_KEY}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data) return;
+            const allInstReqs = Object.values(data).filter(r => r && r.status === 'accepted');
+            const freshCount = allInstReqs.filter(r => {
+              if (r.role !== 'teacher') return false;
+              return isStudentMatchingTeacher(studentReqForCount, r);
+            }).length;
+            // تحديث عداد tab أساتذتي في DOM مباشرة
+            const tabEl = document.getElementById('ptab-teachers');
+            if (tabEl) {
+              const spans = tabEl.querySelectorAll('span:not(.absolute)');
+              if (spans.length >= 2) spans[1].textContent = freshCount;
+            }
+          } catch(e) {}
+        })();
+      }
+    }
     return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'teachers',label:'أساتذتي',count:myTeachersCount},{id:'certificates',label:'الشواهد',count:0},{id:'badges',label:'الألقاب',count:0}];
   }
   if(state.profileType==='influencer') return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'media',label:'الوسائط',count:myMedia.length}];
@@ -1397,168 +1476,229 @@ function canStudentSeeExercise(student, exercise) {
 function openExercisesModal() {
   const myUid = localStorage.getItem('yadwor-uid') || '';
   const myProfileType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
-  const allExams = JSON.parse(localStorage.getItem('yadwor-exams') || '[]');
-  const activeExams = allExams.filter(e => Date.now() < e.expiresAt);
 
   const modal = document.getElementById('exercises-modal');
   const content = document.getElementById('exercises-modal-content');
 
-  // ── جلب بيانات انضمام المستخدم الحالي ──
-  const allRequests = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
-  const myAcceptedReq = allRequests.find(r =>
-    r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
-  );
+  // ── إظهار النافذة فوراً مع shimmer ──
+  modal.classList.remove('hidden');
+  content.innerHTML = `
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
+      <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="space-y-3">${[1,2].map(()=>`
+      <div class="rounded-[18px] border border-zinc-100 bg-zinc-50 p-4">
+        <div class="shimmer h-4 w-20 rounded-full mb-3"></div>
+        <div class="shimmer h-5 w-3/4 rounded-full mb-2"></div>
+        <div class="shimmer h-3 w-32 rounded-full"></div>
+      </div>`).join('')}
+    </div>`;
 
-  // ── إذا كان التلميذ يفتح النافذة من ملف مؤسسة/أستاذ آخر ──
-  // _visitorUid = uid الملف الذي يُعرض حالياً (المؤسسة أو الأستاذ الآخر)
-  const viewingInstitutionUid = _visitorUid || '';
-
-  let filteredExams = activeExams;
-  let notSameInstitution = false;
-
-  if (myProfileType === 'student') {
-    // التلميذ لم ينضم لأي مؤسسة
-    if (!myAcceptedReq) {
-      notSameInstitution = true;
-    } else {
-      const myInstitutionUid = myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '';
-      const myLevelId = myAcceptedReq.levelId || '';
-      const mySubjectNames = (myAcceptedReq.subjects || []).map(s => (s.name || s).trim());
-
-      // إذا فتح التلميذ النافذة من ملف أستاذ أو مؤسسة آخر
-      if (viewingInstitutionUid && viewingInstitutionUid !== myUid) {
-        // تحقق أن الملف المعروض ينتمي لنفس مؤسسة التلميذ
-        // (viewingInstitutionUid قد يكون uid الأستاذ أو uid المؤسسة)
-        const allRequests2 = allRequests;
-        const viewerReq = allRequests2.find(r =>
-          r.status === 'accepted' &&
-          (r.uid === viewingInstitutionUid || r.userId === viewingInstitutionUid)
-        );
-        const viewerInstUid = viewerReq
-          ? (viewerReq.institutionUid || viewerReq.institutionId || '')
-          : viewingInstitutionUid; // إذا كان الملف هو المؤسسة نفسها
-
-        if (myInstitutionUid && viewerInstUid && myInstitutionUid !== viewerInstUid &&
-            viewingInstitutionUid !== myInstitutionUid) {
-          notSameInstitution = true;
-        } else {
-          // التمارين المنشورة من هذا الأستاذ/المؤسسة التي تطابق التلميذ
-          filteredExams = activeExams.filter(e => {
-            const isFromViewer = e.teacherUid === viewingInstitutionUid ||
-                                 e.institutionUid === viewingInstitutionUid ||
-                                 e.institutionUid === myInstitutionUid;
-            const levelMatch = !e.levelId || e.levelId === myLevelId;
-            const subjectMatch = !e.subject || mySubjectNames.includes((e.subject || '').trim());
-            const instMatch = !e.institutionUid || e.institutionUid === myInstitutionUid;
-            return isFromViewer && levelMatch && subjectMatch && instMatch;
-          });
-        }
-      } else {
-        // التلميذ يفتح من ملفه الشخصي — يرى جميع تماريننه المطابقة
-        filteredExams = activeExams.filter(e => canStudentSeeExercise(myAcceptedReq, e));
+  // ── جلب البيانات بشكل غير متزامن ──
+  (async () => {
+    // جلب الاختبارات من Firebase
+    let allExams = [];
+    try {
+      const res = await fetch(`${FB_DB_URL}/exams.json?auth=${FB_API_KEY}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data) allExams = Object.values(data).filter(e => e && e.id);
       }
+    } catch(e) {}
+    // fallback: localStorage
+    if (!allExams.length) {
+      try { allExams = JSON.parse(localStorage.getItem('yadwor-exams') || '[]'); } catch(e) {}
     }
-  } else if (myProfileType === 'teacher' || myProfileType === 'institution') {
-    // الأستاذ والمؤسسة: يرون اختباراتهم فقط
-    filteredExams = activeExams.filter(e => e.teacherUid === myUid || e.institutionUid === myUid);
-    // إذا كانوا يفتحون من ملف مؤسسة أخرى أو أستاذ آخر
-    if (viewingInstitutionUid && viewingInstitutionUid !== myUid) {
-      const myInstitutionUid = myAcceptedReq ? (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '') : '';
-      if (myInstitutionUid !== viewingInstitutionUid) {
+    const activeExams = allExams.filter(e => Date.now() < e.expiresAt);
+
+    // ── جلب بيانات انضمام المستخدم الحالي من Firebase ──
+    let myAcceptedReq = null;
+    const allRequests = state.joinRequests || [];
+    myAcceptedReq = allRequests.find(r =>
+      r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
+    );
+    // إذا لم نجد محلياً، نجلب من Firebase
+    if (!myAcceptedReq && myUid) {
+      try {
+        const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+        if (res.ok) {
+          const allInst = await res.json();
+          if (allInst) {
+            for (const instUid of Object.keys(allInst)) {
+              const instReqs = allInst[instUid];
+              if (!instReqs) continue;
+              const found = Object.values(instReqs).find(r =>
+                r && r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
+              );
+              if (found) { myAcceptedReq = found; break; }
+            }
+          }
+        }
+      } catch(e) {}
+    }
+
+    // _visitorUid = uid الملف الذي يُعرض (قد يكون أستاذ أو مؤسسة)
+    const viewingUid = _visitorUid || '';
+
+    let filteredExams = activeExams;
+    let notSameInstitution = false;
+
+    if (myProfileType === 'student') {
+      if (!myAcceptedReq) {
         notSameInstitution = true;
       } else {
-        filteredExams = activeExams.filter(e =>
-          e.teacherUid === viewingInstitutionUid ||
-          e.institutionUid === viewingInstitutionUid
+        const myInstUid = (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '').trim();
+
+        if (viewingUid && viewingUid !== myUid) {
+          // نحدد مؤسسة الملف المُعروض:
+          // إذا كان uid المؤسسة نفسها → viewerInstUid = viewingUid
+          // إذا كان uid أستاذ → نجلب طلبه لمعرفة مؤسسته
+          let viewerInstUid = viewingUid; // افتراض: هو uid المؤسسة
+
+          // ابحث في الطلبات المحلية أولاً
+          const viewerReq = (state.joinRequests || []).find(r =>
+            r.status === 'accepted' &&
+            (r.uid === viewingUid || r.userId === viewingUid)
+          );
+          if (viewerReq) {
+            // الملف المُعروض هو أستاذ/تلميذ — نأخذ مؤسسته
+            viewerInstUid = viewerReq.institutionUid || viewerReq.institutionId || viewingUid;
+          } else {
+            // حاول من Firebase
+            try {
+              const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+              if (res.ok) {
+                const allInst = await res.json();
+                if (allInst) {
+                  let found = false;
+                  for (const instUid of Object.keys(allInst)) {
+                    const instReqs = allInst[instUid];
+                    if (!instReqs) continue;
+                    const fr = Object.values(instReqs).find(r =>
+                      r && r.status === 'accepted' &&
+                      (r.uid === viewingUid || r.userId === viewingUid)
+                    );
+                    if (fr) {
+                      viewerInstUid = fr.institutionUid || fr.institutionId || instUid;
+                      found = true; break;
+                    }
+                  }
+                  // إذا لم نجد طلب انضمام → viewingUid هو uid مؤسسة
+                }
+              }
+            } catch(e) {}
+          }
+
+          if (myInstUid && viewerInstUid && myInstUid !== viewerInstUid) {
+            notSameInstitution = true;
+          } else {
+            // يرى تمارين هذا الأستاذ/المؤسسة التي تطابقه
+            filteredExams = activeExams.filter(e => canStudentSeeExercise(myAcceptedReq, e));
+          }
+        } else {
+          // فتح من ملفه الشخصي
+          filteredExams = activeExams.filter(e => canStudentSeeExercise(myAcceptedReq, e));
+        }
+      }
+    } else if (myProfileType === 'teacher' || myProfileType === 'institution') {
+      filteredExams = activeExams.filter(e => e.teacherUid === myUid || e.institutionUid === myUid);
+      if (viewingUid && viewingUid !== myUid) {
+        const myInstUid = myAcceptedReq ? (myAcceptedReq.institutionUid || myAcceptedReq.institutionId || '') : '';
+        // تحقق إذا كان viewingUid هو uid المؤسسة أو أستاذ من نفس المؤسسة
+        let viewerInstUid = viewingUid;
+        const viewerReq2 = (state.joinRequests || []).find(r =>
+          r.status === 'accepted' && (r.uid === viewingUid || r.userId === viewingUid)
         );
+        if (viewerReq2) viewerInstUid = viewerReq2.institutionUid || viewerReq2.institutionId || viewingUid;
+        if (myInstUid && viewerInstUid && myInstUid !== viewerInstUid && viewingUid !== myInstUid) {
+          notSameInstitution = true;
+        } else {
+          filteredExams = activeExams.filter(e =>
+            e.teacherUid === viewingUid || e.institutionUid === viewingUid || e.institutionUid === myInstUid
+          );
+        }
       }
     }
-  }
 
-  // ── عرض رسالة "ليس في نفس المؤسسة" ──
-  if (notSameInstitution) {
-    content.innerHTML = `
-    <div class="flex items-center justify-between mb-5">
-      <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
-      <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
-        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
-      <div class="h-16 w-16 rounded-full flex items-center justify-center" style="background:#fef3c7;">
-        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-amber-500" stroke-width="1.6" stroke-linecap="round">
-          <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
-        </svg>
+    // ── عرض رسالة "ليس في نفس المؤسسة" ──
+    if (notSameInstitution) {
+      content.innerHTML = `
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
+        <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+          <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
       </div>
-      <p class="text-[16px] font-extrabold text-zinc-800">غير مسموح بالوصول</p>
-      <p class="text-[13px] text-zinc-500 leading-relaxed px-4">لا يمكنك مشاهدة هذه الاختبارات لأنك لست في نفس المؤسسة.<br>انضم أولاً للمؤسسة لتتمكن من الوصول إلى الاختبارات والتمارين.</p>
-    </div>`;
-    modal.classList.remove('hidden');
-    return;
-  }
+      <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
+        <div class="h-16 w-16 rounded-full flex items-center justify-center" style="background:#fef3c7;">
+          <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-amber-500" stroke-width="1.6" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+          </svg>
+        </div>
+        <p class="text-[16px] font-extrabold text-zinc-800">غير مسموح بالوصول</p>
+        <p class="text-[13px] text-zinc-500 leading-relaxed px-4">لا يمكنك المشاركة في هذا التمرين لأنك لست من نفس القسم أو المادة.<br>انضم أولاً للمؤسسة لتتمكن من الوصول إلى الاختبارات والتمارين.</p>
+      </div>`;
+      return;
+    }
 
-  // ── عرض الاختبارات المفلترة ──
-  if (!filteredExams.length) {
-    content.innerHTML = `
+    // ── عرض الاختبارات المفلترة ──
+    const header = `
     <div class="flex items-center justify-between mb-5">
       <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
       <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
         <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
-    </div>
-    <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
-      <div class="h-16 w-16 rounded-full bg-zinc-100 flex items-center justify-center">
-        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.5" stroke-linecap="round">
-          <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/>
-        </svg>
-      </div>
-      <p class="text-[15px] font-bold text-zinc-800">لا يوجد اختبار أو تمرين حالياً</p>
-      <p class="text-[13px] text-zinc-400">لم يتم نشر أي اختبار أو تمرين بعد.<br>تابع الصفحة لتصلك الاختبارات القادمة.</p>
     </div>`;
-  } else {
-    content.innerHTML = `
-    <div class="flex items-center justify-between mb-5">
-      <h3 class="text-[18px] font-extrabold">التمارين والاختبارات</h3>
-      <button onclick="closeExercisesModal()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
-        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <div class="space-y-3">
-      ${filteredExams.map(e => {
-        const totalPts = e.questions.reduce((s,q)=>s+(q.points||1),0);
-        const remaining = Math.max(0, e.expiresAt - Date.now());
-        const remH = Math.floor(remaining/3600000);
-        const remM = Math.floor((remaining%3600000)/60000);
-        const timeStr = remH > 0 ? `${remH}س ${remM}د` : `${remM} دقيقة`;
-        const levelLabel = e.levelId ? ` · ${e.levelId}` : '';
-        const subjectLabel = e.subject ? ` · ${e.subject}` : '';
-        return `
-        <div class="rounded-[18px] border border-zinc-100 bg-zinc-50 p-4">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-[11px] font-bold bg-violet-100 text-violet-700 rounded-full px-2.5 py-1">${e.type}</span>
-            <span class="text-[11px] text-orange-500 font-bold">⏳ ${timeStr}</span>
-          </div>
-          <h4 class="text-[15px] font-extrabold text-zinc-900 mb-1">${e.title}</h4>
-          <div class="flex items-center gap-3 text-[12px] text-zinc-400 mb-3 flex-wrap">
-            <span>📝 ${e.questions.length} سؤال</span>
-            <span>⭐ ${totalPts} نقطة</span>
-            ${e.subject ? `<span>📚 ${e.subject}</span>` : ''}
-          </div>
-          <div class="rounded-[12px] bg-amber-50 border border-amber-200 p-3 mb-3">
-            <p class="text-[12px] text-amber-700 font-bold leading-relaxed">
-              ⚠️ استعد جيداً! لكل سؤال وقت محدد ولا يمكن تخطي الأسئلة.
-            </p>
-          </div>
-          <button onclick="startExamFromProfile(${e.id})"
-            class="h-11 w-full rounded-[14px] bg-zinc-900 text-[14px] font-extrabold text-white">
-            بدء الآن ←
-          </button>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
 
-  modal.classList.remove('hidden');
+    if (!filteredExams.length) {
+      content.innerHTML = header + `
+      <div class="flex flex-col items-center justify-center py-10 gap-4 text-center">
+        <div class="h-16 w-16 rounded-full bg-zinc-100 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.5" stroke-linecap="round">
+            <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/>
+          </svg>
+        </div>
+        <p class="text-[15px] font-bold text-zinc-800">لا يوجد اختبار أو تمرين حالياً</p>
+        <p class="text-[13px] text-zinc-400">لم يتم نشر أي اختبار أو تمرين بعد.<br>تابع الصفحة لتصلك الاختبارات القادمة.</p>
+      </div>`;
+    } else {
+      content.innerHTML = header + `
+      <div class="space-y-3">
+        ${filteredExams.map(e => {
+          const totalPts = e.questions.reduce((s,q)=>s+(q.points||1),0);
+          const remaining = Math.max(0, e.expiresAt - Date.now());
+          const remH = Math.floor(remaining/3600000);
+          const remM = Math.floor((remaining%3600000)/60000);
+          const timeStr = remH > 0 ? `${remH}س ${remM}د` : `${remM} دقيقة`;
+          return `
+          <div class="rounded-[18px] border border-zinc-100 bg-zinc-50 p-4">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[11px] font-bold bg-violet-100 text-violet-700 rounded-full px-2.5 py-1">${e.type}</span>
+              <span class="text-[11px] text-orange-500 font-bold">⏳ ${timeStr}</span>
+            </div>
+            <h4 class="text-[15px] font-extrabold text-zinc-900 mb-1">${e.title}</h4>
+            <div class="flex items-center gap-3 text-[12px] text-zinc-400 mb-3 flex-wrap">
+              <span>📝 ${e.questions.length} سؤال</span>
+              <span>⭐ ${totalPts} نقطة</span>
+              ${e.subject ? `<span>📚 ${e.subject}</span>` : ''}
+            </div>
+            <div class="rounded-[12px] bg-amber-50 border border-amber-200 p-3 mb-3">
+              <p class="text-[12px] text-amber-700 font-bold leading-relaxed">
+                ⚠️ استعد جيداً! لكل سؤال وقت محدد ولا يمكن تخطي الأسئلة.
+              </p>
+            </div>
+            <button onclick="startExamFromProfile(${e.id})"
+              class="h-11 w-full rounded-[14px] bg-zinc-900 text-[14px] font-extrabold text-white">
+              بدء الآن ←
+            </button>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+  })();
 }
 
 function closeExercisesModal() {
@@ -2444,14 +2584,25 @@ async function syncJoinRequestsFromFirebase() {
   const rejectedIds = (() => { try { return JSON.parse(localStorage.getItem('yadwor-rejected-request-ids') || '[]'); } catch(e) { return []; } })();
 
   try {
-    // --- حالة 1: نعرض ملف مؤسسة ---
-    // نجلب طلبات تلك المؤسسة تحديداً من /joinRequests/{visitorUid}
+    // --- حالة 1: نعرض ملف شخص آخر ---
     if (_visitorUid) {
-      const res = await fetch(`${FB_DB_URL}/joinRequests/${_visitorUid}.json?auth=${FB_API_KEY}`);
-      if (res.ok) {
-        const data = await res.json();
-        const fbReqs = data ? Object.values(data).filter(r => r && r.id && !rejectedIds.includes(r.id)) : [];
-        // دمج مع ما هو محلي: ابقِ الطلبات المحلية الخاصة بمؤسسات أخرى وأضف/حدّث طلبات هذه المؤسسة
+      // أولاً نجرب مباشرة: هل _visitorUid هو uid مؤسسة؟
+      let institutionUidToFetch = _visitorUid;
+      let directFetchData = null;
+      try {
+        const directRes = await fetch(`${FB_DB_URL}/joinRequests/${_visitorUid}.json?auth=${FB_API_KEY}`);
+        if (directRes.ok) {
+          const d = await directRes.json();
+          // إذا أرجع بيانات (المسار صحيح → هو uid مؤسسة)
+          if (d && typeof d === 'object' && Object.keys(d).length > 0) {
+            directFetchData = d;
+          }
+        }
+      } catch(e) {}
+
+      if (directFetchData) {
+        // _visitorUid هو uid مؤسسة → استخدم البيانات مباشرة
+        const fbReqs = Object.values(directFetchData).filter(r => r && r.id && !rejectedIds.includes(r.id));
         const otherReqs = (state.joinRequests || []).filter(r =>
           (r.institutionUid || r.institutionId || '') !== _visitorUid
         );
@@ -2463,11 +2614,56 @@ async function syncJoinRequestsFromFirebase() {
         state.joinRequests = merged;
         localStorage.setItem('yadwor-join-requests', JSON.stringify(merged));
         return;
+      } else {
+        // _visitorUid هو uid أستاذ أو تلميذ → نجد مؤسسته أولاً
+        let visitorInstUid = '';
+        try {
+          const allInstRes = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+          if (allInstRes.ok) {
+            const allInst = await allInstRes.json();
+            if (allInst) {
+              for (const instUid of Object.keys(allInst)) {
+                const instReqs = allInst[instUid];
+                if (!instReqs) continue;
+                const found = Object.values(instReqs).find(r =>
+                  r && r.status === 'accepted' &&
+                  (r.uid === _visitorUid || r.userId === _visitorUid)
+                );
+                if (found) { visitorInstUid = instUid; break; }
+              }
+            }
+          }
+        } catch(e) {}
+
+        if (visitorInstUid) {
+          // جلب كل طلبات مؤسسة الشخص المُزار
+          try {
+            const instRes = await fetch(`${FB_DB_URL}/joinRequests/${visitorInstUid}.json?auth=${FB_API_KEY}`);
+            if (instRes.ok) {
+              const instData = await instRes.json();
+              if (instData) {
+                const fbReqs = Object.values(instData).filter(r => r && r.id && !rejectedIds.includes(r.id));
+                const otherReqs = (state.joinRequests || []).filter(r =>
+                  (r.institutionUid || r.institutionId || '') !== visitorInstUid
+                );
+                const merged = [...otherReqs];
+                fbReqs.forEach(r => {
+                  const idx = merged.findIndex(x => x.id === r.id);
+                  if (idx === -1) merged.push(r); else merged[idx] = r;
+                });
+                state.joinRequests = merged;
+                localStorage.setItem('yadwor-join-requests', JSON.stringify(merged));
+                return;
+              }
+            }
+          } catch(e) {}
+        }
+        // fallback: لا شيء وجد → تابع لحالة 2
       }
     }
 
     // --- حالة 2: ملفي الشخصي أو لا يوجد visitorUid ---
-    // نجلب طلبات المستخدم الحالي من Firebase
+    // نجلب طلبات المستخدم الحالي + كل طلبات مؤسسته لحساب الأساتذة/التلاميذ
     if (!myUid) return;
 
     // أولاً: حاول جلب من localStorage كـ seed
@@ -2475,10 +2671,50 @@ async function syncJoinRequestsFromFirebase() {
     try { localReqs = JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]'); } catch(e) {}
     state.joinRequests = localReqs;
 
-    // جمع كل مؤسسات معروفة: من الطلبات المحلية + من Firebase user data
+    // جمع كل مؤسسات معروفة: من الطلبات المحلية + من localStorage
     const fbStoredInstUid = localStorage.getItem('yadwor-institution-uid') || '';
     const instUidsSet = new Set(localReqs.map(r => r.institutionUid || r.institutionId).filter(Boolean));
     if (fbStoredInstUid) instUidsSet.add(fbStoredInstUid);
+
+    // إذا لا نعرف أي مؤسسة بعد → جلب طلب المستخدم من Firebase أولاً لاكتشاف مؤسسته
+    if (instUidsSet.size === 0) {
+      try {
+        const userRes = await fetch(`${FB_DB_URL}/joinRequests.json?orderBy="uid"&equalTo="${myUid}"&auth=${FB_API_KEY}`);
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          if (userData) {
+            Object.values(userData).forEach(instMap => {
+              if (typeof instMap === 'object' && instMap !== null) {
+                Object.values(instMap).forEach(r => {
+                  const iuid = r && (r.institutionUid || r.institutionId);
+                  if (iuid) instUidsSet.add(iuid);
+                });
+              }
+            });
+          }
+        }
+      } catch(e) {}
+      // Fallback: جلب كل المؤسسات وابحث عن المستخدم (أبطأ لكن ضروري)
+      if (instUidsSet.size === 0) {
+        try {
+          const allRes = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+          if (allRes.ok) {
+            const allData = await allRes.json();
+            if (allData) {
+              for (const instUid of Object.keys(allData)) {
+                const instReqs = allData[instUid];
+                if (!instReqs) continue;
+                const myReq = Object.values(instReqs).find(r =>
+                  r && (r.uid === myUid || r.userId === myUid)
+                );
+                if (myReq) { instUidsSet.add(instUid); break; }
+              }
+            }
+          }
+        } catch(e) {}
+      }
+    }
+
     const instUids = [...instUidsSet];
 
     for (const instUid of instUids) {
@@ -2487,12 +2723,21 @@ async function syncJoinRequestsFromFirebase() {
         if (!res.ok) continue;
         const data = await res.json();
         if (!data) continue;
-        // فقط طلبات المستخدم الحالي
+        // جلب كل الطلبات المقبولة في المؤسسة (ليس فقط طلبات المستخدم الحالي)
+        // — هذا ضروري لحساب الأساتذة/التلاميذ بشكل صحيح
         const fbReqs = Object.values(data).filter(r =>
-          r && r.id && !rejectedIds.includes(r.id) &&
-          (r.uid === myUid || r.userId === myUid)
+          r && r.id && !rejectedIds.includes(r.id) && r.status === 'accepted'
         );
         fbReqs.forEach(r => {
+          const idx = state.joinRequests.findIndex(x => x.id === r.id);
+          if (idx === -1) state.joinRequests.push(r); else state.joinRequests[idx] = r;
+        });
+        // أيضاً جلب الطلبات المعلقة الخاصة بالمستخدم الحالي فقط
+        const myPendingReqs = Object.values(data).filter(r =>
+          r && r.id && !rejectedIds.includes(r.id) && r.status === 'pending' &&
+          (r.uid === myUid || r.userId === myUid)
+        );
+        myPendingReqs.forEach(r => {
           const idx = state.joinRequests.findIndex(x => x.id === r.id);
           if (idx === -1) state.joinRequests.push(r); else state.joinRequests[idx] = r;
         });
