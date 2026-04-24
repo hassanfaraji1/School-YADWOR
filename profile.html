@@ -562,16 +562,41 @@ function renderProfile() {
         {id:'books',    label:'الكتب',    count: 0}
       ];
     } else if (vAccountType === 'teacher') {
-      const vTeacherId = _visitorUid || _visitorUsername;
-      const teacherStudents = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted'&&(r.teacherUid===vTeacherId||r.teacherUsername===vTeacherId||r.institutionUid===vTeacherId));
+      // حساب عدد تلاميذ الأستاذ المُزار: نحتاج طلب انضمامه ثم مطابقة التلاميذ
+      const vTeacherReq = (state.joinRequests||[]).find(r =>
+        r.role === 'teacher' && r.status === 'accepted' &&
+        (r.uid === _visitorUid || r.userId === _visitorUid)
+      );
+      let vTeacherStudentsCount = 0;
+      if (vTeacherReq) {
+        const vTeacherInstUid = vTeacherReq.institutionUid || vTeacherReq.institutionId || '';
+        vTeacherStudentsCount = (state.joinRequests||[]).filter(r => {
+          if (r.role !== 'student' || r.status !== 'accepted') return false;
+          const rInst = r.institutionUid || r.institutionId || '';
+          if (!rInst || rInst !== vTeacherInstUid) return false;
+          return isStudentMatchingTeacher(r, vTeacherReq);
+        }).length;
+      }
       vTabs = [
         {id:'posts',    label:'المنشورات', count: vPosts.length},
-        {id:'students', label:'تلاميذي', count: teacherStudents.length},
+        {id:'students', label:'تلاميذي', count: vTeacherStudentsCount},
         {id:'books',    label:'الكتب',   count: 0}
       ];
     } else if (vAccountType === 'student') {
+      // حساب عدد أساتذة التلميذ المُزار
+      const vStudentReq = (state.joinRequests||[]).find(r =>
+        r.role === 'student' && r.status === 'accepted' &&
+        (r.uid === _visitorUid || r.userId === _visitorUid)
+      );
+      let vStudentTeachersCount = 0;
+      if (vStudentReq) {
+        vStudentTeachersCount = (state.joinRequests||[]).filter(r => {
+          if (r.role !== 'teacher' || r.status !== 'accepted') return false;
+          return isStudentMatchingTeacher(vStudentReq, r);
+        }).length;
+      }
       vTabs = [
-        {id:'teachers',     label:'الأساتذة',  count: 0},
+        {id:'teachers',     label:'الأساتذة',  count: vStudentTeachersCount},
         {id:'posts',        label:'المنشورات', count: vPosts.length},
         {id:'certificates', label:'الشواهد',   count: 0},
         {id:'badges',       label:'الألقاب',   count: 0}
@@ -1351,19 +1376,22 @@ function isStudentMatchingTeacher(student, teacher) {
   return sameInstitution && sameLevel && subjectMatch;
 }
 
-// ── تحقق من أحقية التلميذ في رؤية تمرين (مؤسسة + مستوى + مادة) ──
+// ── تحقق من أحقية التلميذ في رؤية تمرين (مؤسسة + مستوى + مادة) — شروط صارمة ──
 function canStudentSeeExercise(student, exercise) {
   if (!student || !exercise) return false;
-  const studentInstUid = student.institutionUid || student.institutionId || '';
-  const examInstUid    = exercise.institutionUid || '';
-  const sameInstitution = !examInstUid || (studentInstUid !== '' && studentInstUid === examInstUid);
-  const studentLevelId  = student.levelId || '';
-  const examLevelId     = exercise.levelId || '';
-  const sameLevel = !examLevelId || (studentLevelId !== '' && studentLevelId === examLevelId);
+  const studentInstUid = (student.institutionUid || student.institutionId || '').trim();
+  const examInstUid    = (exercise.institutionUid || exercise.institutionId || '').trim();
+  // شرط صارم: يجب أن يكون التمرين محدد المؤسسة وأن تتطابق مع مؤسسة التلميذ
+  if (!examInstUid || !studentInstUid || studentInstUid !== examInstUid) return false;
+  const studentLevelId  = (student.levelId || '').trim();
+  const examLevelId     = (exercise.levelId || '').trim();
+  // شرط صارم: يجب تطابق المستوى
+  if (!examLevelId || !studentLevelId || studentLevelId !== examLevelId) return false;
   const studentSubjectNames = (student.subjects || []).map(s => (s.name || s).trim());
   const examSubject = (exercise.subject || '').trim();
-  const subjectMatch = !examSubject || studentSubjectNames.includes(examSubject);
-  return sameInstitution && sameLevel && subjectMatch;
+  // شرط صارم: يجب أن تكون المادة محددة وموجودة في مواد التلميذ
+  if (!examSubject) return false;
+  return studentSubjectNames.includes(examSubject);
 }
 
 function openExercisesModal() {
@@ -2145,63 +2173,215 @@ function renderVisitorTabContent(tabId, vPosts) {
     return `<div class="grid grid-cols-3 gap-2">${books.map(b=>`<div class="relative h-40 overflow-hidden rounded-[12px] border border-zinc-200"><div class="shimmer absolute inset-0"></div><img src="${b.image}" class="h-full w-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" /><div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-[2]"></div><div class="absolute inset-x-0 bottom-0 p-2 text-white z-[3]"><div class="mb-1 flex items-center justify-between gap-1"><span class="rounded-full bg-white/15 px-2 py-1 text-[9px] font-bold">${b.kind}</span><span class="rounded-full bg-violet-500/90 px-2 py-1 text-[9px] font-bold">${b.subject}</span></div><h3 class="line-clamp-2 text-[12px] font-extrabold leading-5">${b.title}</h3></div></div>`).join('')}</div>`;
   }
   if(tabId === 'teachers') {
-    const vId = _visitorUid || _visitorUsername;
-    const accepted = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted'&&(r.institutionId===vId||r.institutionUid===vId));
-    if(!accepted.length) return emptyState('لم ينضم أي أستاذ بعد');
-    return `<div class="grid gap-2">${accepted.map((r)=>{
-      const tUid = r.uid || '';
-      const tUsername = r.username || '';
-      const profileLink = tUid ? `profile.html?uid=${tUid}` : (tUsername ? `profile.html?username=${tUsername}` : '#');
-      // جلب الصورة من منشورات الأستاذ أو من Firebase users
-      const fromPost = tUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(tUid)) : state.posts.find(p=>p.username===tUsername);
-      const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
-      const avatarEl = avatarSrc
-        ? `<img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover"
-            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
-           <div class="h-11 w-11 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 items-center justify-center text-white font-extrabold text-[15px] hidden">${(r.fullName||'A').charAt(0).toUpperCase()}</div>`
-        : `<div class="h-11 w-11 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white font-extrabold text-[15px]">${(r.fullName||'A').charAt(0).toUpperCase()}</div>`;
-      return `<a href="${profileLink}" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition">
-        <div class="h-11 w-11 shrink-0 rounded-full overflow-hidden bg-zinc-100 flex items-center justify-center">
-          ${avatarEl}
+    // إذا كان الملف المُزار مؤسسة: نعرض أساتذتها
+    const vAccountTypeCheck = _visitorProfile ? (_visitorProfile.accountType || _visitorProfile.type || 'user') : 'user';
+    if (vAccountTypeCheck === 'institution') {
+      const vId = _visitorUid || _visitorUsername;
+      const accepted = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted'&&(r.institutionId===vId||r.institutionUid===vId));
+      if(!accepted.length) return emptyState('لم ينضم أي أستاذ بعد');
+      return `<div class="grid gap-2">${accepted.map((r)=>{
+        const tUid = r.uid || '';
+        const tUsername = r.username || '';
+        const profileLink = tUid ? `profile.html?uid=${tUid}` : (tUsername ? `profile.html?username=${tUsername}` : '#');
+        const fromPost = tUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(tUid)) : state.posts.find(p=>p.username===tUsername);
+        const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
+        const avatarEl = avatarSrc
+          ? `<img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover"
+              onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+             <div class="h-11 w-11 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 items-center justify-center text-white font-extrabold text-[15px] hidden">${(r.fullName||'A').charAt(0).toUpperCase()}</div>`
+          : `<div class="h-11 w-11 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white font-extrabold text-[15px]">${(r.fullName||'A').charAt(0).toUpperCase()}</div>`;
+        return `<a href="${profileLink}" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition">
+          <div class="h-11 w-11 shrink-0 rounded-full overflow-hidden bg-zinc-100 flex items-center justify-center">${avatarEl}</div>
+          <div class="flex-1 min-w-0">
+            <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${r.fullName||'أستاذ'}</h3>
+            <p class="text-[11px] text-zinc-400 font-medium truncate">${(r.subjects||[]).map(s=>s.name||s).join('، ')||''}</p>
+          </div>
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-50 border border-zinc-100">
+            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-400" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+        </a>`;
+      }).join('')}</div>`;
+    }
+    // إذا كان الملف المُزار تلميذاً: نعرض أساتذته المطابقين
+    const gridIdVT = 'visitor-teachers-grid';
+    setTimeout(async () => {
+      const containerVT = document.getElementById(gridIdVT);
+      if (!containerVT) return;
+      // 1) جلب طلب انضمام التلميذ المُزار
+      let vStudentReq = (state.joinRequests||[]).find(r =>
+        r.role === 'student' && r.status === 'accepted' &&
+        (_visitorUid ? (r.uid === _visitorUid || r.userId === _visitorUid) : r.username === _visitorUsername)
+      );
+      if (!vStudentReq && _visitorUid) {
+        try {
+          const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+          if (res.ok) {
+            const allInst = await res.json();
+            if (allInst) {
+              for (const instUid of Object.keys(allInst)) {
+                const instReqs = allInst[instUid];
+                if (!instReqs) continue;
+                const found = Object.values(instReqs).find(r =>
+                  r && r.status === 'accepted' && r.role === 'student' &&
+                  (r.uid === _visitorUid || r.userId === _visitorUid)
+                );
+                if (found) { vStudentReq = found; break; }
+              }
+            }
+          }
+        } catch(e) {}
+      }
+      if (!vStudentReq) {
+        containerVT.innerHTML = emptyState('لم ينضم هذا التلميذ لأي مؤسسة بعد');
+        return;
+      }
+      const vStudentInstUid = vStudentReq.institutionUid || vStudentReq.institutionId || '';
+      // 2) جلب طلبات المؤسسة من Firebase
+      let allInstReqsVT = [];
+      try {
+        const res2 = await fetch(`${FB_DB_URL}/joinRequests/${vStudentInstUid}.json?auth=${FB_API_KEY}`);
+        if (res2.ok) {
+          const instData = await res2.json();
+          if (instData) allInstReqsVT = Object.values(instData).filter(r => r && r.status === 'accepted');
+        }
+      } catch(e) {}
+      if (!allInstReqsVT.length) {
+        allInstReqsVT = (state.joinRequests||[]).filter(r =>
+          r.status === 'accepted' && (r.institutionUid === vStudentInstUid || r.institutionId === vStudentInstUid)
+        );
+      }
+      // 3) فلترة الأساتذة باستخدام isStudentMatchingTeacher
+      const matchedVT = allInstReqsVT.filter(r => {
+        if (r.role !== 'teacher') return false;
+        return isStudentMatchingTeacher(vStudentReq, r);
+      });
+      if (!matchedVT.length) {
+        containerVT.innerHTML = emptyState('لا يوجد أساتذة مطابقون بعد');
+        return;
+      }
+      containerVT.innerHTML = matchedVT.map((r) => {
+        const tUid = r.uid || '';
+        const tUsername = r.username || '';
+        const profileLink = tUid ? `profile.html?uid=${tUid}` : (tUsername ? `profile.html?username=${tUsername}` : '#');
+        const fromPost = tUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(tUid)) : state.posts.find(p=>p.username===tUsername);
+        const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
+        const avatarEl = avatarSrc
+          ? `<img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover"
+              onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+             <div class="h-11 w-11 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 items-center justify-center text-white font-extrabold text-[15px] hidden">${(r.fullName||'A').charAt(0).toUpperCase()}</div>`
+          : `<div class="h-11 w-11 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white font-extrabold text-[15px]">${(r.fullName||'A').charAt(0).toUpperCase()}</div>`;
+        return `<a href="${profileLink}" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition">
+          <div class="h-11 w-11 shrink-0 rounded-full overflow-hidden bg-zinc-100 flex items-center justify-center">${avatarEl}</div>
+          <div class="flex-1 min-w-0">
+            <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${r.fullName||'أستاذ'}</h3>
+            <p class="text-[11px] text-zinc-400 font-medium truncate">${(r.subjects||[]).map(s=>s.name||s).join('، ')||''}</p>
+          </div>
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-50 border border-zinc-100">
+            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-400" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+        </a>`;
+      }).join('');
+    }, 0);
+    return `<div id="${gridIdVT}" class="grid gap-2">${[1,2,3].map(()=>`
+      <div class="flex items-center gap-3 rounded-[16px] bg-white border border-zinc-100 p-3">
+        <div class="shimmer h-11 w-11 rounded-full shrink-0"></div>
+        <div class="flex-1 space-y-1.5">
+          <div class="shimmer h-3.5 w-28 rounded-full"></div>
+          <div class="shimmer h-3 w-20 rounded-full"></div>
         </div>
-        <div class="flex-1 min-w-0">
-          <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${r.fullName||'أستاذ'}</h3>
-          <p class="text-[11px] text-zinc-400 font-medium truncate">${(r.subjects||[]).map(s=>s.name||s).join('، ')||''}</p>
-        </div>
-        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-50 border border-zinc-100">
-          <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-400" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
-        </div>
-      </a>`;
-    }).join('')}</div>`;
+      </div>`).join('')}</div>`;
   }
   if(tabId === 'students') {
+    // إذا كان الملف المُزار هو أستاذ: نعرض تلاميذه المطابقين له
     const vId = _visitorUid || _visitorUsername;
-    const accepted = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted'&&(r.institutionId===vId||r.institutionUid===vId));
-    if(!accepted.length) return emptyState('لم ينضم أي تلميذ بعد');
-    return `<div class="grid gap-2">${accepted.map((r)=>{
-      const sUid = r.uid || '';
-      const sUsername = r.username || '';
-      const profileLink = sUid ? `profile.html?uid=${sUid}` : (sUsername ? `profile.html?username=${sUsername}` : '#');
-      const fromPost = sUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(sUid)) : state.posts.find(p=>p.username===sUsername);
-      const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
-      const avatarEl = avatarSrc
-        ? `<img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover"
-            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
-           <div class="h-11 w-11 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 items-center justify-center text-white font-extrabold text-[15px] hidden">${(r.fullName||'T').charAt(0).toUpperCase()}</div>`
-        : `<div class="h-11 w-11 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center text-white font-extrabold text-[15px]">${(r.fullName||'T').charAt(0).toUpperCase()}</div>`;
-      return `<a href="${profileLink}" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition">
-        <div class="h-11 w-11 shrink-0 rounded-full overflow-hidden bg-zinc-100 flex items-center justify-center">
-          ${avatarEl}
+    const gridIdVS = 'visitor-students-grid';
+    // عرض shimmer أثناء التحميل
+    setTimeout(async () => {
+      const containerVS = document.getElementById(gridIdVS);
+      if (!containerVS) return;
+      // 1) جلب طلب انضمام الأستاذ المُزار من Firebase
+      let vTeacherReq = (state.joinRequests||[]).find(r =>
+        r.role === 'teacher' && r.status === 'accepted' &&
+        (_visitorUid ? (r.uid === _visitorUid || r.userId === _visitorUid) : r.username === _visitorUsername)
+      );
+      if (!vTeacherReq && _visitorUid) {
+        try {
+          const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+          if (res.ok) {
+            const allInst = await res.json();
+            if (allInst) {
+              for (const instUid of Object.keys(allInst)) {
+                const instReqs = allInst[instUid];
+                if (!instReqs) continue;
+                const found = Object.values(instReqs).find(r =>
+                  r && r.status === 'accepted' && r.role === 'teacher' &&
+                  (r.uid === _visitorUid || r.userId === _visitorUid)
+                );
+                if (found) { vTeacherReq = found; break; }
+              }
+            }
+          }
+        } catch(e) {}
+      }
+      if (!vTeacherReq) {
+        containerVS.innerHTML = emptyState('لم ينضم هذا الأستاذ لأي مؤسسة بعد');
+        return;
+      }
+      const vTeacherInstUid = vTeacherReq.institutionUid || vTeacherReq.institutionId || '';
+      // 2) جلب طلبات المؤسسة من Firebase
+      let allInstReqsVS = [];
+      try {
+        const res2 = await fetch(`${FB_DB_URL}/joinRequests/${vTeacherInstUid}.json?auth=${FB_API_KEY}`);
+        if (res2.ok) {
+          const instData = await res2.json();
+          if (instData) allInstReqsVS = Object.values(instData).filter(r => r && r.status === 'accepted');
+        }
+      } catch(e) {}
+      if (!allInstReqsVS.length) {
+        allInstReqsVS = (state.joinRequests||[]).filter(r =>
+          r.status === 'accepted' && (r.institutionUid === vTeacherInstUid || r.institutionId === vTeacherInstUid)
+        );
+      }
+      // 3) فلترة التلاميذ باستخدام isStudentMatchingTeacher
+      const matchedVS = allInstReqsVS.filter(r => {
+        if (r.role !== 'student') return false;
+        return isStudentMatchingTeacher(r, vTeacherReq);
+      });
+      if (!matchedVS.length) {
+        containerVS.innerHTML = emptyState('لا يوجد تلاميذ مطابقون بعد');
+        return;
+      }
+      containerVS.innerHTML = matchedVS.map((r) => {
+        const sUid = r.uid || '';
+        const sUsername = r.username || '';
+        const profileLink = sUid ? `profile.html?uid=${sUid}` : (sUsername ? `profile.html?username=${sUsername}` : '#');
+        const fromPost = sUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(sUid)) : state.posts.find(p=>p.username===sUsername);
+        const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
+        const avatarEl = avatarSrc
+          ? `<img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover"
+              onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+             <div class="h-11 w-11 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 items-center justify-center text-white font-extrabold text-[15px] hidden">${(r.fullName||'T').charAt(0).toUpperCase()}</div>`
+          : `<div class="h-11 w-11 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center text-white font-extrabold text-[15px]">${(r.fullName||'T').charAt(0).toUpperCase()}</div>`;
+        return `<a href="${profileLink}" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition">
+          <div class="h-11 w-11 shrink-0 rounded-full overflow-hidden bg-zinc-100 flex items-center justify-center">${avatarEl}</div>
+          <div class="flex-1 min-w-0">
+            <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${r.fullName||'تلميذ'}</h3>
+            <p class="text-[11px] text-zinc-400 font-medium truncate">${r.levelName||''}</p>
+          </div>
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-50 border border-zinc-100">
+            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-400" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+        </a>`;
+      }).join('');
+    }, 0);
+    return `<div id="${gridIdVS}" class="grid gap-2">${[1,2,3].map(()=>`
+      <div class="flex items-center gap-3 rounded-[16px] bg-white border border-zinc-100 p-3">
+        <div class="shimmer h-11 w-11 rounded-full shrink-0"></div>
+        <div class="flex-1 space-y-1.5">
+          <div class="shimmer h-3.5 w-28 rounded-full"></div>
+          <div class="shimmer h-3 w-20 rounded-full"></div>
         </div>
-        <div class="flex-1 min-w-0">
-          <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${r.fullName||'تلميذ'}</h3>
-          <p class="text-[11px] text-zinc-400 font-medium truncate">${r.levelName||''}</p>
-        </div>
-        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-50 border border-zinc-100">
-          <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-400" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
-        </div>
-      </a>`;
-    }).join('')}</div>`;
+      </div>`).join('')}</div>`;
   }
   if(tabId === 'badges') {
     const badges=["مجتهد","المثابر","المتفوق في الدورة الأولى","الأول في الاختبار","مبدع في الأنشطة"];
