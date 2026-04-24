@@ -319,43 +319,36 @@
 </div>
 
 <script>
-// ---- Load exam from URL ----
-const urlParams = new URLSearchParams(window.location.search);
-const examId = parseInt(urlParams.get('exam'));
+const FB_Q  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
+const KEY_Q = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+
+const urlParams  = new URLSearchParams(window.location.search);
+const examId     = parseInt(urlParams.get('exam'));
 const teacherUid = urlParams.get('teacher') || '';
 
-const FB_DB_URL_Q  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
-const FB_API_KEY_Q = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
-
-// التمرين يُجلب من Firebase — يُملأ بعد التحميل
+// المتغير العام للتمرين — يُملأ بعد جلب Firebase
 let exam = null;
 
-function showNotFound() {
+function goBack() {
+  if (document.referrer) history.back();
+  else window.location.href = 'profile.html';
+}
+
+function showError(msg, sub) {
   document.getElementById('intro-screen').innerHTML = `
   <div style="text-align:center;padding:40px 20px;">
-    <p style="font-size:18px;font-weight:800;color:#f4f4f5;margin-bottom:16px;">لا يوجد اختبار نشط حالياً</p>
-    <p style="font-size:14px;color:#71717a;margin-bottom:24px;">لم يقم الأستاذ بنشر أي اختبار أو تمرين بعد.</p>
+    <div style="font-size:48px;margin-bottom:16px;">📋</div>
+    <p style="font-size:18px;font-weight:800;color:#f4f4f5;margin-bottom:12px;">${msg}</p>
+    <p style="font-size:14px;color:#71717a;margin-bottom:24px;">${sub}</p>
     <button onclick="goBack()" style="height:48px;padding:0 32px;border-radius:14px;background:#18181b;border:1px solid rgba(255,255,255,0.1);color:#f4f4f5;font-size:14px;font-weight:800;cursor:pointer;font-family:'Tajawal',sans-serif;">
       العودة
     </button>
   </div>`;
 }
 
-function showExpired() {
-  document.getElementById('intro-screen').innerHTML = `
-  <div style="text-align:center;padding:40px 20px;">
-    <div style="font-size:48px;margin-bottom:16px;">⏰</div>
-    <p style="font-size:18px;font-weight:800;color:#f4f4f5;margin-bottom:12px;">انتهى وقت الاختبار</p>
-    <p style="font-size:14px;color:#71717a;margin-bottom:24px;">انتهت مدة هذا الاختبار ولم يعد متاحاً.</p>
-    <button onclick="goBack()" style="height:48px;padding:0 32px;border-radius:14px;background:#18181b;border:1px solid rgba(255,255,255,0.1);color:#f4f4f5;font-size:14px;font-weight:800;cursor:pointer;font-family:'Tajawal',sans-serif;">
-      العودة
-    </button>
-  </div>`;
-}
-
-function showIntro(e) {
+function populateIntro(e) {
   document.getElementById('intro-title').textContent = e.title;
-  document.getElementById('intro-type').textContent = e.type;
+  document.getElementById('intro-type').textContent  = e.type;
   const totalPts  = e.questions.reduce((s, q) => s + (q.points || 1), 0);
   const totalTime = e.questions.reduce((s, q) => s + (q.time   || 30), 0);
   document.getElementById('intro-stats').innerHTML = `
@@ -373,83 +366,139 @@ function showIntro(e) {
     </div>`;
 }
 
-// ── جلب التمرين من Firebase أولاً، ثم fallback إلى localStorage ──
-(async () => {
-  if (!examId && examId !== 0) { showNotFound(); return; }
+// ── تحقق هل أكمل التلميذ هذا التمرين من قبل ──
+async function checkAlreadyCompleted(eId) {
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  if (!myUid || !eId) return null;
+  try {
+    const res = await fetch(`${FB_Q}/results/${eId}/${myUid}.json?auth=${KEY_Q}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.score !== undefined) return data;
+    }
+  } catch(e) {}
+  return null;
+}
 
-  // shimmer أثناء التحميل
+// ── جلب التمرين من Firebase ──
+(async () => {
+  if (!examId && examId !== 0) { showError('لا يوجد اختبار', 'الرابط غير صحيح.'); return; }
+
+  // shimmer
   document.getElementById('intro-screen').innerHTML = `
-  <div style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:48px 24px;">
-    <div style="width:200px;height:20px;border-radius:10px;background:rgba(255,255,255,0.08);animation:shimmer 1.2s infinite;"></div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:20px;padding:60px 24px;">
+    <div style="width:80px;height:80px;border-radius:50%;background:rgba(59,130,246,0.1);animation:shimmer 1.2s infinite;"></div>
+    <div style="width:200px;height:22px;border-radius:10px;background:rgba(255,255,255,0.08);animation:shimmer 1.2s infinite;"></div>
     <div style="width:120px;height:14px;border-radius:7px;background:rgba(255,255,255,0.06);animation:shimmer 1.2s infinite;"></div>
-    <div style="display:flex;gap:12px;margin-top:8px;">
+    <div style="display:flex;gap:12px;">
       ${[1,2,3].map(()=>`<div style="width:80px;height:64px;border-radius:14px;background:rgba(255,255,255,0.07);animation:shimmer 1.2s infinite;"></div>`).join('')}
     </div>
   </div>`;
 
-  // 1) جلب من Firebase
+  // 1) جلب من /exams/{id}
   try {
-    const res = await fetch(`${FB_DB_URL_Q}/exams/${examId}.json?auth=${FB_API_KEY_Q}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.id) {
-        exam = data;
-      }
-    }
+    const r = await fetch(`${FB_Q}/exams/${examId}.json?auth=${KEY_Q}`);
+    if (r.ok) { const d = await r.json(); if (d && d.id) exam = d; }
   } catch(e) {}
 
-  // 2) fallback: بحث في مسار exams كـ array
+  // 2) fallback: بحث في كل التمارين
   if (!exam) {
     try {
-      const res2 = await fetch(`${FB_DB_URL_Q}/exams.json?auth=${FB_API_KEY_Q}`);
-      if (res2.ok) {
-        const allData = await res2.json();
-        if (allData && typeof allData === 'object') {
-          const all = Object.values(allData).filter(e => e && e.id);
-          exam = all.find(e => e.id === examId) || null;
+      const r2 = await fetch(`${FB_Q}/exams.json?auth=${KEY_Q}`);
+      if (r2.ok) {
+        const all = await r2.json();
+        if (all && typeof all === 'object') {
+          exam = Object.values(all).find(e => e && e.id === examId) || null;
         }
       }
     } catch(e) {}
   }
 
-  // 3) عرض النتيجة
-  if (!exam) { showNotFound(); return; }
-  if (Date.now() > exam.expiresAt) { showExpired(); return; }
-  showIntro(exam);
-})();
+  if (!exam) { showError('لا يوجد اختبار نشط حالياً', 'لم يقم الأستاذ بنشر أي اختبار أو تمرين بعد.'); return; }
+  if (Date.now() > exam.expiresAt) { showError('انتهى وقت الاختبار ⏰', 'انتهت مدة هذا الاختبار ولم يعد متاحاً.'); return; }
 
-function goBack() {
-  if (document.referrer) history.back();
-  else window.location.href = 'profile.html';
-}
+  // 3) تحقق إذا كان التلميذ أكمل التمرين من قبل
+  const prevResult = await checkAlreadyCompleted(exam.id);
+  if (prevResult) {
+    const pct = Math.round(prevResult.score / prevResult.totalPts * 100);
+    const col = pct >= 70 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+    // أعد بناء intro-screen بمحتوى الملف الأصلي ثم ضع رسالة الاجتياز
+    document.getElementById('intro-screen').innerHTML = `
+    <div style="width:80px;height:80px;border-radius:50%;background:rgba(16,185,129,0.15);border:3px solid #10b981;display:flex;align-items:center;justify-content:center;margin-bottom:24px;">
+      <svg viewBox="0 0 24 24" style="width:36px;height:36px;fill:none;stroke:#10b981;stroke-width:2;stroke-linecap:round;">
+        <path d="M20 6L9 17l-5-5"/>
+      </svg>
+    </div>
+    <h1 style="font-size:20px;font-weight:900;color:#f4f4f5;margin-bottom:6px;">${exam.title}</h1>
+    <p style="font-size:13px;color:#71717a;font-weight:700;margin-bottom:20px;">${exam.type}</p>
+    <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:20px;padding:20px 24px;text-align:center;margin-bottom:24px;max-width:320px;">
+      <p style="font-size:14px;font-weight:800;color:#6ee7b7;margin-bottom:12px;">✅ لقد اجتزت هذا التمرين</p>
+      <div style="font-size:36px;font-weight:900;color:${col};">${pct}%</div>
+      <div style="font-size:13px;color:#71717a;font-weight:700;margin-top:4px;">${prevResult.score} / ${prevResult.totalPts} نقطة</div>
+    </div>
+    <button onclick="goBack()" style="height:48px;padding:0 32px;border-radius:14px;background:#18181b;border:1px solid rgba(255,255,255,0.1);color:#f4f4f5;font-size:14px;font-weight:800;cursor:pointer;font-family:'Tajawal',sans-serif;">
+      العودة
+    </button>`;
+    return;
+  }
+
+  // 4) عرض شاشة Intro الطبيعية (نعيد بناء المحتوى الأصلي ديناميكياً)
+  document.getElementById('intro-screen').innerHTML = `
+  <div style="width:80px;height:80px;border-radius:50%;background:rgba(59,130,246,0.15);border:3px solid #3b82f6;display:flex;align-items:center;justify-content:center;margin-bottom:24px;">
+    <svg viewBox="0 0 24 24" style="width:36px;height:36px;fill:none;stroke:#3b82f6;stroke-width:1.8;stroke-linecap:round;">
+      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/>
+    </svg>
+  </div>
+  <h1 id="intro-title" style="font-size:22px;font-weight:900;color:#f4f4f5;margin-bottom:8px;"></h1>
+  <p id="intro-type" style="font-size:13px;color:#71717a;font-weight:700;margin-bottom:24px;"></p>
+  <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:20px;width:100%;max-width:380px;margin-bottom:28px;text-align:right;">
+    <p style="font-size:14px;font-weight:700;color:#a1a1aa;margin-bottom:16px;">تعليمات مهمة:</p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <span style="font-size:18px;flex-shrink:0;">⏱</span>
+        <p style="font-size:13px;color:#d4d4d8;line-height:1.6;">كل سؤال له وقت محدد. إذا انتهى الوقت، تنتقل تلقائياً للسؤال التالي.</p>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <span style="font-size:18px;flex-shrink:0;">🎯</span>
+        <p style="font-size:13px;color:#d4d4d8;line-height:1.6;">ركّز جيداً في كل سؤال للحصول على أعلى نقطة.</p>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <span style="font-size:18px;flex-shrink:0;">🚫</span>
+        <p style="font-size:13px;color:#d4d4d8;line-height:1.6;">لا يوجد زر تخطي. الإجابة نهائية بعد الضغط على "تم الإجابة".</p>
+      </div>
+    </div>
+  </div>
+  <div id="intro-stats" style="display:flex;gap:16px;margin-bottom:32px;"></div>
+  <button onclick="startQuiz()" style="width:100%;max-width:380px;height:54px;border-radius:16px;background:#3b82f6;color:#fff;font-size:17px;font-weight:900;border:none;cursor:pointer;font-family:'Tajawal',sans-serif;">
+    بدء الآن
+  </button>
+  <button onclick="goBack()" style="margin-top:12px;background:none;border:none;color:#71717a;font-size:13px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;">
+    العودة
+  </button>`;
+  populateIntro(exam);
+})();
 
 // ---- Quiz Logic ----
 let currentQIdx = 0;
 let answers = [];
 let timerInterval = null;
 let timeLeft = 0;
-let totalCircumference = 163.4; // 2 * PI * 26
+const totalCircumference = 163.4;
 
 function startQuiz() {
   if (!exam) return;
   document.getElementById('intro-screen').style.display = 'none';
-  document.getElementById('quiz-screen').style.display = 'flex';
+  document.getElementById('quiz-screen').style.display  = 'flex';
   showQuestion(0);
 }
 
 function showQuestion(idx) {
   currentQIdx = idx;
   const q = exam.questions[idx];
-  
-  // Update counter
-  document.getElementById('q-current').textContent = idx + 1;
-  document.getElementById('q-total').textContent = exam.questions.length;
+  document.getElementById('q-current').textContent    = idx + 1;
+  document.getElementById('q-total').textContent      = exam.questions.length;
   document.getElementById('q-score-label').textContent = `⭐${q.points||1}`;
-  
-  // Render question
   renderQuestion(q);
-  
-  // Start timer
   startTimer(q.time || 30);
 }
 
@@ -458,187 +507,111 @@ function renderQuestion(q) {
   body.innerHTML = '';
   body.classList.add('fade-in');
   setTimeout(() => body.classList.remove('fade-in'), 400);
-
   let html = '';
-
   if (q.qtype === 'truefalse') {
-    html = `
-    <p class="question-text">${q.text}</p>
+    html = `<p class="question-text">${q.text}</p>
     <div style="display:flex;gap:12px;">
-      <button class="tf-btn" id="tf-true" onclick="selectTF(true)">✓ صحيح</button>
+      <button class="tf-btn" id="tf-true"  onclick="selectTF(true)">✓ صحيح</button>
       <button class="tf-btn" id="tf-false" onclick="selectTF(false)">✗ خطأ</button>
     </div>`;
-  }
-  else if (q.qtype === 'multichoice') {
+  } else if (q.qtype === 'multichoice') {
     const opts = q.choices.filter(c => c.trim());
-    html = `
-    <p class="question-text">${q.text}</p>
-    ${opts.map((c, i) => `
-      <button class="option-btn" id="opt-${i}" onclick="selectChoice(${i})">${String.fromCharCode(0x0041+i)}) ${c}</button>
-    `).join('')}`;
-  }
-  else if (q.qtype === 'fill') {
-    html = `
-    <p class="question-text">${q.text}</p>
+    html = `<p class="question-text">${q.text}</p>
+    ${opts.map((c,i)=>`<button class="option-btn" id="opt-${i}" onclick="selectChoice(${i})">${String.fromCharCode(0x0041+i)}) ${c}</button>`).join('')}`;
+  } else if (q.qtype === 'fill') {
+    html = `<p class="question-text">${q.text}</p>
     <input class="fill-input" id="fill-input" type="text" placeholder="اكتب إجابتك هنا..." autocomplete="off" />`;
-  }
-  else if (q.qtype === 'match') {
-    const leftItems = q.matchLeft.filter(x => x.trim());
-    const rightItems = [...q.matchRight.filter(x => x.trim())].sort(() => Math.random() - 0.5);
-    html = `
-    <p class="question-text">${q.text}</p>
+  } else if (q.qtype === 'match') {
+    const leftItems  = q.matchLeft.filter(x=>x.trim());
+    const rightItems = [...q.matchRight.filter(x=>x.trim())].sort(()=>Math.random()-.5);
+    html = `<p class="question-text">${q.text}</p>
     <p style="font-size:12px;color:#71717a;font-weight:700;margin-bottom:12px;">اختر عنصراً من اليسار ثم عنصراً من اليمين لربطهما</p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" id="match-container">
-      <div class="match-col" id="left-col">
-        ${leftItems.map((v, i) => `<div class="match-item" id="left-${i}" onclick="selectLeft(${i})" data-val="${v}">${v}</div>`).join('')}
-      </div>
-      <div class="match-col" id="right-col">
-        ${rightItems.map((v, i) => `<div class="match-item" id="right-${i}" onclick="selectRight('${v}', ${i})" data-val="${v}">${v}</div>`).join('')}
-      </div>
+      <div class="match-col" id="left-col">${leftItems.map((v,i)=>`<div class="match-item" id="left-${i}" onclick="selectLeft(${i})" data-val="${v}">${v}</div>`).join('')}</div>
+      <div class="match-col" id="right-col">${rightItems.map((v,i)=>`<div class="match-item" id="right-${i}" onclick="selectRight('${v}',${i})" data-val="${v}">${v}</div>`).join('')}</div>
     </div>
     <div id="match-pairs" style="margin-top:12px;display:flex;flex-direction:column;gap:6px;"></div>`;
+  } else if (q.qtype === 'image') {
+    html = `${q.imageSrc?`<img src="${q.imageSrc}" class="q-image" />`:''}
+    <p class="question-text">${q.text||'ماذا تلاحظ في هذه الصورة؟'}</p>
+    ${q.imageMode==='choice'
+      ? (q.imageChoices||[]).filter(c=>c.trim()).map((c,i)=>`<button class="option-btn" id="opt-${i}" onclick="selectChoice(${i})">${String.fromCharCode(0x0041+i)}) ${c}</button>`).join('')
+      : `<textarea class="fill-input" id="fill-input" rows="4" placeholder="اكتب إجابتك هنا..." style="resize:none;height:120px;"></textarea>`}`;
   }
-  else if (q.qtype === 'image') {
-    html = `
-    ${q.imageSrc ? `<img src="${q.imageSrc}" class="q-image" />` : ''}
-    <p class="question-text">${q.text || 'ماذا تلاحظ في هذه الصورة؟'}</p>
-    ${q.imageMode === 'choice'
-      ? (q.imageChoices || []).filter(c => c.trim()).map((c, i) => `
-          <button class="option-btn" id="opt-${i}" onclick="selectChoice(${i})">${String.fromCharCode(0x0041+i)}) ${c}</button>
-        `).join('')
-      : `<textarea class="fill-input" id="fill-input" rows="4" placeholder="اكتب إجابتك هنا..." style="resize:none;height:120px;"></textarea>`
-    }`;
-  }
-
   body.innerHTML = html;
   window.matchState = { selectedLeft: null, pairs: [] };
 }
 
-// ---- Answer selection ----
 let selectedAnswer = null;
-
 function selectTF(val) {
   selectedAnswer = val;
-  document.getElementById('tf-true').classList.toggle('selected', val === true);
+  document.getElementById('tf-true').classList.toggle('selected',  val === true);
   document.getElementById('tf-false').classList.toggle('selected', val === false);
 }
-
 function selectChoice(i) {
   selectedAnswer = i;
-  document.querySelectorAll('.option-btn').forEach((b, idx) => {
-    b.classList.toggle('selected', idx === i);
-  });
+  document.querySelectorAll('.option-btn').forEach((b,idx) => b.classList.toggle('selected', idx===i));
 }
-
 function selectLeft(i) {
   window.matchState.selectedLeft = i;
   document.querySelectorAll('[id^="left-"]').forEach(b => b.classList.remove('sel-left'));
-  const el = document.getElementById('left-' + i);
+  const el = document.getElementById('left-'+i);
   if (el && !el.classList.contains('matched')) el.classList.add('sel-left');
 }
-
 function selectRight(val, i) {
   if (window.matchState.selectedLeft === null) return;
   const leftIdx = window.matchState.selectedLeft;
-  const leftEl = document.getElementById('left-' + leftIdx);
-  const rightEl = document.getElementById('right-' + i);
-  if (!leftEl || !rightEl) return;
-  if (leftEl.classList.contains('matched') || rightEl.classList.contains('matched')) return;
-
+  const leftEl  = document.getElementById('left-'+leftIdx);
+  const rightEl = document.getElementById('right-'+i);
+  if (!leftEl||!rightEl||leftEl.classList.contains('matched')||rightEl.classList.contains('matched')) return;
   const leftVal = leftEl.dataset.val;
   window.matchState.pairs.push({ left: leftVal, right: val });
-  leftEl.classList.remove('sel-left');
-  leftEl.classList.add('matched');
-  rightEl.classList.add('matched');
+  leftEl.classList.remove('sel-left'); leftEl.classList.add('matched'); rightEl.classList.add('matched');
   window.matchState.selectedLeft = null;
-
-  // Show pairs
   const pairsEl = document.getElementById('match-pairs');
-  if (pairsEl) {
-    pairsEl.innerHTML = window.matchState.pairs.map(p =>
-      `<div style="display:flex;align-items:center;gap:8px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;color:#6ee7b7;">
-        <span>${p.left}</span>
-        <span style="color:#71717a;">↔</span>
-        <span>${p.right}</span>
-      </div>`
-    ).join('');
-  }
+  if (pairsEl) pairsEl.innerHTML = window.matchState.pairs.map(p=>`
+    <div style="display:flex;align-items:center;gap:8px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;color:#6ee7b7;">
+      <span>${p.left}</span><span style="color:#71717a;">↔</span><span>${p.right}</span>
+    </div>`).join('');
 }
 
-// ---- Timer ----
 function startTimer(seconds) {
   clearInterval(timerInterval);
-  timeLeft = seconds;
-  selectedAnswer = null;
+  timeLeft = seconds; selectedAnswer = null;
   if (window.matchState) window.matchState = { selectedLeft: null, pairs: [] };
-
-  const timerEl = document.getElementById('quiz-timer');
-  const ringFill = document.getElementById('timer-ring-fill');
   const submitBtn = document.getElementById('submit-btn');
   if (submitBtn) submitBtn.disabled = false;
-
   updateTimerDisplay(seconds, seconds);
-
   timerInterval = setInterval(() => {
     timeLeft--;
     updateTimerDisplay(timeLeft, seconds);
-
-    if (timeLeft <= 0) {
-      clearInterval(timerInterval);
-      autoSubmit();
-    }
+    if (timeLeft <= 0) { clearInterval(timerInterval); autoSubmit(); }
   }, 1000);
 }
-
 function updateTimerDisplay(left, total) {
-  const timerEl = document.getElementById('quiz-timer');
+  const timerEl  = document.getElementById('quiz-timer');
   const ringFill = document.getElementById('timer-ring-fill');
-
-  if (timerEl) {
-    timerEl.textContent = left;
-    timerEl.classList.toggle('warning', left <= 5);
-  }
+  if (timerEl)  { timerEl.textContent = left; timerEl.classList.toggle('warning', left<=5); }
   if (ringFill) {
-    const offset = totalCircumference * (1 - left / total);
-    ringFill.style.strokeDashoffset = offset;
-    ringFill.classList.toggle('warning', left <= 5);
+    ringFill.style.strokeDashoffset = totalCircumference * (1 - left/total);
+    ringFill.classList.toggle('warning', left<=5);
   }
 }
-
-function autoSubmit() {
-  // Submit with whatever was selected (or null)
-  recordAnswer(selectedAnswer);
-  nextQuestion();
-}
-
+function autoSubmit() { recordAnswer(selectedAnswer); nextQuestion(); }
 function submitAnswer() {
   clearInterval(timerInterval);
   const q = exam.questions[currentQIdx];
-
-  // Get answer from UI
   let ans = selectedAnswer;
-  if (q.qtype === 'fill' || (q.qtype === 'image' && q.imageMode !== 'choice')) {
-    const inp = document.getElementById('fill-input');
-    ans = inp ? inp.value.trim() : '';
+  if (q.qtype==='fill'||(q.qtype==='image'&&q.imageMode!=='choice')) {
+    const inp = document.getElementById('fill-input'); ans = inp?inp.value.trim():'';
   }
-  if (q.qtype === 'match') {
-    ans = window.matchState ? window.matchState.pairs : [];
-  }
-
-  recordAnswer(ans);
-  nextQuestion();
+  if (q.qtype==='match') ans = window.matchState?window.matchState.pairs:[];
+  recordAnswer(ans); nextQuestion();
 }
-
-function recordAnswer(ans) {
-  answers[currentQIdx] = ans;
-}
-
+function recordAnswer(ans) { answers[currentQIdx] = ans; }
 function nextQuestion() {
-  if (currentQIdx + 1 < exam.questions.length) {
-    showQuestion(currentQIdx + 1);
-  } else {
-    showResults();
-  }
+  if (currentQIdx+1 < exam.questions.length) showQuestion(currentQIdx+1);
+  else showResults();
 }
 
 // ---- Results ----
@@ -646,30 +619,22 @@ function showResults() {
   document.getElementById('quiz-screen').style.display = 'none';
   const resultsEl = document.getElementById('results-screen');
   resultsEl.classList.add('show');
-
-  const totalPts = exam.questions.reduce((s, q) => s + (q.points || 1), 0);
+  const totalPts = exam.questions.reduce((s,q)=>s+(q.points||1),0);
   let score = 0;
-  const breakdown = exam.questions.map((q, i) => {
-    const ans = answers[i];
-    const correct = checkAnswer(q, ans);
-    if (correct) score += (q.points || 1);
-    return { q, ans, correct };
+  const breakdown = exam.questions.map((q,i)=>{
+    const ans = answers[i]; const correct = checkAnswer(q,ans);
+    if (correct) score += (q.points||1);
+    return {q,ans,correct};
   });
-
-  const pct = Math.round(score / totalPts * 100);
-
+  const pct = Math.round(score/totalPts*100);
   document.getElementById('results-exam-title').textContent = exam.title;
-  document.getElementById('results-pct').textContent = pct + '%';
+  document.getElementById('results-pct').textContent = pct+'%';
   document.getElementById('results-pts').textContent = `${score} / ${totalPts} نقطة`;
-
-  // Update ring color based on score
   const scoreCircle = document.querySelector('.score-circle');
-  if (scoreCircle) {
-    scoreCircle.style.borderColor = pct >= 70 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
-  }
-  document.getElementById('results-pct').style.color = pct >= 70 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
-
-  document.getElementById('results-breakdown').innerHTML = breakdown.map(({q, ans, correct}, i) => `
+  const col = pct>=70?'#10b981':pct>=50?'#f59e0b':'#ef4444';
+  if (scoreCircle) scoreCircle.style.borderColor = col;
+  document.getElementById('results-pct').style.color = col;
+  document.getElementById('results-breakdown').innerHTML = breakdown.map(({q,ans,correct},i)=>`
     <div style="background:rgba(255,255,255,0.04);border:1px solid ${correct?'rgba(16,185,129,0.3)':'rgba(239,68,68,0.3)'};border-radius:14px;padding:12px 14px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
         <span style="font-size:11px;color:#71717a;font-weight:700;">سؤال ${i+1}</span>
@@ -678,44 +643,39 @@ function showResults() {
       <p style="font-size:13px;font-weight:700;color:#d4d4d8;">${q.text||'سؤال صورة'}</p>
     </div>`).join('');
 
-  // Save result
-  const studentName = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'تلميذ';
-  const studentUid = localStorage.getItem('yadwor-uid') || 'student';
+  // ── حفظ النتيجة في Firebase ──
+  const myUid  = localStorage.getItem('yadwor-uid') || 'anonymous';
+  const myName = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'تلميذ';
   const result = {
-    id: Date.now(),
-    examId: exam.id,
-    studentName,
-    studentUid,
-    score,
-    totalPts,
-    answers,
-    completedAt: Date.now()
+    examId: exam.id, studentUid: myUid, studentName: myName,
+    score, totalPts, pct, answers, completedAt: Date.now(),
+    teacherUid: exam.teacherUid || ''
   };
-  const results = JSON.parse(localStorage.getItem('yadwor-results') || '[]');
-  results.push(result);
-  localStorage.setItem('yadwor-results', JSON.stringify(results));
+  // مسار: /results/{examId}/{studentUid}
+  fetch(`${FB_Q}/results/${exam.id}/${myUid}.json?auth=${KEY_Q}`, {
+    method: 'PUT', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(result)
+  }).catch(()=>{});
 }
 
 function checkAnswer(q, ans) {
-  if (ans === null || ans === undefined || ans === '') return false;
-  if (q.qtype === 'truefalse') return ans === q.correctAnswer;
-  if (q.qtype === 'multichoice') return ans === q.correctAnswer;
-  if (q.qtype === 'fill') return String(ans).trim().toLowerCase() === String(q.fillAnswer||'').trim().toLowerCase();
-  if (q.qtype === 'image') {
-    if (q.imageMode === 'choice') return ans === q.imageCorrect;
-    return ans.length > 2; // free write: any non-empty answer
+  if (ans===null||ans===undefined||ans==='') return false;
+  if (q.qtype==='truefalse')   return ans===q.correctAnswer;
+  if (q.qtype==='multichoice') return ans===q.correctAnswer;
+  if (q.qtype==='fill') return String(ans).trim().toLowerCase()===String(q.fillAnswer||'').trim().toLowerCase();
+  if (q.qtype==='image') {
+    if (q.imageMode==='choice') return ans===q.imageCorrect;
+    return ans.length>2;
   }
-  if (q.qtype === 'match') {
+  if (q.qtype==='match') {
     if (!Array.isArray(ans)) return false;
-    // Check all pairs match correctly (left[i] <-> right[i])
-    if (ans.length !== q.matchLeft.filter(x=>x.trim()).length) return false;
-    return ans.every(p => {
-      const leftIdx = q.matchLeft.indexOf(p.left);
-      return leftIdx !== -1 && q.matchRight[leftIdx] === p.right;
-    });
+    if (ans.length!==q.matchLeft.filter(x=>x.trim()).length) return false;
+    return ans.every(p=>{ const li=q.matchLeft.indexOf(p.left); return li!==-1&&q.matchRight[li]===p.right; });
   }
   return false;
 }
 </script>
+
+
 </body>
 </html>
