@@ -40,23 +40,21 @@ function isStudentMatchingTeacher(student, teacher) {
 /**
  * canStudentSeeExercise(student, exercise)
  * ترجع true إذا:
- *   - نفس institutionId/institutionUid (شرط صارم — لا يُعرض التمرين إذا غاب أي منهما)
- *   - نفس levelId (شرط صارم)
- *   - نفس subject (موجود في مواد التلميذ) (شرط صارم)
+ *   - نفس institutionId/institutionUid
+ *   - نفس levelId
+ *   - نفس subject (موجود في مواد التلميذ)
  */
 function canStudentSeeExercise(student, exercise) {
   if (!student || !exercise) return false;
   const studentInst = (student.institutionUid || student.institutionId || '').trim();
   const examInst    = (exercise.institutionUid || exercise.institutionId || '').trim();
-  // شرط صارم: يجب أن يكون التمرين محدد المؤسسة وأن تتطابق مع مؤسسة التلميذ
+  // إذا لم يُحدَّد institutionUid في التمرين → لا يُعرض (شرط صارم)
   if (!examInst || !studentInst || studentInst !== examInst) return false;
   const studentLevel = (student.levelId  || '').trim();
   const examLevel    = (exercise.levelId || '').trim();
-  // شرط صارم: يجب تطابق المستوى
   if (!examLevel || !studentLevel || studentLevel !== examLevel) return false;
   const studentSubjects = (student.subjects || []).map(s => (s.name || s).trim());
   const examSubject     = (exercise.subject  || '').trim();
-  // شرط صارم: يجب أن تكون المادة محددة وموجودة في مواد التلميذ
   if (!examSubject) return false;
   return studentSubjects.includes(examSubject);
 }
@@ -911,3 +909,97 @@ function openChat(name,avatar){
 function openDrawer(){  const d=document.getElementById('drawer'); if(d)d.classList.remove('hidden'); }
 function closeDrawer(){ const d=document.getElementById('drawer'); if(d)d.classList.add('hidden'); }
 function getDefaultTab(type){ if(type==='institution')return'teachers'; if(type==='teacher')return'students'; if(type==='student')return'teachers'; return'posts'; }
+
+// =================== BELL BADGE (Firebase) ===================
+/**
+ * تحديث رقم الجرس (badge) من Firebase مباشرة
+ * تُستدعى في كل صفحة تحتوي على #notif-badge
+ */
+async function updateBellBadgeFromFirebase() {
+  const badgeEl = document.getElementById('notif-badge');
+  if (!badgeEl) return;
+
+  const myUid  = localStorage.getItem('yadwor-uid') || '';
+  const myType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
+  if (!myUid) { badgeEl.style.display = 'none'; return; }
+
+  // آخر وقت قرأ فيه المستخدم الإشعارات
+  const lastRead = parseInt(localStorage.getItem('yadwor-notif-last-read') || '0');
+
+  try {
+    // جلب إشعارات التمارين من Firebase
+    let examUnread = 0;
+    const resN = await fetch(`${FB_DB_URL}/notifications.json?auth=${FB_API_KEY}`);
+    if (resN.ok) {
+      const dataN = await resN.json();
+      if (dataN && typeof dataN === 'object') {
+        const examList = Object.values(dataN).filter(n => n && n.type === 'exam');
+
+        if (myType === 'teacher') {
+          examUnread = examList.filter(n =>
+            n.teacherUid === myUid && (n.publishedAt || 0) > lastRead
+          ).length;
+        } else if (myType === 'student') {
+          // جلب طلب انضمام التلميذ
+          let myReq = null;
+          try {
+            const allReqs = (typeof state !== 'undefined' && state.joinRequests) ? state.joinRequests : [];
+            myReq = allReqs.find(r => r.status === 'accepted' && (r.uid === myUid || r.userId === myUid));
+            // إذا لم يوجد محلياً → جلب من Firebase
+            if (!myReq) {
+              const resAll = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+              if (resAll.ok) {
+                const allInst = await resAll.json();
+                if (allInst) {
+                  for (const instUid of Object.keys(allInst)) {
+                    const instReqs = allInst[instUid];
+                    if (!instReqs) continue;
+                    const found = Object.values(instReqs).find(r =>
+                      r && r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
+                    );
+                    if (found) { myReq = found; break; }
+                  }
+                }
+              }
+            }
+          } catch(e) {}
+
+          if (myReq) {
+            const mySubjectNames = (myReq.subjects || []).map(s => (s.name || s).trim());
+            examUnread = examList.filter(n => {
+              if ((n.publishedAt || 0) <= lastRead) return false;
+              const sameInst = (myReq.institutionUid || myReq.institutionId || '') === (n.institutionUid || '');
+              const sameLevel = myReq.levelId === n.levelId;
+              const sameSub = mySubjectNames.includes((n.subject || '').trim());
+              return sameInst && sameLevel && sameSub;
+            }).length;
+          }
+        }
+      }
+    }
+
+    // إشعارات اللايكات والتعليقات من Firebase
+    let interactionUnread = 0;
+    try {
+      const resI = await fetch(`${FB_DB_URL}/interactions/${myUid}.json?auth=${FB_API_KEY}`);
+      if (resI.ok) {
+        const dataI = await resI.json();
+        if (dataI && typeof dataI === 'object') {
+          interactionUnread = Object.values(dataI).filter(n =>
+            n && (n.publishedAt || n.timestamp || 0) > lastRead
+          ).length;
+        }
+      }
+    } catch(e) {}
+
+    const total = examUnread + interactionUnread;
+    if (total > 0) {
+      badgeEl.textContent = total > 99 ? '99+' : String(total);
+      badgeEl.style.display = '';
+    } else {
+      badgeEl.style.display = 'none';
+    }
+  } catch(e) {
+    badgeEl.style.display = 'none';
+  }
+}
