@@ -174,79 +174,97 @@ function showShimmer() {
     </div>`).join('')}</div>`;
 }
 
-// ─── جلب إشعارات التمارين من Firebase المعنية بالمستخدم الحالي ───
-async function fetchExamNotifications() {
-  const myUid      = localStorage.getItem('yadwor-uid') || '';
-  const myType     = localStorage.getItem('yadwor-account-type') || '';
-  const allReqs    = JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
-
-  // الطلب المقبول للمستخدم الحالي
-  const myReq = allReqs.find(r =>
-    r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
-  );
-
+// ─── جلب إشعارات التمارين من Firebase ───
+async function fetchExamNotifications(myUid, myType, myReq) {
   try {
     const res = await fetch(`${FB_DB_URL_N}/notifications.json?auth=${FB_API_KEY_N}`);
     if (!res.ok) return [];
     const data = await res.json();
     if (!data || typeof data !== 'object') return [];
 
+    const lastRead = parseInt(localStorage.getItem('yadwor-notif-last-read') || '0');
     const list = Object.values(data).filter(n => n && n.type === 'exam');
 
-    // فلترة: تظهر للتلميذ فقط إذا كان عنده نفس المؤسسة ونفس المستوى وفي نفس المادة
     return list.filter(n => {
-      if (myType === 'teacher') {
-        // الأستاذ لا يرى إشعارات تمارين الآخرين
-        return n.teacherUid === myUid;
-      }
+      if (myType === 'teacher') return n.teacherUid === myUid;
       if (myType === 'student') {
         if (!myReq) return false;
-        const sameInstitution = myReq.institutionUid === n.institutionUid || myReq.institutionId === n.institutionUid;
-        const sameLevel = myReq.levelId === n.levelId;
-        const mySubjectNames = (myReq.subjects || []).map(s => s.name || s);
-        const sameSubject = mySubjectNames.includes(n.subject);
-        return sameInstitution && sameLevel && sameSubject;
+        const sameInst    = (myReq.institutionUid || myReq.institutionId || '') === (n.institutionUid || '');
+        const sameLevel   = myReq.levelId === n.levelId;
+        const mySubjects  = (myReq.subjects || []).map(s => (s.name || s).trim());
+        const sameSub     = mySubjects.includes((n.subject || '').trim());
+        return sameInst && sameLevel && sameSub;
       }
       return false;
-    }).sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
+    }).map(n => ({
+      ...n,
+      unread: (n.publishedAt || 0) > lastRead
+    })).sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
   } catch(e) { return []; }
 }
 
-// ─── جلب إشعارات اللايكات والتعليقات من منشوراتي ───
-function getLocalNotifications() {
-  const myUid   = localStorage.getItem('yadwor-uid') || '';
-  const result  = [];
-  const stored  = JSON.parse(localStorage.getItem('yadwor-notifications-local') || '[]');
-  return stored.filter(n => n.ownerUid === myUid || !n.ownerUid);
-}
-
-// ─── تحديث badge الجرس في كل الصفحات ───
-function updateBellBadge(count) {
-  localStorage.setItem('yadwor-notif-count', String(count));
+// ─── جلب إشعارات اللايكات والتعليقات من Firebase ───
+async function fetchInteractionNotifications(myUid) {
+  try {
+    const res = await fetch(`${FB_DB_URL_N}/interactions/${myUid}.json?auth=${FB_API_KEY_N}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data || typeof data !== 'object') return [];
+    const lastRead = parseInt(localStorage.getItem('yadwor-notif-last-read') || '0');
+    return Object.values(data)
+      .filter(n => n && n.type)
+      .map(n => ({ ...n, unread: (n.publishedAt || n.timestamp || 0) > lastRead }))
+      .sort((a, b) => (b.publishedAt || b.timestamp || 0) - (a.publishedAt || a.timestamp || 0));
+  } catch(e) { return []; }
 }
 
 async function loadNotifications() {
   showShimmer();
 
-  // جلب إشعارات التمارين من Firebase
-  const examNotifs = await fetchExamNotifications();
+  const myUid  = localStorage.getItem('yadwor-uid') || '';
+  const myType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
 
-  // إشعارات اللايكات والتعليقات من localStorage
-  const localNotifs = getLocalNotifications();
+  // ── جلب طلب انضمام المستخدم من Firebase (لا localStorage) ──
+  let myReq = null;
+  if (myUid) {
+    try {
+      const allInstRes = await fetch(`${FB_DB_URL_N}/joinRequests.json?auth=${FB_API_KEY_N}`);
+      if (allInstRes.ok) {
+        const allInst = await allInstRes.json();
+        if (allInst && typeof allInst === 'object') {
+          for (const instUid of Object.keys(allInst)) {
+            const instReqs = allInst[instUid];
+            if (!instReqs) continue;
+            const found = Object.values(instReqs).find(r =>
+              r && r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
+            );
+            if (found) { myReq = found; break; }
+          }
+        }
+      }
+    } catch(e) {}
+  }
 
-  allNotifications = [...examNotifs, ...localNotifs]
+  // ── جلب الإشعارات من Firebase ──
+  const [examNotifs, interactionNotifs] = await Promise.all([
+    fetchExamNotifications(myUid, myType, myReq),
+    fetchInteractionNotifications(myUid)
+  ]);
+
+  allNotifications = [...examNotifs, ...interactionNotifs]
     .sort((a, b) => (b.publishedAt || b.timestamp || 0) - (a.publishedAt || a.timestamp || 0));
-
-  // تحديث العدد للـ badge
-  const unreadCount = allNotifications.filter(n => n.unread).length;
-  updateBellBadge(unreadCount);
 
   renderList();
 
-  // تمييز الكل كمقروء بعد 2 ثانية
+  // ── تمييز الكل كمقروء بعد 2 ثانية ──
   setTimeout(() => {
     allNotifications.forEach(n => n.unread = false);
-    localStorage.setItem('yadwor-notif-count', '0');
+    // حفظ وقت القراءة لكي تعمل updateBellBadgeFromFirebase بشكل صحيح
+    localStorage.setItem('yadwor-notif-last-read', String(Date.now()));
+    // تحديث badge الجرس
+    const badgeEl = document.getElementById('notif-badge');
+    if (badgeEl) badgeEl.style.display = 'none';
+    renderList();
   }, 2000);
 }
 
