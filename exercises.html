@@ -170,19 +170,22 @@ let currentQuestion = {
 //  دوال المطابقة المنطقية
 // ============================================================
 
-// تحقق من أحقية التلميذ في رؤية تمرين (نفس المؤسسة + نفس المستوى + المادة موجودة في مواده)
+// تحقق من أحقية التلميذ في رؤية تمرين (نفس المؤسسة + نفس المستوى + المادة موجودة في مواده) — شروط صارمة
 function canStudentSeeExercise(student, exercise) {
   if (!student || !exercise) return false;
-  const studentInstUid = student.institutionUid || student.institutionId || '';
-  const examInstUid    = exercise.institutionUid || '';
-  const sameInstitution = !examInstUid || (studentInstUid !== '' && studentInstUid === examInstUid);
-  const studentLevelId  = student.levelId || '';
-  const examLevelId     = exercise.levelId || '';
-  const sameLevel = !examLevelId || (studentLevelId !== '' && studentLevelId === examLevelId);
+  const studentInstUid = (student.institutionUid || student.institutionId || '').trim();
+  const examInstUid    = (exercise.institutionUid || exercise.institutionId || '').trim();
+  // شرط صارم: يجب أن يكون التمرين محدد المؤسسة وأن تتطابق مع مؤسسة التلميذ
+  if (!examInstUid || !studentInstUid || studentInstUid !== examInstUid) return false;
+  const studentLevelId  = (student.levelId || '').trim();
+  const examLevelId     = (exercise.levelId || '').trim();
+  // شرط صارم: يجب تطابق المستوى
+  if (!examLevelId || !studentLevelId || studentLevelId !== examLevelId) return false;
   const studentSubjectNames = (student.subjects || []).map(s => (s.name || s).trim());
   const examSubject = (exercise.subject || '').trim();
-  const subjectMatch = !examSubject || studentSubjectNames.includes(examSubject);
-  return sameInstitution && sameLevel && subjectMatch;
+  // شرط صارم: يجب أن تكون المادة محددة وموجودة في مواد التلميذ
+  if (!examSubject) return false;
+  return studentSubjectNames.includes(examSubject);
 }
 
 // تحقق من مطابقة التلميذ مع الأستاذ (نفس المؤسسة + نفس المستوى + مادة الأستاذ في مواد التلميذ)
