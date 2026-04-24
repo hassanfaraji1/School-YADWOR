@@ -143,8 +143,13 @@ function renderList() {
     return;
   }
 
-  el.innerHTML = `<div class="space-y-3">${list.map(n => `
-    <div class="rounded-[18px] border p-4 shadow-sm ${n.unread ? 'border-zinc-300 bg-white' : 'border-zinc-200 bg-zinc-50'}">
+  el.innerHTML = `<div class="space-y-3">${list.map(n => {
+    // إشعار التمرين → ينقل لصفحة الأستاذ
+    const clickAttr = (n.type === 'exam' && n.teacherUid)
+      ? `onclick="window.location.href='profile.html?uid=${n.teacherUid}'" style="cursor:pointer;"`
+      : '';
+    return `
+    <div class="rounded-[18px] border p-4 shadow-sm ${n.unread ? 'border-zinc-300 bg-white' : 'border-zinc-200 bg-zinc-50'}" ${clickAttr}>
       <div class="flex items-start gap-3">
         <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style="${getIconBg(n.type)}">
           ${getNotifIcon(n.type)}
@@ -152,11 +157,16 @@ function renderList() {
         <div class="flex-1 min-w-0">
           <p class="text-[14px] font-bold text-zinc-800 leading-snug">${n.text || 'إشعار جديد'}</p>
           ${n.subject ? `<p class="mt-0.5 text-[11px] font-bold text-indigo-600">${n.examType || ''} · ${n.subject}</p>` : ''}
+          ${n.type === 'exam' && n.teacherName ? `<p class="mt-0.5 text-[11px] text-zinc-400 font-bold">👨‍🏫 ${n.teacherName}</p>` : ''}
           <p class="mt-1.5 text-[12px] text-zinc-500">${formatTimeAgoN(n.publishedAt || n.timestamp)}</p>
         </div>
-        <div class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${n.unread ? 'bg-rose-500' : 'bg-zinc-300'}"></div>
+        <div class="flex flex-col items-center gap-1">
+          <div class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${n.unread ? 'bg-rose-500' : 'bg-zinc-300'}"></div>
+          ${n.type === 'exam' ? `<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-400 mt-1" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>` : ''}
+        </div>
       </div>
-    </div>`).join('')}</div>`;
+    </div>`;
+  }).join('')}</div>`;
 }
 
 function showShimmer() {
@@ -175,7 +185,7 @@ function showShimmer() {
 }
 
 // ─── جلب إشعارات التمارين من Firebase ───
-async function fetchExamNotifications(myUid, myType, myReq) {
+async function fetchExamNotifications(myUid, myType, myReq, myInstOwnerUid) {
   try {
     const res = await fetch(`${FB_DB_URL_N}/notifications.json?auth=${FB_API_KEY_N}`);
     if (!res.ok) return [];
@@ -186,15 +196,25 @@ async function fetchExamNotifications(myUid, myType, myReq) {
     const list = Object.values(data).filter(n => n && n.type === 'exam');
 
     return list.filter(n => {
-      if (myType === 'teacher') return n.teacherUid === myUid;
+      // الأستاذ الناشر نفسه لا يرى إشعار تمرينه
+      if (n.teacherUid === myUid) return false;
+      // أساتذة آخرون لا يرون الإشعار
+      if (myType === 'teacher') return false;
+
       if (myType === 'student') {
         if (!myReq) return false;
-        const sameInst    = (myReq.institutionUid || myReq.institutionId || '') === (n.institutionUid || '');
-        const sameLevel   = myReq.levelId === n.levelId;
-        const mySubjects  = (myReq.subjects || []).map(s => (s.name || s).trim());
-        const sameSub     = mySubjects.includes((n.subject || '').trim());
+        const sameInst   = (myReq.institutionUid || myReq.institutionId || '') === (n.institutionUid || '');
+        const sameLevel  = myReq.levelId === n.levelId;
+        const mySubjects = (myReq.subjects || []).map(s => (s.name || s).trim());
+        const sameSub    = mySubjects.includes((n.subject || '').trim());
         return sameInst && sameLevel && sameSub;
       }
+
+      // صاحب المؤسسة يرى كل إشعارات مؤسسته
+      if (myType === 'institution') {
+        return (n.institutionUid || '') === myUid;
+      }
+
       return false;
     }).map(n => ({
       ...n,
