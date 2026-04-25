@@ -75,6 +75,21 @@
   </div>
 </nav>
 
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<script>
+  if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+    firebase.initializeApp({
+      apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
+      authDomain: "a-comment-5a3e5.firebaseapp.com",
+      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com",
+      projectId: "a-comment-5a3e5",
+      storageBucket: "a-comment-5a3e5.appspot.com",
+      messagingSenderId: "557343451166",
+      appId: "1:557343451166:web:d181f098cdeccf7691260f"
+    });
+  }
+</script>
 <script src="shared.js"></script>
 <script>
 const FB_DB_URL_N  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
@@ -98,6 +113,7 @@ function getFilteredNotifs() {
   if (currentTab === 'rooms') return allNotifications.filter(n => n.type === 'room');
   if (currentTab === 'likes') return allNotifications.filter(n => n.type === 'like');
   if (currentTab === 'comments') return allNotifications.filter(n => n.type === 'comment');
+  if (currentTab === 'rooms') return allNotifications.filter(n => n.type === 'room' || n.type === 'live_room');
   return allNotifications;
 }
 
@@ -144,33 +160,78 @@ function renderList() {
   }
 
   el.innerHTML = `<div class="space-y-3">${list.map(n => {
-    // إشعار التمرين: إذا كان من مؤسسة → ينقل لصفحة المؤسسة، وإلا لصفحة الأستاذ
-    let clickAttr = '';
-    if (n.type === 'exam') {
-      // إذا كان institutionUid موجوداً وهو نفس teacherUid → نشره مؤسسة
-      const isInstExam = n.institutionUid && n.institutionUid === n.teacherUid;
-      const targetUid = isInstExam ? n.institutionUid : (n.teacherUid || n.institutionUid || '');
-      if (targetUid) clickAttr = `onclick="window.location.href='profile.html?uid=${targetUid}'" style="cursor:pointer;"`;
+    const isRoom = (n.type === 'room' || n.type === 'live_room');
+
+    // إشعار التمرين → ينقل لصفحة الأستاذ
+    const clickAttr = (!isRoom && n.type === 'exam' && n.teacherUid)
+      ? `onclick="window.location.href='profile.html?uid=${n.teacherUid}'" style="cursor:pointer;"`
+      : '';
+
+    // بناء محتوى إشعار الغرفة
+    let roomExtra = '';
+    if (isRoom) {
+      const badges = [];
+      if (n.levelName) badges.push(`<span style="background:#e8f0fe;color:#0d47a1;font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;">📚 ${n.levelName}</span>`);
+      if (n.subject)   badges.push(`<span style="background:#fce4ec;color:#c62828;font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;">✏️ ${n.subject}</span>`);
+      if (n.roomType === 'private') badges.push(`<span style="background:#fff3e0;color:#e65100;font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;">🔒 خاصة</span>`);
+      else badges.push(`<span style="background:#e8f5e9;color:#2e7d32;font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;">🌐 عامة</span>`);
+
+      const badgesHtml = badges.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">${badges.join('')}</div>` : '';
+
+      const codeHtml = (n.showCode && n.roomCode)
+        ? `<div style="margin-top:6px;background:#f0f4ff;border-radius:8px;padding:5px 10px;display:flex;align-items:center;gap:6px;"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:#0d47a1;stroke-width:2;stroke-linecap:round;flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span style="font-size:11px;font-weight:900;color:#0d47a1;font-family:'Tajawal',sans-serif;">كلمة السر: <span style="letter-spacing:1px;">${n.roomCode}</span></span></div>`
+        : '';
+
+      const joinBtn = n.roomId
+        ? `<button onclick="joinRoomFromNotif('${n.roomId}','${n.roomType||'public'}','${n.roomCode||''}')" style="margin-top:8px;width:100%;padding:9px;background:linear-gradient(135deg,#0d47a1,#1565c0);color:#fff;border:none;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+            <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            دخول الغرفة مباشرة
+          </button>`
+        : '';
+
+      roomExtra = badgesHtml + codeHtml + joinBtn;
     }
+
     return `
     <div class="rounded-[18px] border p-4 shadow-sm ${n.unread ? 'border-zinc-300 bg-white' : 'border-zinc-200 bg-zinc-50'}" ${clickAttr}>
       <div class="flex items-start gap-3">
-        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style="${getIconBg(n.type)}">
-          ${getNotifIcon(n.type)}
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style="${getIconBg(isRoom ? 'room' : n.type)}">
+          ${isRoom ? getRoomNotifAvatar(n) : getNotifIcon(n.type)}
         </div>
         <div class="flex-1 min-w-0">
-          <p class="text-[14px] font-bold text-zinc-800 leading-snug">${n.text || 'إشعار جديد'}</p>
-          ${n.subject ? `<p class="mt-0.5 text-[11px] font-bold text-indigo-600">${n.examType || ''} · ${n.subject}</p>` : ''}
-          ${n.type === 'exam' && n.teacherName ? `<p class="mt-0.5 text-[11px] text-zinc-400 font-bold flex items-center gap-1"><svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>${n.teacherName}</p>` : ''}
-          <p class="mt-1.5 text-[12px] text-zinc-500">${formatTimeAgoN(n.publishedAt || n.timestamp)}</p>
+          <p class="text-[14px] font-bold text-zinc-800 leading-snug">${n.text || (isRoom ? `🔴 ${n.ownerName || ''} بدأ بثاً مباشراً` : 'إشعار جديد')}</p>
+          ${!isRoom && n.subject ? `<p class="mt-0.5 text-[11px] font-bold text-indigo-600">${n.examType || ''} · ${n.subject}</p>` : ''}
+          ${!isRoom && n.type === 'exam' && n.teacherName ? `<p class="mt-0.5 text-[11px] text-zinc-400 font-bold">👨‍🏫 ${n.teacherName}</p>` : ''}
+          ${roomExtra}
+          <p class="mt-1.5 text-[12px] text-zinc-500">${formatTimeAgoN(n.publishedAt || n.ts || n.timestamp)}</p>
         </div>
         <div class="flex flex-col items-center gap-1">
           <div class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${n.unread ? 'bg-rose-500' : 'bg-zinc-300'}"></div>
-          ${n.type === 'exam' ? `<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-400 mt-1" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>` : ''}
+          ${!isRoom && n.type === 'exam' ? `<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-400 mt-1" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>` : ''}
         </div>
       </div>
     </div>`;
   }).join('')}</div>`;
+}
+
+function getRoomNotifAvatar(n) {
+  if (n.ownerAvatar) {
+    return `<img src="${n.ownerAvatar}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'">`;
+  }
+  return `<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>`;
+}
+
+function joinRoomFromNotif(roomId, roomType, roomCode) {
+  const user = {
+    uid:    localStorage.getItem('yadwor-uid') || '',
+    name:   localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'مستخدم',
+    avatar: localStorage.getItem('yadwor-avatar-preview') || ''
+  };
+  localStorage.setItem('yw_room_target', JSON.stringify({roomId, roomType, roomCode, roomName:''}));
+  localStorage.setItem('yw_active_room', JSON.stringify({roomId, isOwner:false, roomType, roomCode, roomMode:'video'}));
+  localStorage.setItem('yw_room_mode', 'video');
+  localStorage.setItem('yw_current_user', JSON.stringify(user));
+  window.location.href = 'roomvideo.html';
 }
 
 function showShimmer() {
@@ -227,7 +288,55 @@ async function fetchExamNotifications(myUid, myType, myReq, myInstOwnerUid) {
   } catch(e) { return []; }
 }
 
-// ─── جلب إشعارات اللايكات والتعليقات من Firebase ───
+// ─── جلب إشعارات الغرف المباشرة من Firebase ───
+async function fetchRoomNotifications(myUid, myType, myReq) {
+  try {
+    const res = await fetch(`${FB_DB_URL_N}/notificationsRoom.json?auth=${FB_API_KEY_N}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data || typeof data !== 'object') return [];
+
+    const lastRead = parseInt(localStorage.getItem('yadwor-notif-last-read') || '0');
+    const rooms = Object.values(data).filter(n => n && n.roomId);
+
+    return rooms.filter(n => {
+      // لا يرى الأستاذ إشعاراته هو
+      if (n.ownerUid === myUid) return false;
+
+      // التلميذ: يرى الإشعار إذا تطابق (مؤسسة + مستوى + مادة)
+      if (myType === 'student') {
+        if (!myReq) return false;
+        const sameInst  = !n.institutionId || (myReq.institutionUid || myReq.institutionId || '') === n.institutionId;
+        const sameLevel = !n.levelId  || myReq.levelId === n.levelId;
+        const mySubs    = (myReq.subjects || []).map(s => (s.name || s).trim());
+        const sameSub   = !n.subject || mySubs.includes((n.subject || '').trim());
+
+        // إذا اشترط الأستاذ المؤسسة فقط، نتحقق منها
+        if (n.institutionOnly) return sameInst && sameLevel && sameSub;
+        return sameLevel && sameSub;
+      }
+
+      // أستاذ آخر لا يرى إشعارات البث (إلا إذا كان نوع الغرفة عامة وبدون استهداف)
+      if (myType === 'teacher') {
+        return n.noTarget && n.roomType === 'public';
+      }
+
+      // مؤسسة: ترى إشعارات مؤسستها
+      if (myType === 'institution') {
+        return n.institutionId === myUid;
+      }
+
+      // باقي المستخدمين: الغرف العامة بدون استهداف
+      return n.noTarget && n.roomType === 'public';
+    }).map(n => ({
+      ...n,
+      type: 'room',
+      unread: (n.ts || 0) > lastRead
+    })).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  } catch(e) { return []; }
+}
+
+
 async function fetchInteractionNotifications(myUid) {
   try {
     const res = await fetch(`${FB_DB_URL_N}/interactions/${myUid}.json?auth=${FB_API_KEY_N}`);
@@ -270,13 +379,14 @@ async function loadNotifications() {
   }
 
   // ── جلب الإشعارات من Firebase ──
-  const [examNotifs, interactionNotifs] = await Promise.all([
+  const [examNotifs, interactionNotifs, roomNotifs] = await Promise.all([
     fetchExamNotifications(myUid, myType, myReq),
-    fetchInteractionNotifications(myUid)
+    fetchInteractionNotifications(myUid),
+    fetchRoomNotifications(myUid, myType, myReq)
   ]);
 
-  allNotifications = [...examNotifs, ...interactionNotifs]
-    .sort((a, b) => (b.publishedAt || b.timestamp || 0) - (a.publishedAt || a.timestamp || 0));
+  allNotifications = [...roomNotifs, ...examNotifs, ...interactionNotifs]
+    .sort((a, b) => (b.publishedAt || b.ts || b.timestamp || 0) - (a.publishedAt || a.ts || a.timestamp || 0));
 
   renderList();
 
@@ -293,6 +403,31 @@ async function loadNotifications() {
 }
 
 loadNotifications();
+
+// ── Realtime listener لإشعارات الغرف الجديدة ──
+(function initRoomNotifListener() {
+  const myUid  = localStorage.getItem('yadwor-uid') || '';
+  const myType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
+  if (!myUid) return;
+
+  // نستخدم Firebase REST SSE (بسيط وبدون SDK إضافية)
+  // نفحص كل 30 ثانية إذا كان هناك غرفة جديدة
+  let lastChecked = Date.now();
+  setInterval(async () => {
+    try {
+      const res = await fetch(`${FB_DB_URL_N}/notificationsRoom.json?orderBy="ts"&startAt=${lastChecked}&auth=${FB_API_KEY_N}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data || typeof data !== 'object') return;
+      const newRooms = Object.values(data).filter(n => n && n.ts > lastChecked && n.ownerUid !== myUid);
+      if (newRooms.length > 0) {
+        lastChecked = Date.now();
+        // إعادة تحميل الإشعارات لتضمين الجديدة
+        loadNotifications();
+      }
+    } catch(e) {}
+  }, 30000);
+})();
 </script>
 <script src="floating-room.js"></script>
 </body>
