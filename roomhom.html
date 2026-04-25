@@ -706,55 +706,44 @@ let currentTab = 'all';
 let pendingJoin = null;
 
 // ----------------------------------------------------------------
-// جلب بيانات المستخدم الحالي — المصدر الوحيد الموثوق هو localStorage
+// جلب بيانات المستخدم الحالي
 // ----------------------------------------------------------------
-// مفاتيح التخزين المحلي للبيانات المزامنة من Firebase
-const _LS_KEYS = {
-    name:    ['yadwor-settings-name','yadwor-user-name','yadwor-display-name'],
-    avatar:  ['yadwor-avatar-preview','yadwor-avatar-url','yadwor-avatar'],
-    type:    ['yadwor-profile-type','yadwor-account-type','yadwor-user-type'],
-    uid:     ['yadwor-uid','yadwor-user-id'],
-    institution: ['yadwor-institution-name','yadwor-teacher-institution'],
-    institutionUid: ['yadwor-institution-uid','yadwor-teacher-institution-uid'],
-    level:   ['yadwor-teacher-level','yadwor-selected-level'],
-    subjects:['yadwor-teacher-subjects','yadwor-selected-subjects']
-};
 
-function _lsGet(keys) {
-    for (const k of keys) {
-        const v = localStorage.getItem(k);
+// مساعد: يقرأ أول قيمة غير فارغة من قائمة مفاتيح localStorage
+function _lsFirst() {
+    for (let i = 0; i < arguments.length; i++) {
+        const v = localStorage.getItem(arguments[i]);
         if (v && v.trim() && v !== 'null' && v !== 'undefined') return v;
     }
     return '';
 }
 
 const _typeLabels = {
-    teacher: 'أستاذ', institution: 'مؤسسة تعليمية',
-    student: 'تلميذ', user: 'مستخدم',
-    content_creator: 'منشئ محتوى', influencer: 'مؤثر تعليمي'
+    teacher:'أستاذ', institution:'مؤسسة تعليمية',
+    student:'تلميذ', user:'مستخدم',
+    content_creator:'منشئ محتوى', influencer:'مؤثر تعليمي'
 };
 
 function getCurrentUser() {
-    const uid  = _lsGet(_LS_KEYS.uid)  || ('guest_' + Date.now());
-    const type = _lsGet(_LS_KEYS.type) || 'influencer';
-    let name   = _lsGet(_LS_KEYS.name);
-    let avatar = _lsGet(_LS_KEYS.avatar);
+    const uid  = _lsFirst('yadwor-uid','yadwor-user-id') || ('guest_' + Date.now());
+    const type = _lsFirst('yadwor-profile-type','yadwor-account-type','yadwor-user-type') || 'influencer';
+    let name   = _lsFirst('yadwor-settings-name','yadwor-user-name','yadwor-display-name');
+    let avatar = _lsFirst('yadwor-avatar-preview','yadwor-avatar-url','yadwor-avatar');
 
-    // fallback من state إذا وُجد
-    if (!name   && typeof state !== 'undefined') name   = state.settingsName          || '';
-    if (!avatar && typeof state !== 'undefined') avatar = state.settingsAvatarPreview || '';
-
-    // fallback من yadwor-user-data المحفوظ كـ JSON
+    // fallback من yadwor-user-data (النسخة المزامنة من Firebase)
     if (!name || !avatar) {
         try {
-            const raw = localStorage.getItem('yadwor-user-data');
-            if (raw) {
-                const ud = JSON.parse(raw);
-                if (!name   && ud.name)   name   = ud.name;
-                if (!avatar && ud.avatar) avatar = ud.avatar;
+            const ud = JSON.parse(localStorage.getItem('yadwor-user-data') || 'null');
+            if (ud) {
+                if (!name)   name   = ud.name || ud.displayName || '';
+                if (!avatar) avatar = ud.avatar || ud.avatarUrl || ud.photoURL || '';
             }
         } catch(e) {}
     }
+
+    // fallback من state
+    if (!name   && typeof state !== 'undefined') name   = state.settingsName          || '';
+    if (!avatar && typeof state !== 'undefined') avatar = state.settingsAvatarPreview || '';
 
     return {
         uid,
@@ -765,61 +754,52 @@ function getCurrentUser() {
     };
 }
 
-// جلب بيانات المستخدم من Firebase وتحديث localStorage والواجهة
-async function syncUserFromFirebase() {
-    const uid = _lsGet(_LS_KEYS.uid);
-    if (!uid || uid.startsWith('guest_')) return null;
+// جلب بيانات المستخدم من Firebase وكتابتها في كل مفاتيح localStorage
+async function _syncUserFromFB() {
+    const uid = _lsFirst('yadwor-uid','yadwor-user-id');
+    if (!uid) return null;
     try {
-        const res = await fetch(`${FB_DB_URL}/users/${uid}.json?auth=${FB_API_KEY}`);
+        const res = await fetch(
+            'https://a-comment-5a3e5-default-rtdb.firebaseio.com/users/' + uid +
+            '.json?auth=AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA'
+        );
         if (!res.ok) return null;
         const fb = await res.json();
-        if (!fb) return null;
+        if (!fb || typeof fb !== 'object') return null;
 
-        // استخراج الحقول بكل أسمائها الممكنة
+        // استخراج الحقول بكل أسمائها
         const name   = fb.name || fb.displayName || fb.userName || '';
         const avatar = fb.avatar || fb.avatarUrl || fb.profileImage || fb.photoURL || '';
         const type   = fb.accountType || fb.profileType || fb.type || fb.userType || '';
-        const institutionName = fb.institutionName || fb.institution || '';
-        const institutionUid  = fb.institutionUid  || fb.institutionId || '';
-        const levelId   = fb.levelId   || fb.level   || '';
-        const subjects  = fb.subjects  || [];
+        const instName = fb.institutionName || fb.institution || '';
+        const instUid  = fb.institutionUid  || fb.institutionId || '';
+        const levelId  = fb.levelId || fb.level || '';
+        const subjects = fb.subjects || fb.teacherSubjects || [];
 
-        // حفظ في localStorage بكل المفاتيح المعروفة
-        if (name) {
-            localStorage.setItem('yadwor-settings-name', name);
-            localStorage.setItem('yadwor-user-name', name);
+        // حفظ في localStorage بكل المفاتيح
+        if (name)   { localStorage.setItem('yadwor-settings-name', name); localStorage.setItem('yadwor-user-name', name); }
+        if (avatar) { localStorage.setItem('yadwor-avatar-preview', avatar); localStorage.setItem('yadwor-avatar-url', avatar); }
+        if (type)   { localStorage.setItem('yadwor-profile-type', type); localStorage.setItem('yadwor-account-type', type); }
+        if (instName){ localStorage.setItem('yadwor-institution-name', instName); localStorage.setItem('yadwor-teacher-institution', instName); }
+        if (instUid) { localStorage.setItem('yadwor-institution-uid', instUid); localStorage.setItem('yadwor-teacher-institution-uid', instUid); }
+        if (levelId) { localStorage.setItem('yadwor-teacher-level', levelId); localStorage.setItem('yadwor-selected-level', levelId); }
+        if (subjects) {
+            const arr = Array.isArray(subjects)
+                ? subjects.map(s => s.name || s)
+                : Object.values(subjects).map(s => s.name || s);
+            if (arr.length) {
+                localStorage.setItem('yadwor-teacher-subjects', JSON.stringify(arr));
+                localStorage.setItem('yadwor-selected-subjects', JSON.stringify(arr));
+            }
         }
-        if (avatar) {
-            localStorage.setItem('yadwor-avatar-preview', avatar);
-            localStorage.setItem('yadwor-avatar-url', avatar);
-        }
-        if (type) {
-            localStorage.setItem('yadwor-profile-type', type);
-            localStorage.setItem('yadwor-account-type', type);
-        }
-        if (institutionName) {
-            localStorage.setItem('yadwor-institution-name', institutionName);
-            localStorage.setItem('yadwor-teacher-institution', institutionName);
-        }
-        if (institutionUid) {
-            localStorage.setItem('yadwor-institution-uid', institutionUid);
-            localStorage.setItem('yadwor-teacher-institution-uid', institutionUid);
-        }
-        if (levelId) {
-            localStorage.setItem('yadwor-teacher-level', levelId);
-            localStorage.setItem('yadwor-selected-level', levelId);
-        }
-        if (subjects && subjects.length) {
-            localStorage.setItem('yadwor-teacher-subjects', JSON.stringify(
-                Array.isArray(subjects)
-                    ? subjects.map(s => s.name || s)
-                    : Object.values(subjects).map(s => s.name || s)
-            ));
-        }
+        localStorage.setItem('yadwor-user-data', JSON.stringify({ ...fb, uid }));
 
-        // حفظ نسخة JSON كاملة
-        localStorage.setItem('yadwor-user-data', JSON.stringify(fb));
-
+        // تحديث state
+        if (typeof state !== 'undefined') {
+            if (name)   state.settingsName = name;
+            if (avatar) state.settingsAvatarPreview = avatar;
+            if (type)   { state.profileType = type; state.settingsAccountType = type; }
+        }
         return fb;
     } catch(e) { return null; }
 }
@@ -848,31 +828,31 @@ function setAvatarDiv(el, avatarUrl, name) {
 // ----------------------------------------------------------------
 // تهيئة الصفحة
 // ----------------------------------------------------------------
+function _applyUserToHeader(user) {
+    const nameEl   = document.getElementById('headerName');
+    const badgeEl  = document.getElementById('headerTypeBadge');
+    const avatarEl = document.getElementById('headerAvatar');
+    if (nameEl)   nameEl.textContent  = user.name || 'مستخدم';
+    if (badgeEl)  badgeEl.textContent = user.typeLabel || 'مستخدم';
+    if (avatarEl) setAvatarDiv(avatarEl, user.avatar, user.name);
+}
+
 async function initPage() {
-    // 1) عرض بيانات localStorage فوراً (لتجنب الشاشة الفارغة)
-    const userLocal = getCurrentUser();
-    _renderHeader(userLocal);
+    // 1) عرض ما في localStorage فوراً (بدون تأخير)
+    _applyUserToHeader(getCurrentUser());
+
     document.getElementById('createVideoBtn').onclick = openCreateVideoModal;
     loadRooms();
     renderRooms();
+    if (typeof updateBellBadgeFromFirebase === 'function') updateBellBadgeFromFirebase();
 
-    // 2) جلب بيانات Firebase في الخلفية وتحديث الواجهة
-    try {
-        const fb = await syncUserFromFirebase();
-        if (fb) {
-            const userFb = getCurrentUser(); // الآن يقرأ من localStorage المحدَّث
-            _renderHeader(userFb);
-        }
-    } catch(e) {}
-}
-
-function _renderHeader(user) {
-    const nameEl  = document.getElementById('headerName');
-    const badgeEl = document.getElementById('headerTypeBadge');
-    const avatarEl= document.getElementById('headerAvatar');
-    if (nameEl)   nameEl.textContent  = user.name      || 'مستخدم';
-    if (badgeEl)  badgeEl.textContent = user.typeLabel  || 'مستخدم';
-    if (avatarEl) setAvatarDiv(avatarEl, user.avatar, user.name);
+    // 2) جلب من Firebase في الخلفية وتحديث الواجهة
+    const fb = await _syncUserFromFB();
+    if (fb) {
+        _applyUserToHeader(getCurrentUser());
+        // تحديث badge بعد المزامنة
+        if (typeof updateBellBadgeFromFirebase === 'function') updateBellBadgeFromFirebase();
+    }
 }
 
 // ----------------------------------------------------------------
@@ -1022,11 +1002,7 @@ const _typeIconPaths = {
     content_creator: '<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>',
     influencer: '<path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/><path d="M12 14l2 2 4-4"/>'
 };
-const _typeLabels = {
-    teacher: 'أستاذ', institution: 'مؤسسة تعليمية',
-    student: 'تلميذ', user: 'مستخدم', content_creator: 'منشئ محتوى',
-    influencer: 'مؤثر تعليمي'
-};
+// _typeLabels معرَّف أعلاه
 
 function togglePassVis(inputId, btn) {
     const inp = document.getElementById(inputId);
@@ -1059,7 +1035,9 @@ function _bindLockLabel() {
     };
 }
 
-function openCreateVideoModal() {
+async function openCreateVideoModal() {
+    // تأكد من وجود أحدث بيانات من Firebase قبل فتح النافذة
+    await _syncUserFromFB();
     const user = getCurrentUser();
 
     // ضبط بيانات المستخدم في النافذة
