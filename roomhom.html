@@ -1,1956 +1,398 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8" />
-    <title>YADWOR — الغرف</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        :root {
-            --primary: #0d47a1;
-            --primary-light: #1976d2;
-            --red: #f44336;
-            --border: #e0e6ed;
-            --bg: #f5f7fa;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body {
-            height: 100%;
-            font-family: 'Tajawal', sans-serif;
-            background: var(--bg);
-            direction: rtl;
-            overflow: hidden;
-        }
-        .top-bar {
-            background: #fff;
-            padding: 0 14px;
-            height: 64px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            border-bottom: 1px solid var(--border);
-            position: sticky; top: 0; z-index: 100;
-            gap: 12px;
-        }
-        .user-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
-        #headerAvatar {
-            width: 44px; height: 44px; border-radius: 50%;
-            border: 2px solid var(--primary); background: #e8f0ff;
-            background-size: cover; background-position: center;
-            flex-shrink: 0; overflow: hidden; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .user-texts { display: flex; flex-direction: column; gap: 1px; min-width:0; }
-        #headerName { font-weight: 700; font-size: 0.95rem; color: #1a1a2e; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .header-type-badge {
-            font-size: 0.72rem; font-weight: 700; color: var(--primary);
-            background: #e8f0ff; padding: 1px 7px; border-radius: 10px; width: fit-content;
-        }
-        .create-btns { display: flex; flex-direction: row; gap: 8px; flex-shrink: 0; }
-        .create-btn {
-            display: flex; align-items: center; justify-content: center; gap: 5px;
-            padding: 8px 12px; border: none; border-radius: 10px;
-            font-family: 'Tajawal', sans-serif; font-weight: 700; font-size: 0.8rem;
-            cursor: pointer; transition: all 0.2s; white-space: nowrap;
-        }
-        .create-btn:active { transform: scale(0.95); opacity:.85; }
-        .btn-video { background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(13,71,161,0.25); }
-        .create-btn svg { width: 15px; height: 15px; fill: currentColor; flex-shrink: 0; }
-        .content-area {
-            height: calc(100vh - 64px - 64px);
-            overflow-y: auto; padding: 12px 12px 16px;
-        }
-        .search-tabs-wrap {
-            background: #fff; border-radius: 14px; padding: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.04); margin-bottom: 12px;
-        }
-        .search-row {
-            display: flex; gap: 8px; margin-bottom: 10px;
-            background: #f8f9fa; padding: 5px; border-radius: 10px; border: 1px solid var(--border);
-        }
-        .search-row input {
-            flex: 1; padding: 9px 12px; border: none; background: transparent;
-            font-family: 'Tajawal', sans-serif; font-size: 0.9rem; outline: none; direction: rtl;
-        }
-        .search-row button {
-            padding: 8px 14px; background: #fff; border: none; border-radius: 8px;
-            font-family: 'Tajawal', sans-serif; font-weight: 700; font-size: 0.88rem;
-            cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.08); color: #212529;
-        }
-        .tabs-row { display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; }
-        .tabs-row::-webkit-scrollbar { display: none; }
-        .tab-btn {
-            display: flex; flex-direction: column; align-items: center; gap: 4px;
-            padding: 9px 14px; border: none; border-radius: 14px; flex-shrink: 0;
-            font-family: 'Tajawal', sans-serif; font-weight: 700; font-size: 0.78rem;
-            cursor: pointer; transition: all 0.22s; background: #f0f2f5; color: #777;
-            min-width: 64px;
-        }
-        .tab-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: all 0.22s; }
-        .tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 4px 14px rgba(13,71,161,0.28); }
-        .tab-btn:not(.active):hover { background: #e4e6eb; color: #444; }
-        .section-title {
-            font-size: 0.93rem; font-weight: 700; color: #333; margin-bottom: 8px;
-            display: flex; align-items: center; gap: 5px;
-        }
-        .room-card {
-            display: flex; background: #fff; border-radius: 18px; margin-bottom: 14px;
-            box-shadow: 0 3px 12px rgba(0,0,0,0.05); overflow: hidden; min-height: 105px;
-            border: 1px solid #f0f0f0; direction: rtl;
-        }
-        .card-body {
-            flex: 1; padding: 10px 14px; display: flex;
-            flex-direction: column; justify-content: space-between; gap: 4px;
-        }
-        .card-top { display: flex; justify-content: space-between; align-items: flex-start; }
-        .room-id-label { font-size: 0.65rem; color: var(--primary); font-weight: 900; letter-spacing: 1px; margin-bottom: 2px; }
-        .room-name-label { font-weight: 800; font-size: 0.88rem; color: #222; }
-        .meta-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-        .type-badge { font-size: 0.68rem; padding: 2px 8px; border-radius: 6px; font-weight: 700; }
-        .type-public { background: #e3f2fd; color: var(--primary); }
-        .type-private { background: #fff3e0; color: #ef6c00; }
-        .type-voice { background: #f3e5f5; color: #7b1fa2; }
-        .card-time { font-size: 0.75rem; color: #777; font-weight: 700; font-family: Arial, sans-serif; }
-        .owner-name-row { font-size: 0.82rem; color: #555; font-weight: 600; }
-        .owner-avatar-wrap { position: relative; width: 52px; height: 52px; flex-shrink: 0; }
-        .owner-pfp { width: 100%; height: 100%; border-radius: 50%; border: 2px solid #eee; object-fit: cover; }
-        .owner-initial {
-            width: 100%; height: 100%; border-radius: 50%; border: 2px solid #eee;
-            background: linear-gradient(135deg,#0d47a1,#1976d2);
-            display: flex; align-items: center; justify-content: center;
-            color: #fff; font-weight: 800; font-size: 1.1rem;
-        }
-        .live-tag {
-            position: absolute; bottom: -5px; right: 4px; background: var(--red); color: #fff;
-            font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: 900;
-            display: flex; align-items: center; gap: 3px;
-        }
-        .live-dot { width: 5px; height: 5px; background: #fff; border-radius: 50%; animation: pulse 1.3s infinite; }
-        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.35;transform:scale(0.85)} }
-        .join-panel {
-            background: var(--primary); width: 82px; display: flex;
-            flex-direction: column; justify-content: center; align-items: center;
-            color: #fff; cursor: pointer; transition: background 0.25s; flex-shrink: 0;
-            align-self: stretch;
-        }
-        .join-panel:hover { background: #0a3a82; }
-        .join-panel.voice-join { background: linear-gradient(135deg,#7b1fa2,#9c27b0); }
-        .join-panel.voice-join:hover { background: #6a1b9a; }
-        .join-word { font-weight: 900; font-size: 1rem; margin-bottom: 6px; }
-        .view-count { text-align: center; font-size: 0.72rem; }
-        .view-num { font-family: Arial, sans-serif; font-weight: 900; font-size: 0.88rem; display: block; }
-        .empty-state { text-align: center; color: #aaa; padding: 40px 20px; font-size: 0.9rem; }
-        .empty-state .icon { font-size: 2.5rem; margin-bottom: 8px; }
-        .empty-state .hint { margin-top: 10px; font-size: 0.8rem; color: #bbb; }
-        /* نوافذ */
-        .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(5px); z-index: 1000; align-items: flex-end; justify-content: center; padding: 0; }
-        .modal-bg.show { display: flex; }
-        .modal-box {
-            background: #fff; border-radius: 20px 20px 0 0; padding: 20px 18px;
-            width: 100%; max-width: 480px;
-            max-height: 92vh; overflow-y: auto;
-            box-shadow: 0 -6px 30px rgba(0,0,0,0.18);
-            animation: slideUp 0.3s ease;
-            scrollbar-width: none;
-        }
-        .modal-box::-webkit-scrollbar { display: none; }
-        /* نافذة إنشاء الغرفة — scroll خاص */
-        #createVideoBox {
-            padding: 0 !important;
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            max-width: 480px;
-            max-height: 92vh;
-            overflow: visible;
-            border-radius: 20px 20px 0 0;
-        }
-        #createVideoBox .modal-scroll-body {
-            overflow-y: auto;
-            overflow-x: visible;
-            flex: 1;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-        }
-        #createVideoBox .modal-scroll-body::-webkit-scrollbar { display: none; }
-        @keyframes slideUp { from{transform:translateY(40px);opacity:0} to{transform:translateY(0);opacity:1} }
-        @keyframes popIn { from{transform:scale(0.85);opacity:0} to{transform:scale(1);opacity:1} }
-        /* على الشاشات الكبيرة: وسّط النافذة */
-        @media (min-width: 520px) {
-            .modal-bg { align-items: center; padding: 16px; }
-            .modal-box { border-radius: 20px; animation: popIn 0.28s ease; max-height: 88vh; }
-            #createVideoBox { border-radius: 20px; max-height: 88vh; overflow: visible; }
-        }
-        @media (max-width: 360px) {
-            #createVideoBox .modal-scroll-body > div { padding-left: 12px !important; padding-right: 12px !important; }
-            #videoSubjectChips { grid-template-columns: repeat(2,1fr) !important; }
-            .subject-chip { font-size: 0.7rem; }
-        }
-        .modal-title { font-size: 1.15rem; font-weight: 700; color: var(--primary); margin-bottom: 16px; text-align: center; }
-        .modal-title.voice-title { color: #7b1fa2; }
-        .modal-user-row {
-            display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
-            background: #f5f7fa; border-radius: 12px; padding: 10px 12px;
-        }
-        .modal-user-avatar {
-            width: 50px; height: 50px; border-radius: 50%; border: 2.5px solid var(--primary);
-            background: #e8f0ff; background-size: cover; background-position: center;
-            flex-shrink: 0; overflow: hidden;
-            display: flex; align-items: center; justify-content: center;
-            font-weight: 800; font-size: 1.3rem; color: #fff;
-        }
-        .modal-user-avatar.voice-border { border-color: #7b1fa2; }
-        .modal-user-info { display: flex; flex-direction: column; gap: 2px; }
-        .modal-user-label { font-size: 0.75rem; color: #888; }
-        .modal-user-name { font-weight: 700; font-size: 0.95rem; color: #333; }
-        .inp-group { margin-bottom: 12px; }
-        .inp-group label { display: block; font-size: 0.88rem; font-weight: 600; color: #212529; margin-bottom: 5px; }
-        .inp-group input, .inp-group select {
-            width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 11px;
-            font-family: 'Tajawal', sans-serif; font-size: 0.95rem; background: #f8f9fa;
-            outline: none; transition: all 0.25s; text-align: right;
-        }
-        .inp-group input:focus, .inp-group select:focus { border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px rgba(13,71,161,0.08); }
-        .inp-group input.voice-inp:focus, .inp-group select.voice-inp:focus { border-color: #7b1fa2; box-shadow: 0 0 0 3px rgba(123,31,162,0.08); }
-        .modal-err { color: var(--red); font-size: 0.8rem; text-align: center; display: none; margin-bottom: 8px; }
-        .modal-actions { display: flex; gap: 10px; }
-        .btn-confirm {
-            flex: 1; padding: 13px; background: var(--primary); color: #fff;
-            border: none; border-radius: 12px; font-size: 1rem; font-weight: 700;
-            cursor: pointer; font-family: 'Tajawal', sans-serif; transition: all 0.2s;
-        }
-        .btn-confirm.voice-confirm { background: linear-gradient(135deg,#7b1fa2,#9c27b0); }
-        .btn-confirm:active { transform: scale(0.97); }
-        .btn-cancel {
-            flex: 1; padding: 13px; background: #f1f3f5; color: #555;
-            border: none; border-radius: 12px; font-size: 0.95rem;
-            cursor: pointer; font-family: 'Tajawal', sans-serif;
-        }
-        .toast-msg {
-            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-            background: #18181b; color: #fff; padding: 8px 18px; border-radius: 999px;
-            font-size: 13px; font-weight: 700; z-index: 9999; pointer-events: none;
-            opacity: 0; transition: opacity .2s; font-family: 'Tajawal', sans-serif;
-        }
-        .toast-msg.show { opacity: 1; }
-        /* ─── أزرار المواد (Chips) ─── */
-        .subject-chip {
-            padding: 9px 4px; border-radius: 10px; font-size: 0.76rem;
-            font-family: 'Tajawal', sans-serif; font-weight: 700; cursor: pointer;
-            border: 1.5px solid #dde3ee; background: #f8f9fb; color: #444;
-            transition: all 0.18s; user-select: none; text-align: center;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            min-height: 36px; display: flex; align-items: center; justify-content: center;
-        }
-        .subject-chip:active { transform: scale(0.95); }
-        .subject-chip.selected {
-            background: #0d47a1; color: #fff; border-color: #0d47a1;
-            box-shadow: 0 3px 10px rgba(13,71,161,0.28);
-        }
-        #kickReasonBackdrop { position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9998;display:none; }
-        #kickReasonModal {
-            position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
-            width:min(360px,calc(100% - 40px));background:#fff;border-radius:16px;
-            box-shadow:0 18px 50px rgba(0,0,0,.22);z-index:9999;display:none;
-            padding:18px 16px 14px;text-align:right;font-family:'Tajawal',sans-serif;
-        }
-        #kickReasonModal .krTitle{ font-weight:800;color:#222;margin-bottom:10px;font-size:16px; }
-        #kickReasonModal .krText{ color:#333;line-height:1.7;font-size:14px; }
-        #kickReasonModal .krBtns{ display:flex;justify-content:flex-start;margin-top:14px; }
-        #kickReasonModal .krOk{ border:0;background:#0084ff;color:#fff;border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif; }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>YADWOR – الإشعارات</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
+  input:focus { outline: none; }
+  .shimmer { animation: shimmer 1.5s infinite; background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%); background-size: 200% 100%; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#18181b; color:white; padding:8px 18px; border-radius:999px; font-size:13px; font-weight:700; z-index:999; pointer-events:none; opacity:0; transition:opacity .2s; }
+  .toast.show { opacity:1; }
+  .notif-tab { transition: all .2s; border-bottom: 2px solid transparent; }
+  .notif-tab.active { color: #18181b; border-bottom-color: #18181b; font-weight: 800; }
+  .notif-tab:not(.active) { color: #71717a; font-weight: 700; }
+</style>
 </head>
 <body>
+<div id="toast" class="toast"></div>
 
-<div id="toastMsg" class="toast-msg"></div>
+<header class="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/95 backdrop-blur-xl">
+  <div class="mx-auto flex h-11 max-w-[1100px] items-center justify-between px-3">
+    <div class="flex items-center gap-1.5">
+      <a href="home.html" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      </a>
+    </div>
+    <h1 class="text-[15px] font-extrabold tracking-tight">الإشعارات</h1>
+    <div class="h-9 w-9"></div>
+  </div>
+</header>
 
-<!-- الهيدر -->
-<div class="top-bar">
-    <div class="user-info">
-        <div id="headerAvatar" onclick="window.location.href='profile.html'"></div>
-        <div class="user-texts">
-            <span id="headerName">...</span>
-            <span class="header-type-badge" id="headerTypeBadge">مستخدم</span>
-        </div>
-    </div>
-    <div class="create-btns">
-        <button class="create-btn btn-video" id="createVideoBtn">
-            <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-            غرفة فيديو
-        </button>
-    </div>
+<!-- TABS -->
+<div class="sticky top-11 z-30 bg-white border-b border-zinc-100 px-2">
+  <div class="mx-auto max-w-[760px] flex gap-0 overflow-x-auto scrollbar-hide">
+    <button onclick="setNotifTab('all')" id="ntab-all" class="notif-tab active px-4 py-3 text-[13px] shrink-0">الكل</button>
+    <button onclick="setNotifTab('exams')" id="ntab-exams" class="notif-tab px-4 py-3 text-[13px] shrink-0">تمارين واختبارات</button>
+    <button onclick="setNotifTab('rooms')" id="ntab-rooms" class="notif-tab px-4 py-3 text-[13px] shrink-0">غرف البث</button>
+    <button onclick="setNotifTab('likes')" id="ntab-likes" class="notif-tab px-4 py-3 text-[13px] shrink-0">اللايكات</button>
+    <button onclick="setNotifTab('comments')" id="ntab-comments" class="notif-tab px-4 py-3 text-[13px] shrink-0">التعليقات</button>
+  </div>
 </div>
 
-<!-- المحتوى -->
-<div class="content-area">
-    <div class="search-tabs-wrap">
-        <div class="search-row">
-            <input type="text" id="roomSearch" placeholder="ابحث باسم الغرفة أو رقمها..." oninput="filterRooms()">
-            <button onclick="filterRooms()">بحث</button>
-        </div>
-        <div class="tabs-row" id="tabsRow">
-            <!-- الكل -->
-            <button class="tab-btn active" id="tabAll" onclick="switchTab('all')">
-                <svg viewBox="0 0 24 24">
-                    <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-                    <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-                    <rect x="3" y="14" width="7" height="7" rx="1.5"/>
-                    <rect x="14" y="14" width="7" height="7" rx="1.5"/>
-                </svg>
-                الكل
-            </button>
-            <!-- المؤسسات -->
-            <button class="tab-btn" id="tabInstitution" onclick="switchTab('institution')">
-                <svg viewBox="0 0 24 24">
-                    <path d="M3 21h18M3 7l9-4 9 4M4 7v14M20 7v14"/>
-                    <rect x="9" y="10" width="2" height="3" rx=".5"/>
-                    <rect x="13" y="10" width="2" height="3" rx=".5"/>
-                    <path d="M9 21v-4a3 3 0 0 1 6 0v4"/>
-                </svg>
-                المؤسسات
-            </button>
-            <!-- عامة -->
-            <button class="tab-btn" id="tabPublic" onclick="switchTab('public')">
-                <svg viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="9"/>
-                    <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                </svg>
-                عامة
-            </button>
-            <!-- تحديات -->
-            <button class="tab-btn" id="tabChallenge" onclick="switchTab('challenge')">
-                <svg viewBox="0 0 24 24">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                </svg>
-                تحديات
-            </button>
-        </div>
-    </div>
-    <div class="section-title">
-        <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:#e25822;stroke-width:2;stroke-linecap:round;"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8z"/><path d="M9 9l6 6M15 9l-6 6" stroke="#e25822"/></svg>
-        غرف نشطة الآن
-    </div>
-    <div id="roomsList">
-        <div class="empty-state">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.3" stroke-linecap="round" style="width:52px;height:52px;display:block;margin:0 auto 12px">
-                <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
-            </svg>
-            <div>لا توجد غرف نشطة حالياً</div>
-            <div class="hint">اضغط على "غرفة فيديو" لإنشاء غرفة جديدة</div>
-        </div>
-    </div>
-</div>
+<main id="notifications-list" class="mx-auto max-w-[760px] px-4 py-4 pb-24"></main>
 
-<!-- الشريط السفلي -->
-<nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-[0_-6px_20px_rgba(0,0,0,0.04)]" style="font-family:'Tajawal',sans-serif;">
-    <div class="mx-auto grid max-w-[480px] grid-cols-5 px-2 py-2 gap-1">
-        <a href="profile.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500" style="text-decoration:none;">
-            <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>الملف
-        </a>
-        <a href="messages.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500" style="text-decoration:none;">
-            <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>الرسائل
-        </a>
-        <a href="roomhom.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold" style="text-decoration:none;background:#18181b;color:#fff;border-radius:12px;">
-            <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>الغرف
-        </a>
-        <a href="search.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500" style="text-decoration:none;">
-            <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;"><path d="m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16"/></svg>البحث
-        </a>
-        <a href="home.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500" style="text-decoration:none;">
-            <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>الرئيسية
-        </a>
-    </div>
+<!-- BOTTOM NAV -->
+<nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-[0_-6px_20px_rgba(0,0,0,0.04)]">
+  <div class="mx-auto grid max-w-[480px] grid-cols-5 px-2 py-2 gap-1">
+    <a href="profile.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>
+      الملف
+    </a>
+    <a href="messages.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      الرسائل
+    </a>
+    <a href="roomhom.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+      الغرف
+    </a>
+    <a href="search.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16"/></svg>
+      البحث
+    </a>
+    <a href="home.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>
+      الرئيسية
+    </a>
+  </div>
 </nav>
 
-<!-- نافذة إنشاء غرفة فيديو -->
-<div class="modal-bg" id="createVideoModal" onclick="if(event.target===this)closeModal('createVideoModal')">
-    <div class="modal-box" id="createVideoBox">
-
-        <!-- رأس النافذة — ثابت -->
-        <div style="background:linear-gradient(135deg,#0d47a1,#1565c0);padding:16px 18px 14px;border-radius:20px 20px 0 0;position:relative;flex-shrink:0;">
-            <button onclick="closeModal('createVideoModal')" style="position:absolute;top:12px;left:14px;background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
-                <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-            <div style="display:flex;align-items:center;gap:11px;">
-                <div style="background:rgba(255,255,255,0.18);border-radius:12px;width:42px;height:42px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                    <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:#fff;"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-                </div>
-                <div>
-                    <div style="font-size:1.05rem;font-weight:800;color:#fff;">إنشاء غرفة فيديو</div>
-                    <div style="font-size:0.7rem;color:rgba(255,255,255,0.75);margin-top:1px;">أنشئ غرفتك وابدأ الجلسة</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- منطقة السكرول -->
-        <div class="modal-scroll-body">
-            <div style="padding:16px 18px 6px;">
-
-                <!-- صف المستخدم -->
-                <div style="display:flex;align-items:center;gap:12px;background:#f8f9ff;border-radius:14px;padding:11px 13px;margin-bottom:16px;">
-                    <div class="modal-user-avatar" id="videoCreateAvatar" style="width:46px;height:46px;flex-shrink:0;"></div>
-                    <div style="flex:1;min-width:0;">
-                        <div style="font-size:0.72rem;color:#888;margin-bottom:2px;">يُنشأ باسم:</div>
-                        <div id="videoCreateName" style="font-weight:800;font-size:0.97rem;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">...</div>
-                        <div id="videoCreateTypeBadge" style="margin-top:4px;display:inline-flex;align-items:center;gap:4px;background:#e8f0fe;border-radius:8px;padding:2px 9px;width:fit-content;">
-                            <svg id="videoCreateTypeIcon" viewBox="0 0 24 24" style="width:11px;height:11px;fill:none;stroke:#0d47a1;stroke-width:2;stroke-linecap:round;flex-shrink:0;"></svg>
-                            <span id="videoCreateTypeLabel" style="font-size:0.7rem;color:#0d47a1;font-weight:800;font-family:'Tajawal',sans-serif;"></span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- اسم الغرفة -->
-                <div style="margin-bottom:14px;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:#0d47a1;stroke-width:2;stroke-linecap:round;"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                            <span style="font-size:0.85rem;font-weight:700;color:#111;">اسم الغرفة *</span>
-                        </div>
-                        <span id="videoRoomNameCount" style="font-size:0.7rem;color:#aaa;font-family:'Tajawal',sans-serif;">0 / 6 كلمات</span>
-                    </div>
-                    <input type="text" id="videoRoomName" placeholder="أدخل اسم الغرفة" maxlength="45"
-                        style="width:100%;padding:11px 13px;border:none;border-radius:11px;font-family:'Tajawal',sans-serif;font-size:0.93rem;font-weight:600;color:#111;background:#f2f4f8;outline:none;text-align:right;transition:all .22s;"
-                        oninput="limitRoomNameWords(this)"
-                        onfocus="this.style.background='#e8edf8';this.style.boxShadow='0 0 0 2.5px rgba(13,71,161,0.15)'"
-                        onblur="this.style.background='#f2f4f8';this.style.boxShadow='none'">
-                </div>
-
-                <!-- ─── قسم الاستهداف (للأستاذ: معلومات تلقائية / للمؤسسة: اختيار يدوي) ─── -->
-                <div id="videoLevelSubjectSection" style="display:none;">
-
-                    <!-- Toggle: غرفة عامة بدون استهداف -->
-                    <label id="noTargetToggleRow" onclick="onNoTargetToggle()" style="display:flex;align-items:center;gap:11px;background:#f0f4ff;border-radius:13px;padding:10px 13px;margin-bottom:12px;cursor:pointer;user-select:none;border:1.5px solid #d0dbf5;">
-                        <div id="noTargetTrack" style="width:40px;height:23px;background:#c8d0e0;border-radius:12px;transition:background .2s;position:relative;flex-shrink:0;">
-                            <div id="noTargetThumb" style="position:absolute;top:3px;right:3px;width:17px;height:17px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.22);transition:right .2s;pointer-events:none;"></div>
-                        </div>
-                        <input type="checkbox" id="videoNoTarget" style="display:none;">
-                        <div style="flex:1;">
-                            <div style="font-size:0.82rem;font-weight:800;color:#111;font-family:'Tajawal',sans-serif;">غرفة عامة بدون استهداف</div>
-                            <div style="font-size:0.74rem;color:#4a6fa5;margin-top:2px;font-family:'Tajawal',sans-serif;font-weight:600;">مفتوحة للجميع · بدون إشعار مستهدف</div>
-                        </div>
-                    </label>
-
-                    <!-- حقول الاستهداف (تختفي عند تفعيل noTarget) -->
-                    <div id="videoTargetFields">
-
-                        <!-- للأستاذ: معلومات تلقائية للعلم فقط -->
-                        <div id="teacherInfoCard" style="display:none;background:#f0f7ff;border-radius:13px;padding:11px 13px;margin-bottom:13px;border:1.5px solid #c0d8f5;">
-                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                                <div style="background:#0d47a1;border-radius:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                    <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-                                </div>
-                                <div>
-                                    <div style="font-size:0.82rem;font-weight:800;color:#0d47a1;font-family:'Tajawal',sans-serif;">بيانات الاستهداف التلقائي</div>
-                                    <div style="font-size:0.7rem;color:#4a6fa5;font-family:'Tajawal',sans-serif;">سيصل الإشعار للتلاميذ المرتبطين ببياناتك</div>
-                                </div>
-                            </div>
-                            <div style="display:flex;flex-wrap:wrap;gap:5px;" id="teacherInfoBadges"></div>
-                            <div style="margin-top:7px;font-size:0.7rem;color:#5a7bb5;font-family:'Tajawal',sans-serif;display:flex;align-items:center;gap:4px;">
-                                <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:none;stroke:#5a7bb5;stroke-width:2;stroke-linecap:round;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                                الاستهداف يتم تلقائياً · لا حاجة لاختيار يدوي
-                            </div>
-                        </div>
-
-                        <!-- للمؤسسة: اختيار المستوى والمادة يدوياً -->
-                        <div id="institutionTargetFields" style="display:none;">
-
-                    <!-- بانر المستوى والمادة -->
-                    <div style="background:#fff8f0;border-radius:13px;padding:10px 13px;margin-bottom:13px;display:flex;align-items:center;gap:10px;">
-                        <div style="background:#ff8c42;border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                            <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;">
-                                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                                <path d="M2 17l10 5 10-5"/>
-                                <path d="M2 12l10 5 10-5"/>
-                            </svg>
-                        </div>
-                        <div>
-                            <div style="font-size:0.86rem;font-weight:800;color:#111;font-family:'Tajawal',sans-serif;">اختر المستوى والمادة</div>
-                            <div style="font-size:0.75rem;color:#5a3010;margin-top:2px;font-family:'Tajawal',sans-serif;font-weight:600;">سيصل إشعار للتلاميذ المسجّلين في هذه المادة</div>
-                        </div>
-                    </div>
-
-                    <!-- المستوى -->
-                    <div style="margin-bottom:12px;">
-                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-                            <span style="background:#0d47a1;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:900;flex-shrink:0;">1</span>
-                            <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:#555;stroke-width:2;stroke-linecap:round;"><path d="M3 21h18M3 7l9-4 9 4M4 7v14M20 7v14"/></svg>
-                            <span style="font-size:0.85rem;font-weight:700;color:#111;">المستوى الدراسي *</span>
-                        </div>
-                        <!-- Custom dropdown trigger -->
-                        <div id="videoLevelDropdownWrap" style="position:relative;">
-                            <button type="button" id="videoLevelTrigger" onclick="toggleLevelDropdown()"
-                                style="width:100%;padding:11px 13px;border:none;border-radius:11px;font-family:'Tajawal',sans-serif;font-size:0.93rem;font-weight:600;color:#888;background:#f2f4f8;outline:none;text-align:right;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:all .2s;">
-                                <span id="videoLevelTriggerText">— اختر المستوى —</span>
-                                <svg id="videoLevelArrow" viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#aaa;stroke-width:2.5;stroke-linecap:round;flex-shrink:0;transition:transform .2s;"><polyline points="6 9 12 15 18 9"/></svg>
-                            </button>
-                            <!-- Dropdown panel -->
-                            <div id="videoLevelPanel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;left:0;background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,0.14);z-index:200;max-height:280px;overflow-y:auto;border:1.5px solid #e0e6ed;scrollbar-width:none;">
-                            </div>
-                        </div>
-                        <!-- hidden select to keep existing JS logic -->
-                        <select id="videoLevel" onchange="onVideoLevelChange()" style="display:none;">
-                            <option value="">— اختر المستوى —</option>
-                        </select>
-                    </div>
-
-                    <!-- المادة -->
-                    <div id="videoSubjectGroup" style="display:none;margin-bottom:12px;">
-                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-                            <span style="background:#0d47a1;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:900;flex-shrink:0;">2</span>
-                            <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:#555;stroke-width:2;stroke-linecap:round;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                            <span style="font-size:0.85rem;font-weight:700;color:#111;">المادة الدراسية *</span>
-                        </div>
-                        <div id="videoSubjectChips" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;"></div>
-                    </div>
-
-                    <!-- بطاقة التأكيد -->
-                    <div id="videoSelectionCard" style="display:none;background:linear-gradient(135deg,#0d47a1,#1976d2);border-radius:13px;padding:11px 14px;margin-bottom:12px;flex-direction:row;align-items:center;gap:10px;box-shadow:0 4px 14px rgba(13,71,161,0.22);">
-                        <div style="background:rgba(255,255,255,0.18);border-radius:9px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                            <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;"><polyline points="20 6 9 17 4 12"/></svg>
-                        </div>
-                        <div style="flex:1;min-width:0;">
-                            <div id="videoSelectionText" style="font-size:0.82rem;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'Tajawal',sans-serif;"></div>
-                            <div style="font-size:0.67rem;color:rgba(255,255,255,.72);margin-top:1px;font-family:'Tajawal',sans-serif;">سيصل الإشعار للمشتركين</div>
-                        </div>
-                    </div>
-
-                        </div><!-- end institutionTargetFields -->
-                    </div><!-- end videoTargetFields -->
-
-                </div><!-- end videoLevelSubjectSection -->
-
-                <!-- نوع الغرفة -->
-                <div style="margin-bottom:14px;">
-                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-                        <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:#0d47a1;stroke-width:2;stroke-linecap:round;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                        <span style="font-size:0.85rem;font-weight:700;color:#111;">نوع الغرفة</span>
-                    </div>
-                    <!-- Custom radio cards for room type -->
-                    <div style="display:flex;gap:8px;">
-                        <!-- عامة -->
-                        <label id="rtPublicCard" onclick="selectRoomType('public')" style="flex:1;cursor:pointer;border-radius:12px;border:2px solid #0d47a1;background:#e8f0ff;padding:9px 10px;display:flex;align-items:center;gap:8px;transition:all .2s;user-select:none;">
-                            <div id="rtPublicDot" style="width:18px;height:18px;border-radius:50%;border:2.5px solid #0d47a1;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff;">
-                                <div style="width:9px;height:9px;border-radius:50%;background:#0d47a1;"></div>
-                            </div>
-                            <div id="rtPublicIconBox" style="width:30px;height:30px;border-radius:8px;background:#0d47a1;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;"><circle cx="12" cy="12" r="9"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                            </div>
-                            <div id="rtPublicTitle" style="font-size:0.9rem;font-weight:800;color:#0d47a1;font-family:'Tajawal',sans-serif;white-space:nowrap;">عامة</div>
-                        </label>
-                        <!-- خاصة -->
-                        <label id="rtPrivateCard" onclick="selectRoomType('private')" style="flex:1;cursor:pointer;border-radius:12px;border:2px solid #dde3ee;background:#f8f9fb;padding:9px 10px;display:flex;align-items:center;gap:8px;transition:all .2s;user-select:none;">
-                            <div id="rtPrivateDot" style="width:18px;height:18px;border-radius:50%;border:2.5px solid #ccc;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#fff;">
-                                <div style="width:9px;height:9px;border-radius:50%;background:transparent;"></div>
-                            </div>
-                            <div id="rtPrivateIconBox" style="width:30px;height:30px;border-radius:8px;background:#f0f2f8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                <svg id="rtPrivateSvg" viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:#777;stroke-width:2;stroke-linecap:round;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                            </div>
-                            <div id="rtPrivateTitle" style="font-size:0.9rem;font-weight:800;color:#444;font-family:'Tajawal',sans-serif;white-space:nowrap;">خاصة</div>
-                        </label>
-                    </div>
-                    <!-- hidden select to keep existing JS logic -->
-                    <select id="videoRoomType" onchange="toggleVideoCode()" style="display:none;">
-                        <option value="public">عامة — مفتوحة للجميع</option>
-                        <option value="private">خاصة — تحتاج كوداً للدخول</option>
-                    </select>
-
-                    <!-- تنبيه نوع الغرفة -->
-                    <div id="roomTypeAlertPublic" style="margin-top:8px;background:#e8f5e9;border-radius:10px;padding:8px 12px;display:flex;align-items:flex-start;gap:7px;border:1px solid #c8e6c9;">
-                        <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#2e7d32;stroke-width:2;stroke-linecap:round;flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="9"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                        <span style="font-size:0.73rem;color:#2e7d32;font-weight:700;line-height:1.5;font-family:'Tajawal',sans-serif;">يمكن لأي مستخدم الدخول عبر "الغرف النشطة" · الإشعار يصل للتلاميذ المستهدفين فقط</span>
-                    </div>
-                    <div id="roomTypeAlertPrivate" style="display:none;margin-top:8px;background:#fff3e0;border-radius:10px;padding:8px 12px;display:flex;align-items:flex-start;gap:7px;border:1px solid #ffe0b2;">
-                        <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#e65100;stroke-width:2;stroke-linecap:round;flex-shrink:0;margin-top:2px;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        <span style="font-size:0.73rem;color:#e65100;font-weight:700;line-height:1.5;font-family:'Tajawal',sans-serif;">الغرفة خاصة ومحمية · الدخول فقط بكلمة السر · الإشعار يصل للتلاميذ المستهدفين</span>
-                    </div>
-                </div>
-
-                <!-- كود الغرفة الخاصة -->
-                <div id="videoCodeField" style="display:none;margin-bottom:14px;">
-                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-                        <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:#0d47a1;stroke-width:2;stroke-linecap:round;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        <span style="font-size:0.85rem;font-weight:700;color:#111;">كود الغرفة الخاصة *</span>
-                    </div>
-                    <input type="text" id="videoRoomCode" placeholder="أدخل كود الدخول" maxlength="20"
-                        style="width:100%;padding:11px 13px;border:none;border-radius:11px;font-family:'Tajawal',sans-serif;font-size:0.93rem;font-weight:600;color:#111;background:#f2f4f8;outline:none;text-align:right;transition:all .22s;"
-                        onfocus="this.style.background='#e8edf8';this.style.boxShadow='0 0 0 2.5px rgba(13,71,161,0.15)'"
-                        onblur="this.style.background='#f2f4f8';this.style.boxShadow='none'">
-
-                    <!-- toggle إظهار الكود في الإشعار -->
-                    <label style="display:flex;align-items:center;gap:11px;background:#eef2ff;border-radius:12px;padding:10px 13px;margin-top:8px;cursor:pointer;user-select:none;">
-                        <input type="checkbox" id="videoShowCodeInNotif" style="opacity:0;position:absolute;width:0;height:0;" onchange="onShowCodeToggle()">
-                        <div id="showCodeToggleTrack" style="width:40px;height:23px;background:#c8d0e0;border-radius:12px;transition:background .2s;position:relative;flex-shrink:0;">
-                            <div id="showCodeToggleThumb" style="position:absolute;top:3px;right:3px;width:17px;height:17px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.22);transition:right .2s;"></div>
-                        </div>
-                        <div style="flex:1;">
-                            <div style="font-size:0.82rem;font-weight:800;color:#111;font-family:'Tajawal',sans-serif;">إظهار الكود في الإشعار</div>
-                            <div style="font-size:0.75rem;color:#5566aa;margin-top:2px;font-family:'Tajawal',sans-serif;font-weight:600;">سيرى المشتركون الكود في إشعار الغرفة</div>
-                        </div>
-                        <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#8899cc;stroke-width:2;stroke-linecap:round;flex-shrink:0;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    </label>
-                </div>
-
-                <!-- تقييد الدخول للمؤسسة -->
-                <div id="videoInstitutionLockRow" style="display:none;margin-bottom:14px;">
-                    <label style="display:flex;align-items:center;gap:11px;background:#e8f4fd;border-radius:12px;padding:10px 13px;cursor:pointer;user-select:none;">
-                        <input type="checkbox" id="videoInstitutionOnly" style="opacity:0;position:absolute;width:0;height:0;" onchange="onInstitutionLockChange()">
-                        <div id="lockToggleTrack" style="width:40px;height:23px;background:#c8d0e0;border-radius:12px;transition:background .2s;position:relative;flex-shrink:0;">
-                            <div id="lockToggleThumb" style="position:absolute;top:3px;right:3px;width:17px;height:17px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.22);transition:right .2s;"></div>
-                        </div>
-                        <div style="flex:1;">
-                            <div style="font-size:0.82rem;font-weight:800;color:#111;font-family:'Tajawal',sans-serif;">تقييد الدخول لأعضاء المؤسسة فقط</div>
-                            <div style="font-size:0.75rem;color:#3a6ea8;margin-top:2px;font-family:'Tajawal',sans-serif;font-weight:600;">يدخل فقط التلاميذ في نفس المؤسسة والمستوى والمادة</div>
-                        </div>
-                        <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#4a7cc7;stroke-width:2;stroke-linecap:round;flex-shrink:0;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    </label>
-                </div>
-
-            </div>
-
-            <div class="modal-err" id="videoErr" style="margin:0 18px 10px;"></div>
-        </div>
-
-        <!-- أزرار — ثابتة في الأسفل -->
-        <div style="padding:12px 18px 18px;display:flex;gap:10px;flex-shrink:0;border-top:1px solid #f0f2f5;">
-            <button onclick="confirmCreateVideo()" style="flex:1;padding:13px;background:linear-gradient(135deg,#0d47a1,#1565c0);color:#fff;border:none;border-radius:13px;font-size:1rem;font-weight:800;cursor:pointer;font-family:'Tajawal',sans-serif;display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 4px 14px rgba(13,71,161,0.28);transition:all .2s;" onmousedown="this.style.transform='scale(0.97)'" onmouseup="this.style.transform='scale(1)'">
-                <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff;"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-                إنشاء الغرفة
-            </button>
-            <button onclick="closeModal('createVideoModal')" style="flex:1;padding:13px;background:#f1f3f5;color:#555;border:none;border-radius:13px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:'Tajawal',sans-serif;">إلغاء</button>
-        </div>
-    </div>
-</div>
-
-<!-- نافذة إنشاء غرفة صوتية -->
-<div class="modal-bg" id="createVoiceModal">
-    <div class="modal-box">
-        <div class="modal-title voice-title">🎙️ إنشاء غرفة صوتية</div>
-        <div class="modal-user-row">
-            <div class="modal-user-avatar voice-border" id="voiceCreateAvatar"></div>
-            <div class="modal-user-info">
-                <span class="modal-user-label">يُنشأ باسم:</span>
-                <span class="modal-user-name" id="voiceCreateName">...</span>
-            </div>
-        </div>
-        <div class="inp-group">
-            <label>اسم الغرفة *</label>
-            <input type="text" id="voiceRoomName" placeholder="أدخل اسم الغرفة الصوتية" maxlength="40" class="voice-inp">
-        </div>
-        <div class="inp-group">
-            <label>نوع الغرفة</label>
-            <select id="voiceRoomType" onchange="toggleVoiceCode()" class="voice-inp">
-                <option value="public">عامة — مفتوحة للجميع</option>
-                <option value="private">خاصة — تحتاج كوداً للدخول</option>
-            </select>
-        </div>
-        <div class="inp-group" id="voiceCodeField" style="display:none;">
-            <label>كود الغرفة الخاصة *</label>
-            <input type="text" id="voiceRoomCode" placeholder="أدخل كود الدخول" maxlength="20" class="voice-inp">
-        </div>
-        <div class="modal-err" id="voiceErr"></div>
-        <div class="modal-actions">
-            <button class="btn-confirm voice-confirm" onclick="confirmCreateVoice()">🎙️ إنشاء الغرفة</button>
-            <button class="btn-cancel" onclick="closeModal('createVoiceModal')">إلغاء</button>
-        </div>
-    </div>
-</div>
-
-<!-- نافذة الانضمام -->
-<div class="modal-bg" id="joinModal" onclick="if(event.target===this)closeModal('joinModal')">
-    <div class="modal-box">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-            <div style="display:flex;align-items:center;gap:8px;">
-                <div id="joinModalIconWrap" style="background:#0d47a1;border-radius:10px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                    <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-                </div>
-                <span id="joinModalTitle" style="font-size:1rem;font-weight:800;color:#0d47a1;">الانضمام للغرفة</span>
-            </div>
-            <button onclick="closeModal('joinModal')" style="background:#f1f3f5;border:none;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
-                <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:#555;stroke-width:2.5;stroke-linecap:round;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-        </div>
-        <div class="modal-user-row">
-            <div class="modal-user-avatar" id="joinAvatarDisp"></div>
-            <div class="modal-user-info">
-                <span class="modal-user-label">ستنضم باسم:</span>
-                <span class="modal-user-name" id="joinNameDisp">...</span>
-            </div>
-        </div>
-        <!-- معلومات الغرفة -->
-        <div id="joinRoomInfo" style="display:none;background:#f5f7fa;border-radius:10px;padding:9px 12px;margin-bottom:10px;">
-            <div id="joinRoomInfoContent" style="font-size:0.78rem;color:#444;line-height:1.7;"></div>
-        </div>
-        <!-- تحذير تقييد المؤسسة -->
-        <div id="joinInstitutionLockBanner" style="display:none;background:#fff3e0;border:1.5px solid #ffe082;border-radius:10px;padding:9px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
-            <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:#e65100;stroke-width:2;stroke-linecap:round;flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <span style="font-size:0.75rem;color:#e65100;font-weight:700;">هذه الغرفة مقيّدة لأعضاء المؤسسة فقط</span>
-        </div>
-        <!-- كلمة السر للغرفة -->
-        <div class="inp-group" id="joinPassGroup" style="display:none;">
-            <label style="display:flex;align-items:center;gap:6px;">
-                <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#0d47a1;stroke-width:2;stroke-linecap:round;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                كلمة السر *
-            </label>
-            <div style="position:relative;">
-                <input type="password" id="joinPassInput" placeholder="أدخل كلمة السر" style="padding-left:40px;">
-                <button type="button" onclick="togglePassVis('joinPassInput',this)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;">
-                    <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:#aaa;stroke-width:2;stroke-linecap:round;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                </button>
-            </div>
-        </div>
-        <!-- كود الغرفة الخاصة -->
-        <div class="inp-group" id="joinRoomCodeGroup" style="display:none;">
-            <label style="display:flex;align-items:center;gap:6px;">
-                <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#0d47a1;stroke-width:2;stroke-linecap:round;"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-                كود الغرفة الخاصة *
-            </label>
-            <input type="text" id="joinRoomCodeInput" placeholder="أدخل الكود">
-        </div>
-        <div class="modal-err" id="joinErr"></div>
-        <div class="modal-actions">
-            <button class="btn-confirm" id="joinConfirmBtn" onclick="confirmJoin()" style="display:flex;align-items:center;justify-content:center;gap:7px;">
-                <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-                انضمام
-            </button>
-            <button class="btn-cancel" onclick="closeModal('joinModal')">إلغاء</button>
-        </div>
-    </div>
-</div>
-
-<!-- نافذة طرد -->
-<div id="kickReasonBackdrop"></div>
-<div id="kickReasonModal">
-    <div class="krTitle">تنبيه</div>
-    <div class="krText" id="kickReasonText"></div>
-    <div class="krBtns"><button class="krOk" onclick="hideKickReason()">حسناً</button></div>
-</div>
-
-<!-- Firebase + shared.js -->
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-<script>
-  if (typeof firebase !== 'undefined' && !firebase.apps.length) {
-    firebase.initializeApp({
-      apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
-      authDomain: "a-comment-5a3e5.firebaseapp.com",
-      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com",
-      projectId: "a-comment-5a3e5",
-      storageBucket: "a-comment-5a3e5.appspot.com",
-      messagingSenderId: "557343451166",
-      appId: "1:557343451166:web:d181f098cdeccf7691260f"
-    });
-  }
-</script>
 <script src="shared.js"></script>
 <script>
-// ================================================================
-// YADWOR Rooms — مربوط بـ shared.js بالكامل — بدون Firebase/script.js
-// ================================================================
+const FB_DB_URL_N  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
+const FB_API_KEY_N = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
 
-const ROOMS_KEY = 'yadwor-rooms';
-let allRooms   = [];
 let currentTab = 'all';
-let pendingJoin = null;
+let allNotifications = [];
 
-// ----------------------------------------------------------------
-// إعدادات Firebase
-// ----------------------------------------------------------------
-const FB_DB  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
-const FB_KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
-
-// ----------------------------------------------------------------
-// جلب بيانات المستخدم — Firebase أولاً، localStorage كاحتياطي
-// ----------------------------------------------------------------
-let _cachedUser = null; // cache في الذاكرة لتجنب تكرار الطلبات
-
-async function fetchUserFromFirebase(uid) {
-    if (!uid) return null;
-    try {
-        const res = await fetch(`${FB_DB}/users/${uid}.json?auth=${FB_KEY}`);
-        if (!res.ok) return null;
-        const fb = await res.json();
-        if (!fb || typeof fb !== 'object') return null;
-
-        // استخراج الحقول بجميع أسمائها المحتملة في Firebase
-        const data = {
-            uid,
-            name:           fb.name || fb.displayName || fb.userName || '',
-            avatar:         fb.avatar || fb.avatarUrl || fb.profileImage || fb.photoURL || '',
-            type:           fb.accountType || fb.profileType || fb.type || fb.userType || 'user',
-            institutionId:  fb.institutionUid || fb.institutionId || '',
-            institutionName:fb.institutionName || fb.institution || '',
-            levelId:        fb.levelId || fb.level || '',
-            levelName:      fb.levelName || '',
-            subjects:       [],
-        };
-
-        // subjects قد تكون array أو object
-        const rawSub = fb.subjects || fb.teacherSubjects || [];
-        if (Array.isArray(rawSub)) {
-            data.subjects = rawSub.map(s => (typeof s === 'object' ? s.name : s) || '').filter(Boolean);
-        } else if (typeof rawSub === 'object') {
-            data.subjects = Object.values(rawSub).map(s => (typeof s === 'object' ? s.name : s) || '').filter(Boolean);
-        }
-
-        data.typeLabel = {
-            teacher:'أستاذ', institution:'مؤسسة تعليمية',
-            student:'تلميذ', user:'مستخدم',
-            content_creator:'منشئ محتوى', influencer:'مؤثر تعليمي'
-        }[data.type] || 'مستخدم';
-
-        _cachedUser = data;
-        return data;
-    } catch(e) { return null; }
+function setNotifTab(tab) {
+  currentTab = tab;
+  ['all','exams','rooms','likes','comments'].forEach(t => {
+    const btn = document.getElementById('ntab-' + t);
+    if (btn) btn.className = 'notif-tab ' + (t === tab ? 'active' : '') + ' px-4 py-3 text-[13px] shrink-0';
+  });
+  renderList();
 }
 
-function getCurrentUserSync() {
-    // يُستخدم فقط للعرض الفوري قبل اكتمال Firebase
-    if (_cachedUser) return _cachedUser;
-    const uid  = localStorage.getItem('yadwor-uid') || '';
-    const type = localStorage.getItem('yadwor-profile-type') || localStorage.getItem('yadwor-account-type') || 'user';
-    const name = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || '';
-    const avatar = localStorage.getItem('yadwor-avatar-preview') || localStorage.getItem('yadwor-avatar-url') || '';
-    return {
-        uid: uid || 'guest',
-        name: name || '...',
-        avatar,
-        type,
-        typeLabel: {teacher:'أستاذ',institution:'مؤسسة تعليمية',student:'تلميذ',user:'مستخدم',content_creator:'منشئ محتوى',influencer:'مؤثر تعليمي'}[type] || 'مستخدم',
-        institutionId: '', institutionName: '', levelId: '', levelName: '', subjects: []
-    };
+function getFilteredNotifs() {
+  if (currentTab === 'all') return allNotifications;
+  if (currentTab === 'exams') return allNotifications.filter(n => n.type === 'exam');
+  if (currentTab === 'rooms') return allNotifications.filter(n => n.type === 'room');
+  if (currentTab === 'likes') return allNotifications.filter(n => n.type === 'like');
+  if (currentTab === 'comments') return allNotifications.filter(n => n.type === 'comment');
+  return allNotifications;
 }
 
-// الدالة الموحدة — تُعيد Promise
-async function getCurrentUser() {
-    if (_cachedUser) return _cachedUser;
-    const uid = localStorage.getItem('yadwor-uid') || '';
-    const fb = await fetchUserFromFirebase(uid);
-    if (fb) return fb;
-    return getCurrentUserSync();
+function getNotifIcon(type) {
+  if (type === 'exam') return '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>';
+  if (type === 'room') return '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>';
+  if (type === 'like') return '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="#ef4444" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
+  if (type === 'comment') return '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+  return '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
 }
 
-// ----------------------------------------------------------------
-// تعيين صورة في عنصر div
-// ----------------------------------------------------------------
-function setAvatarDiv(el, avatarUrl, name) {
-    if (!el) return;
-    if (avatarUrl) {
-        el.style.backgroundImage = `url('${avatarUrl}')`;
-        el.style.backgroundSize  = 'cover';
-        el.style.backgroundPosition = 'center';
-        el.style.background = `url('${avatarUrl}') center/cover`;
-        el.style.color = 'transparent';
-        el.textContent = '';
-    } else {
-        el.style.background = 'linear-gradient(135deg,#0d47a1,#1976d2)';
-        el.style.color = '#fff';
-        el.style.fontWeight = '800';
-        el.style.fontSize = '1.2rem';
-        el.textContent = (name || 'م').charAt(0);
-    }
+function getIconBg(type) {
+  if (type === 'exam')    return 'background:#eef2ff;';
+  if (type === 'room')    return 'background:#fff7ed;';
+  if (type === 'like')    return 'background:#fff1f2;';
+  if (type === 'comment') return 'background:#f0f9ff;';
+  return 'background:#f4f4f5;';
 }
 
-// ----------------------------------------------------------------
-// تهيئة الصفحة
-// ----------------------------------------------------------------
-function _renderUserHeader(user) {
-    const nameEl   = document.getElementById('headerName');
-    const badgeEl  = document.getElementById('headerTypeBadge');
-    const avatarEl = document.getElementById('headerAvatar');
-    if (nameEl)   nameEl.textContent  = user.name || 'مستخدم';
-    if (badgeEl)  badgeEl.textContent = user.typeLabel || 'مستخدم';
-    if (avatarEl) setAvatarDiv(avatarEl, user.avatar, user.name);
+function formatTimeAgoN(ts) {
+  if (!ts) return 'الآن';
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'الآن';
+  if (m < 60) return `منذ ${m} د`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `منذ ${h} س`;
+  const d = Math.floor(h / 24);
+  return `منذ ${d} يوم`;
 }
 
-async function initPage() {
-    // عرض فوري من الذاكرة/localStorage
-    _renderUserHeader(getCurrentUserSync());
-    document.getElementById('createVideoBtn').onclick = openCreateVideoModal;
-    loadRooms();
-    renderRooms();
+function renderList() {
+  const el = document.getElementById('notifications-list');
+  const list = getFilteredNotifs();
 
-    // جلب Firebase في الخلفية وتحديث الهيدر
-    const user = await getCurrentUser();
-    _renderUserHeader(user);
-    if (typeof updateBellBadgeFromFirebase === 'function') updateBellBadgeFromFirebase();
-}
-
-// ----------------------------------------------------------------
-// إدارة الغرف — Firebase هو المصدر الرئيسي + localStorage كنسخة احتياطية
-// ----------------------------------------------------------------
-let _fbRoomsListenerActive = false;
-
-function loadRooms() {
-    // أولاً: عرض الغرف المحلية فوراً
-    try {
-        const saved = JSON.parse(localStorage.getItem(ROOMS_KEY) || '[]');
-        const now = Date.now();
-        allRooms = saved.filter(r => !r.closed && (now - (r.startTime||0)) < 3*60*60*1000);
-    } catch(e) { allRooms = []; }
-
-    // ثانياً: الاستماع لـ Firebase في الوقت الفعلي (Realtime)
-    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length && !_fbRoomsListenerActive) {
-        _fbRoomsListenerActive = true;
-        firebase.database().ref('rooms').on('value', snap => {
-            const data = snap.val() || {};
-            const now  = Date.now();
-            const fbRooms = Object.values(data)
-                .filter(r => r && r.roomId && !r.closed && (now - (r.startTime||0)) < 3*60*60*1000)
-                .sort((a,b) => (b.startTime||0) - (a.startTime||0));
-
-            // دمج: الغرف المحلية التي لم تُرفع بعد + غرف Firebase
-            const fbIds  = new Set(fbRooms.map(r => r.roomId));
-            const local  = allRooms.filter(r => !fbIds.has(r.roomId));
-            allRooms = [...fbRooms, ...local];
-            try { localStorage.setItem(ROOMS_KEY, JSON.stringify(allRooms)); } catch(e) {}
-            renderRooms();
-        }, () => {
-            // فشل Firebase — نعتمد على localStorage
-            renderRooms();
-        });
-    }
-}
-
-function saveRooms() {
-    try { localStorage.setItem(ROOMS_KEY, JSON.stringify(allRooms)); } catch(e) {}
-}
-
-// ----------------------------------------------------------------
-// عرض الغرف
-// ----------------------------------------------------------------
-function renderRooms() {
-    const list = document.getElementById('roomsList');
-    const q = (document.getElementById('roomSearch').value || '').trim().toLowerCase();
-
-    let filtered = [...allRooms];
-    if (currentTab === 'institution') filtered = filtered.filter(r => r.roomCategory === 'institution' || r.ownerType === 'institution');
-    if (currentTab === 'public')      filtered = filtered.filter(r => r.roomType === 'public');
-    if (currentTab === 'challenge')   filtered = filtered.filter(r => r.roomCategory === 'challenge');
-    if (q) filtered = filtered.filter(r =>
-        (r.roomName||'').toLowerCase().includes(q) || (r.roomId||'').toLowerCase().includes(q)
-    );
-
-    if (!filtered.length) {
-        const lblMap = {all:'', institution:'مؤسسية', public:'عامة', challenge:'تحديات'};
-        const lbl = lblMap[currentTab] || '';
-        list.innerHTML = `<div class="empty-state">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.3" stroke-linecap="round" style="width:52px;height:52px;display:block;margin:0 auto 12px">
-                <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
-            </svg>
-            <div>${q ? 'لم يُعثر على غرفة بهذا الاسم' : ('لا توجد غرف ' + (lbl ? lbl + ' ' : '') + 'نشطة حالياً')}</div>
-            <div class="hint">اضغط على "غرفة فيديو" لإنشاء غرفة جديدة</div>
-        </div>`;
-        return;
-    }
-    list.innerHTML = filtered.map(r => roomCardHTML(r)).join('');
-}
-
-function roomCardHTML(r) {
-    const time = new Date(r.startTime || Date.now()).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});
-    const cnt  = r.participantsCount || 1;
-    const isVoice = r.roomMode === 'voice';
-    const tlabel  = r.roomType === 'private' ? 'خاصة' : (isVoice ? 'صوتية' : 'عامة');
-    const tclass  = r.roomType === 'private' ? 'type-private' : (isVoice ? 'type-voice' : 'type-public');
-
-    const avatarHtml = r.ownerAvatar
-        ? `<img src="${r.ownerAvatar}" class="owner-pfp" onerror="this.style.display='none'">`
-        : `<div class="owner-initial">${(r.ownerName||'م').charAt(0)}</div>`;
-
-    // بطاقة المستوى والمادة
-    const levelSubjectHtml = (r.levelName && r.subject)
-        ? `<div style="display:flex;align-items:center;gap:5px;margin-top:4px;flex-wrap:wrap;">
-              <span style="background:#e8f0fe;color:#0d47a1;font-size:0.63rem;font-weight:800;padding:2px 7px;border-radius:6px;">📚 ${r.levelName}</span>
-              <span style="background:#fce4ec;color:#c62828;font-size:0.63rem;font-weight:800;padding:2px 7px;border-radius:6px;">✏️ ${r.subject}</span>
-           </div>`
-        : '';
-
-    return `<div class="room-card">
-        <div class="card-body">
-            <div class="card-top">
-                <div>
-                    <div class="room-id-label">ID: ${r.roomId}</div>
-                    <div class="room-name-label">${r.roomName || 'غرفة'}</div>
-                    <div class="meta-row">
-                        <span class="type-badge ${tclass}">${tlabel}</span>
-                        <span class="card-time">${time}</span>
-                    </div>
-                    ${levelSubjectHtml}
-                </div>
-                <div class="owner-avatar-wrap">
-                    ${avatarHtml}
-                    <div class="live-tag"><span class="live-dot"></span>LIVE</div>
-                </div>
-            </div>
-            <div class="owner-name-row">المسؤول: ${r.ownerName || ''}</div>
-        </div>
-        <div class="${isVoice ? 'join-panel voice-join' : 'join-panel'}" onclick="openJoinModal('${r.roomId}')">
-            <span class="join-word">انضمام</span>
-            <div class="view-count"><span class="view-num">${cnt}</span><span>View</span></div>
-        </div>
+  if (!list.length) {
+    el.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-center gap-3">
+      <div class="h-16 w-16 rounded-full bg-zinc-100 flex items-center justify-center">
+        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </div>
+      <p class="text-[14px] font-bold text-zinc-400">لا توجد إشعارات في هذا القسم</p>
     </div>`;
-}
+    return;
+  }
 
-// ----------------------------------------------------------------
-// التبويبات
-// ----------------------------------------------------------------
-function switchTab(tab) {
-    currentTab = tab;
-    ['tabAll','tabInstitution','tabPublic','tabChallenge'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.remove('active');
-    });
-    const map = {all:'tabAll', institution:'tabInstitution', public:'tabPublic', challenge:'tabChallenge'};
-    if (map[tab]) document.getElementById(map[tab]).classList.add('active');
-    renderRooms();
-}
-function filterRooms() { renderRooms(); }
+  el.innerHTML = `<div class="space-y-3">${list.map(n => {
+    const isRoom = n.type === 'room';
 
-// ----------------------------------------------------------------
-// إنشاء غرفة فيديو
-// ----------------------------------------------------------------
+    // إشعار التمرين → ينقل لصفحة الأستاذ
+    const clickAttr = (!isRoom && n.type === 'exam' && n.teacherUid)
+      ? `onclick="window.location.href='profile.html?uid=${n.teacherUid}'" style="cursor:pointer;"`
+      : '';
 
-let _videoSelectedLevel   = '';
-let _videoSelectedSubject = '';
-let _videoInstitutionOnly = false;
+    // بناء محتوى خاص بإشعار الغرفة
+    let roomExtra = '';
+    if (isRoom) {
+      const badges = [];
+      if (n.levelName) badges.push(`<span style="background:#e8f0fe;color:#0d47a1;font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;">📚 ${n.levelName}</span>`);
+      if (n.subject)   badges.push(`<span style="background:#fce4ec;color:#c62828;font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;">✏️ ${n.subject}</span>`);
+      if (n.roomType === 'private') badges.push(`<span style="background:#fff3e0;color:#e65100;font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;">🔒 خاصة</span>`);
+      else badges.push(`<span style="background:#e8f5e9;color:#2e7d32;font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;">🌐 عامة</span>`);
 
-// SVG paths لكل نوع حساب
-const _typeIconPaths = {
-    teacher:         '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
-    institution:     '<path d="M3 21h18M3 7l9-4 9 4M4 7v14M20 7v14"/><rect x="9" y="10" width="2" height="3"/><rect x="13" y="10" width="2" height="3"/><path d="M9 21v-4a3 3 0 0 1 6 0v4"/>',
-    student:         '<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>',
-    user:            '<path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/>',
-    content_creator: '<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>',
-    influencer: '<path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/><path d="M12 14l2 2 4-4"/>'
-};
-const _typeLabels = {
-    teacher: 'أستاذ', institution: 'مؤسسة تعليمية',
-    student: 'تلميذ', user: 'مستخدم', content_creator: 'منشئ محتوى',
-    influencer: 'مؤثر تعليمي'
-};
+      roomExtra += badges.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">${badges.join('')}</div>` : '';
 
-function togglePassVis(inputId, btn) {
-    const inp = document.getElementById(inputId);
-    const isPass = inp.type === 'password';
-    inp.type = isPass ? 'text' : 'password';
-    btn.querySelector('svg').style.stroke = isPass ? '#0d47a1' : '#aaa';
-}
+      // كلمة السر إذا أرسلها الأستاذ
+      if (n.showCode && n.roomCode) {
+        roomExtra += `<div style="margin-top:6px;background:#f0f4ff;border-radius:8px;padding:5px 10px;display:flex;align-items:center;gap:6px;">
+          <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:#0d47a1;stroke-width:2;stroke-linecap:round;flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span style="font-size:11px;font-weight:900;color:#0d47a1;font-family:'Tajawal',sans-serif;">كلمة السر: <b style="letter-spacing:1px;">${n.roomCode}</b></span>
+        </div>`;
+      }
 
-function onInstitutionLockChange() {
-    const cb = document.getElementById('videoInstitutionOnly');
-    _videoInstitutionOnly = cb.checked;
-    const track = document.getElementById('lockToggleTrack');
-    const thumb = document.getElementById('lockToggleThumb');
-    if (_videoInstitutionOnly) {
-        track.style.background = '#0d47a1';
-        thumb.style.right = 'auto'; thumb.style.left = '3px';
-    } else {
-        track.style.background = '#ddd';
-        thumb.style.left = 'auto'; thumb.style.right = '3px';
-    }
-}
-
-// اضغط على مسار label لتفعيل الـ checkbox
-function _bindLockLabel() {
-    const lbl = document.querySelector('#videoInstitutionLockRow label');
-    if (lbl) lbl.onclick = () => {
-        const cb = document.getElementById('videoInstitutionOnly');
-        cb.checked = !cb.checked;
-        onInstitutionLockChange();
-    };
-}
-
-async function openCreateVideoModal() {
-    // جلب بيانات المستخدم من Firebase
-    const user = await getCurrentUser();
-
-    // ضبط بيانات المستخدم في النافذة
-    document.getElementById('videoCreateName').textContent = user.name;
-    setAvatarDiv(document.getElementById('videoCreateAvatar'), user.avatar, user.name);
-    const iconEl  = document.getElementById('videoCreateTypeIcon');
-    const labelEl = document.getElementById('videoCreateTypeLabel');
-    if (iconEl)  iconEl.innerHTML  = _typeIconPaths[user.type] || _typeIconPaths.user;
-    if (labelEl) labelEl.textContent = _typeLabels[user.type]  || 'مستخدم';
-
-    // إعادة تعيين الحقول
-    document.getElementById('videoRoomName').value     = '';
-    document.getElementById('videoRoomType').value     = 'public';
-    document.getElementById('videoCodeField').style.display = 'none';
-    document.getElementById('videoErr').style.display  = 'none';
-    _videoSelectedLevel = ''; _videoSelectedSubject = ''; _videoInstitutionOnly = false;
-    document.getElementById('videoSubjectGroup').style.display   = 'none';
-    document.getElementById('videoSelectionCard').style.display  = 'none';
-    // إعادة ضبط custom room type selector
-    selectRoomType('public');
-    // إعادة ضبط custom level dropdown
-    const triggerText = document.getElementById('videoLevelTriggerText');
-    if (triggerText) { triggerText.textContent = '— اختر المستوى —'; triggerText.style.color = '#888'; }
-    const levelPanel = document.getElementById('videoLevelPanel');
-    if (levelPanel) levelPanel.style.display = 'none';
-    // إعادة ضبط toggle إظهار الكود
-    const showCodeCb = document.getElementById('videoShowCodeInNotif');
-    if (showCodeCb) { showCodeCb.checked = false; onShowCodeToggle(); }
-
-    // إعادة ضبط toggle المؤسسة فقط
-    const cbInst = document.getElementById('videoInstitutionOnly');
-    if (cbInst) { cbInst.checked = false; onInstitutionLockChange(); }
-
-    // إعادة ضبط toggle بدون استهداف
-    const cbNoTarget = document.getElementById('videoNoTarget');
-    if (cbNoTarget) cbNoTarget.checked = false;
-    _applyNoTargetToggle(false);
-
-    const section  = document.getElementById('videoLevelSubjectSection');
-    const lockRow  = document.getElementById('videoInstitutionLockRow');
-
-    if (user.type === 'teacher' || user.type === 'influencer') {
-        section.style.display = 'block';
-        lockRow.style.display = 'block';
-        // للأستاذ: عرض بياناته تلقائياً للعلم فقط (لا اختيار يدوي)
-        _showTeacherInfoCard(user);
-        // حفظ بيانات الاستهداف تلقائياً من Firebase
-        _videoSelectedLevel   = user.levelId   || '';
-        _videoSelectedSubject = user.subjects && user.subjects.length ? user.subjects[0] : '';
-    } else if (user.type === 'institution') {
-        section.style.display = 'block';
-        lockRow.style.display = 'block';
-        // للمؤسسة: اختيار يدوي
-        document.getElementById('teacherInfoCard').style.display = 'none';
-        document.getElementById('institutionTargetFields').style.display = 'block';
-        buildInstitutionLevelSelector();
-    } else {
-        section.style.display = 'none';
-        lockRow.style.display = 'none';
+      // زر الدخول المباشر للغرفة
+      if (n.roomId) {
+        roomExtra += `<button onclick="joinRoomFromNotif('${n.roomId}','${n.roomType||'public'}','${n.roomCode||''}')"
+          style="margin-top:8px;width:100%;padding:9px;background:linear-gradient(135deg,#0d47a1,#1565c0);color:#fff;border:none;border-radius:10px;
+          font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+          </svg>
+          دخول الغرفة مباشرة
+        </button>`;
+      }
     }
 
-    document.getElementById('createVideoModal').classList.add('show');
-    _bindLockLabel();
-}
-
-// ── عرض بيانات الأستاذ كبيانات للعلم فقط ──
-function _showTeacherInfoCard(user) {
-    document.getElementById('teacherInfoCard').style.display = 'block';
-    document.getElementById('institutionTargetFields').style.display = 'none';
-
-    const badges = document.getElementById('teacherInfoBadges');
-    badges.innerHTML = '';
-
-    const addBadge = (icon, text, bg, color) => {
-        if (!text) return;
-        badges.insertAdjacentHTML('beforeend',
-            `<span style="background:${bg};color:${color};font-size:0.72rem;font-weight:800;padding:3px 10px;border-radius:7px;display:inline-flex;align-items:center;gap:4px;font-family:'Tajawal',sans-serif;">
-                ${icon} ${text}
-            </span>`
-        );
-    };
-    addBadge('🏫', user.institutionName, '#e8f0fe', '#0d47a1');
-    addBadge('📚', user.levelName || user.levelId, '#e8f0fe', '#0d47a1');
-    addBadge('✏️', user.subjects ? user.subjects.join(' · ') : '', '#fce4ec', '#c62828');
-}
-
-// ── منطق toggle "غرفة بدون استهداف" ──
-function onNoTargetToggle() {
-    const cb = document.getElementById('videoNoTarget');
-    cb.checked = !cb.checked;
-    _applyNoTargetToggle(cb.checked);
-}
-
-function _applyNoTargetToggle(active) {
-    const track  = document.getElementById('noTargetTrack');
-    const thumb  = document.getElementById('noTargetThumb');
-    const fields = document.getElementById('videoTargetFields');
-    if (track) track.style.background = active ? '#0d47a1' : '#c8d0e0';
-    if (thumb) { thumb.style.right = active ? 'auto' : '3px'; thumb.style.left = active ? '3px' : 'auto'; }
-    if (fields) fields.style.display = active ? 'none' : 'block';
-    if (active) { _videoSelectedLevel = ''; _videoSelectedSubject = ''; }
-}
-
-function buildTeacherLevelSelector(user) {
-    const levelSel = document.getElementById('videoLevel');
-    levelSel.innerHTML = '<option value="">— اختر المستوى —</option>';
-    const savedLevelId = localStorage.getItem('yadwor-teacher-level')
-        || (typeof state !== 'undefined' ? state.selectedLevel : '') || '';
-    const savedSubjects = JSON.parse(localStorage.getItem('yadwor-teacher-subjects') || 'null')
-        || (typeof state !== 'undefined' ? state.selectedSubjects : []) || [];
-
-    if (savedLevelId && typeof moroccanLevels !== 'undefined') {
-        const lvl = moroccanLevels.find(l => l.id === savedLevelId);
-        if (lvl) {
-            const opt = document.createElement('option');
-            opt.value = lvl.id; opt.textContent = lvl.name;
-            levelSel.appendChild(opt);
-        } else { buildAllLevels(levelSel); }
-    } else { buildAllLevels(levelSel); }
-
-    if (levelSel.options.length === 2) {
-        levelSel.selectedIndex = 1;
-        _videoSelectedLevel = levelSel.options[1].value;
-        const triggerText = document.getElementById('videoLevelTriggerText');
-        if (triggerText) { triggerText.textContent = levelSel.options[1].text; triggerText.style.color = '#111'; }
-        buildSubjectChips(savedSubjects);
-    }
-    buildLevelDropdownPanel();
-}
-
-function buildInstitutionLevelSelector() {
-    const levelSel = document.getElementById('videoLevel');
-    levelSel.innerHTML = '<option value="">— اختر المستوى —</option>';
-    buildAllLevels(levelSel);
-    buildLevelDropdownPanel();
-}
-
-function buildAllLevels(selectEl) {
-    if (typeof moroccanLevels === 'undefined') return;
-    const cycles = {};
-    moroccanLevels.forEach(l => {
-        if (!cycles[l.cycle]) cycles[l.cycle] = [];
-        cycles[l.cycle].push(l);
-    });
-    Object.entries(cycles).forEach(([cycle, levels]) => {
-        const grp = document.createElement('optgroup'); grp.label = cycle;
-        levels.forEach(l => {
-            const opt = document.createElement('option');
-            opt.value = l.id; opt.textContent = l.name;
-            grp.appendChild(opt);
-        });
-        selectEl.appendChild(grp);
-    });
-}
-
-function onVideoLevelChange() {
-    const levelSel = document.getElementById('videoLevel');
-    _videoSelectedLevel   = levelSel.value;
-    _videoSelectedSubject = '';
-    document.getElementById('videoSelectionCard').style.display = 'none';
-    if (!_videoSelectedLevel) { document.getElementById('videoSubjectGroup').style.display = 'none'; return; }
-
-    const user = getCurrentUser();
-    const lvl  = typeof moroccanLevels !== 'undefined' ? moroccanLevels.find(l => l.id === _videoSelectedLevel) : null;
-    let subjectsToShow = [];
-
-    if (user.type === 'teacher') {
-        const saved = JSON.parse(localStorage.getItem('yadwor-teacher-subjects') || 'null')
-            || (typeof state !== 'undefined' ? state.selectedSubjects : []) || [];
-        subjectsToShow = saved.length > 0 ? saved
-            : (lvl && typeof subjectsByCycle !== 'undefined' ? subjectsByCycle[lvl.cycle] || [] : []);
-    } else {
-        subjectsToShow = lvl && typeof subjectsByCycle !== 'undefined'
-            ? subjectsByCycle[lvl.cycle] || [] : [];
-    }
-    buildSubjectChips(subjectsToShow);
-}
-
-function buildSubjectChips(subjects) {
-    const group = document.getElementById('videoSubjectGroup');
-    const chips = document.getElementById('videoSubjectChips');
-    if (!subjects || subjects.length === 0) { group.style.display = 'none'; return; }
-    chips.innerHTML = '';
-    subjects.forEach(sub => {
-        const btn = document.createElement('button');
-        btn.className = 'subject-chip'; btn.textContent = sub; btn.type = 'button';
-        btn.onclick = () => selectVideoSubject(sub, btn);
-        chips.appendChild(btn);
-    });
-    group.style.display = 'block';
-}
-
-function selectVideoSubject(subject, btn) {
-    document.querySelectorAll('#videoSubjectChips .subject-chip').forEach(c => c.classList.remove('selected'));
-    btn.classList.add('selected');
-    _videoSelectedSubject = subject;
-
-    const lvl  = typeof moroccanLevels !== 'undefined' ? moroccanLevels.find(l => l.id === _videoSelectedLevel) : null;
-    const card = document.getElementById('videoSelectionCard');
-    document.getElementById('videoSelectionText').textContent =
-        (lvl ? lvl.name + ' — ' : '') + subject;
-    card.style.display = 'flex';
-
-    const nameInp = document.getElementById('videoRoomName');
-    if (!nameInp.value.trim()) {
-        const autoName = (lvl ? lvl.name + ' | ' : '') + subject;
-        nameInp.value = autoName.substring(0, 45);
-    }
-}
-
-function toggleVideoCode() {
-    document.getElementById('videoCodeField').style.display =
-        document.getElementById('videoRoomType').value === 'private' ? 'block' : 'none';
-}
-
-// ── Custom Room Type Selector ──
-function selectRoomType(type) {
-    const selEl = document.getElementById('videoRoomType');
-    if (selEl) selEl.value = type;
-
-    const pubCard  = document.getElementById('rtPublicCard');
-    const privCard = document.getElementById('rtPrivateCard');
-    if (!pubCard || !privCard) { toggleVideoCode(); return; }
-
-    const pubDot      = document.getElementById('rtPublicDot');
-    const privDot     = document.getElementById('rtPrivateDot');
-    const pubIconBox  = document.getElementById('rtPublicIconBox');
-    const privIconBox = document.getElementById('rtPrivateIconBox');
-    const privSvg     = document.getElementById('rtPrivateSvg');
-    const pubTitle    = document.getElementById('rtPublicTitle');
-    const privTitle   = document.getElementById('rtPrivateTitle');
-
-    const activeDot   = '<div style="width:9px;height:9px;border-radius:50%;background:#0d47a1;"></div>';
-    const inactiveDot = '<div style="width:9px;height:9px;border-radius:50%;background:transparent;"></div>';
-
-    if (type === 'public') {
-        pubCard.style.border  = '2px solid #0d47a1'; pubCard.style.background  = '#e8f0ff';
-        privCard.style.border = '2px solid #dde3ee'; privCard.style.background = '#f8f9fb';
-        if (pubDot)  { pubDot.innerHTML  = activeDot;   pubDot.style.border  = '2.5px solid #0d47a1'; }
-        if (privDot) { privDot.innerHTML = inactiveDot; privDot.style.border = '2.5px solid #ccc'; }
-        if (pubIconBox)  pubIconBox.style.background  = '#0d47a1';
-        if (privIconBox) privIconBox.style.background = '#f0f2f8';
-        if (privSvg) privSvg.style.stroke = '#777';
-        if (pubTitle)  pubTitle.style.color  = '#0d47a1';
-        if (privTitle) privTitle.style.color = '#444';
-    } else {
-        privCard.style.border = '2px solid #0d47a1'; privCard.style.background = '#e8f0ff';
-        pubCard.style.border  = '2px solid #dde3ee'; pubCard.style.background  = '#f8f9fb';
-        if (privDot) { privDot.innerHTML = activeDot;   privDot.style.border = '2.5px solid #0d47a1'; }
-        if (pubDot)  { pubDot.innerHTML  = inactiveDot; pubDot.style.border  = '2.5px solid #ccc'; }
-        if (privIconBox) privIconBox.style.background = '#0d47a1';
-        if (pubIconBox)  pubIconBox.style.background  = '#f0f2f8';
-        if (privSvg) privSvg.style.stroke = '#fff';
-        if (privTitle) privTitle.style.color = '#0d47a1';
-        if (pubTitle)  pubTitle.style.color  = '#444';
-    }
-    toggleVideoCode();
-
-    // تنبيهات نوع الغرفة
-    const alertPub  = document.getElementById('roomTypeAlertPublic');
-    const alertPriv = document.getElementById('roomTypeAlertPrivate');
-    if (alertPub)  alertPub.style.display  = (type === 'public')  ? 'flex' : 'none';
-    if (alertPriv) alertPriv.style.display = (type === 'private') ? 'flex' : 'none';
-}
-
-// ── Custom Level Dropdown ──
-function toggleLevelDropdown() {
-    const panel  = document.getElementById('videoLevelPanel');
-    const arrow  = document.getElementById('videoLevelArrow');
-    const btn    = document.getElementById('videoLevelTrigger');
-    if (!panel) return;
-    const isOpen = panel.style.display !== 'none';
-    if (!isOpen) {
-        // rebuild panel with latest options before showing
-        buildLevelDropdownPanel();
-        panel.style.display = 'block';
-        if (arrow) arrow.style.transform = 'rotate(180deg)';
-        if (btn)   btn.style.background  = '#e8edf8';
-    } else {
-        panel.style.display = 'none';
-        if (arrow) arrow.style.transform = '';
-        if (btn)   btn.style.background  = '#f2f4f8';
-    }
-}
-
-function buildLevelDropdownPanel() {
-    const panel = document.getElementById('videoLevelPanel');
-    const levelSel = document.getElementById('videoLevel');
-    if (!panel || !levelSel) return;
-    panel.innerHTML = '';
-    // iterate options and optgroups
-    Array.from(levelSel.children).forEach(child => {
-        if (child.tagName === 'OPTGROUP') {
-            const header = document.createElement('div');
-            header.style.cssText = 'padding:8px 14px 4px;font-size:0.7rem;font-weight:900;color:#aaa;letter-spacing:.5px;font-family:\'Tajawal\',sans-serif;border-top:1px solid #f0f2f5;margin-top:4px;';
-            header.textContent = child.label;
-            panel.appendChild(header);
-            Array.from(child.children).forEach(opt => {
-                panel.appendChild(makeLevelItem(opt.value, opt.textContent));
-            });
-        } else if (child.tagName === 'OPTION') {
-            if (!child.value) return; // skip placeholder
-            panel.appendChild(makeLevelItem(child.value, child.textContent));
-        }
-    });
-}
-
-function makeLevelItem(value, label) {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.style.cssText = 'width:100%;text-align:right;padding:11px 15px;border:none;background:transparent;font-family:\'Tajawal\',sans-serif;font-size:0.9rem;font-weight:700;color:#222;cursor:pointer;display:flex;align-items:center;gap:9px;transition:background .15s;';
-    item.innerHTML = `<span style="flex:1;">${label}</span>`;
-    item.onmouseover = () => item.style.background = '#f0f4ff';
-    item.onmouseout  = () => item.style.background = 'transparent';
-    item.onclick = () => {
-        const levelSel = document.getElementById('videoLevel');
-        levelSel.value = value;
-        document.getElementById('videoLevelTriggerText').textContent = label;
-        document.getElementById('videoLevelTriggerText').style.color = '#111';
-        document.getElementById('videoLevelPanel').style.display = 'none';
-        document.getElementById('videoLevelArrow').style.transform = '';
-        document.getElementById('videoLevelTrigger').style.background = '#f2f4f8';
-        onVideoLevelChange();
-    };
-    return item;
-}
-
-// Close dropdown when clicking outside
-document.addEventListener('click', (e) => {
-    const wrap = document.getElementById('videoLevelDropdownWrap');
-    if (wrap && !wrap.contains(e.target)) {
-        const panel = document.getElementById('videoLevelPanel');
-        if (panel) { panel.style.display = 'none'; }
-        const arrow = document.getElementById('videoLevelArrow');
-        if (arrow) arrow.style.transform = '';
-        const btn = document.getElementById('videoLevelTrigger');
-        if (btn) btn.style.background = '#f2f4f8';
-    }
-});
-
-// حد الكلمات لاسم الغرفة (6 كلمات كحد أقصى)
-function limitRoomNameWords(inp) {
-    const words = inp.value.trim().split(/\s+/).filter(w => w.length > 0);
-    const counter = document.getElementById('videoRoomNameCount');
-    if (words.length > 6) {
-        // احتفظ بأول 6 كلمات فقط
-        const allowed = inp.value.match(/(\S+\s*){1,6}/);
-        inp.value = allowed ? allowed[0].trimEnd() : inp.value;
-        const recount = inp.value.trim().split(/\s+/).filter(w => w.length > 0);
-        if (counter) counter.textContent = recount.length + ' / 6 كلمات';
-        if (counter) counter.style.color = '#e53935';
-    } else {
-        if (counter) counter.textContent = words.length + ' / 6 كلمات';
-        if (counter) counter.style.color = words.length >= 5 ? '#e65100' : '#aaa';
-    }
-}
-
-function buildInstitutionLevelSelector() {
-    const levelSel = document.getElementById('videoLevel');
-    levelSel.innerHTML = '<option value="">— اختر المستوى —</option>';
-
-    let institutionLevels = [];
-    try { institutionLevels = JSON.parse(localStorage.getItem('yadwor-institution-levels') || '[]'); } catch(e) {}
-
-    if (institutionLevels.length > 0 && typeof moroccanLevels !== 'undefined') {
-        institutionLevels.forEach(lvlId => {
-            const lvl = moroccanLevels.find(l => l.id === lvlId);
-            if (lvl) {
-                const opt = document.createElement('option');
-                opt.value = lvl.id; opt.textContent = lvl.name;
-                levelSel.appendChild(opt);
-            }
-        });
-    } else {
-        buildAllLevels(levelSel);
-    }
-    buildLevelDropdownPanel();
-}
-
-function onShowCodeToggle() {
-    const cb = document.getElementById('videoShowCodeInNotif');
-    const track = document.getElementById('showCodeToggleTrack');
-    const thumb = document.getElementById('showCodeToggleThumb');
-    if (!cb || !track || !thumb) return;
-    if (cb.checked) {
-        track.style.background = '#0d47a1';
-        thumb.style.right = '19px';
-    } else {
-        track.style.background = '#c8d0e0';
-        thumb.style.right = '3px';
-    }
-}
-
-async function confirmCreateVideo() {
-    const name           = document.getElementById('videoRoomName').value.trim();
-    const type           = document.getElementById('videoRoomType').value;
-    const codeEl         = document.getElementById('videoRoomCode');
-    const code           = codeEl ? codeEl.value.trim() : '';
-    const showCodeInNotif= document.getElementById('videoShowCodeInNotif') ? document.getElementById('videoShowCodeInNotif').checked : false;
-    const noTarget       = document.getElementById('videoNoTarget') ? document.getElementById('videoNoTarget').checked : false;
-
-    if (!name) { showErr('videoErr','اسم الغرفة مطلوب.'); return; }
-    if (type === 'private' && !code) { showErr('videoErr','كود الغرفة مطلوب للغرفة الخاصة.'); return; }
-
-    const user = await getCurrentUser();
-
-    // التحقق من الاستهداف فقط إذا لم يكن noTarget مفعَّلاً
-    if (!noTarget) {
-        if (user.type === 'institution') {
-            if (!_videoSelectedLevel)   { showErr('videoErr','الرجاء اختيار المستوى الدراسي.'); return; }
-            if (!_videoSelectedSubject) { showErr('videoErr','الرجاء اختيار المادة الدراسية.'); return; }
-        }
-        // للأستاذ: التحقق من أن بياناته مكتملة في Firebase
-        if ((user.type === 'teacher' || user.type === 'influencer') && (!user.levelId && !user.subjects?.length)) {
-            showErr('videoErr','لم يتم العثور على بيانات المستوى والمادة في ملفك. يرجى تحديث ملفك الشخصي.');
-            return;
-        }
-    }
-
-    const roomId = 'YW' + Math.floor(100000 + Math.random() * 900000);
-    const lvl    = typeof moroccanLevels !== 'undefined' ? moroccanLevels.find(l => l.id === _videoSelectedLevel) : null;
-
-    const roomData = {
-        roomId,
-        roomName:    name,
-        roomType:    type,
-        roomMode:    'video',
-        roomCode:    code || '',
-        ownerName:   user.name,
-        ownerAvatar: user.avatar,
-        ownerId:     user.uid,
-        ownerUid:    user.uid,
-        teacherUid:  user.uid,
-        ownerType:   user.type,
-        levelId:     noTarget ? '' : (_videoSelectedLevel  || user.levelId  || ''),
-        levelName:   noTarget ? '' : (lvl ? lvl.name : (user.levelName || '')),
-        subject:     noTarget ? '' : (_videoSelectedSubject || (user.subjects?.[0] || '')),
-        institutionId:   user.institutionId   || '',
-        institutionName: user.institutionName || '',
-        institutionOnly: _videoInstitutionOnly,
-        noTarget,
-        startTime:        Date.now(),
-        participantsCount:1,
-        closed:           false
-    };
-
-    allRooms.unshift({...roomData});
-    saveRooms();
-
-    // حفظ بيانات الغرفة للانتقال
-    const rtData = JSON.stringify({roomId, roomType:type, roomCode:code, roomName:name, ownerUid:user.uid});
-    try { sessionStorage.setItem('yw_room_target', rtData); } catch(e) {}
-    try { localStorage.setItem('yw_room_target', rtData); } catch(e) {}
-    localStorage.setItem('yw_active_room',    JSON.stringify({roomId,isOwner:true,roomName:name,roomType:type,roomCode:code,roomMode:'video',ownerUid:user.uid}));
-    localStorage.setItem('yw_room_mode',      'video');
-    localStorage.setItem('yw_current_user',   JSON.stringify(user));
-    localStorage.setItem('yw_room_owner_uid', user.uid);
-
-    closeModal('createVideoModal');
-    showToast('جاري إنشاء الغرفة...');
-
-    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
-        // حفظ الغرفة في Firebase
-        firebase.database().ref('rooms/' + roomId).set(roomData)
-            .then(()  => console.log('✅ الغرفة حُفظت في Firebase:', roomId))
-            .catch(err => console.warn('⚠️ فشل حفظ الغرفة:', err));
-
-        // إرسال إشعار للتلاميذ المستهدفين
-        if (!noTarget) {
-            const targetLevel   = roomData.levelId;
-            const targetSubject = roomData.subject;
-            if (targetLevel || targetSubject) {
-                const notif = {
-                    type:        'room',
-                    subtype:     'live_room',
-                    roomId,
-                    roomName:    name,
-                    roomType:    type,
-                    ownerName:   user.name,
-                    ownerAvatar: user.avatar,
-                    ownerUid:    user.uid,
-                    ownerType:   user.type,
-                    levelId:     targetLevel,
-                    levelName:   roomData.levelName,
-                    subject:     targetSubject,
-                    institutionId:   roomData.institutionId,
-                    institutionName: roomData.institutionName,
-                    institutionOnly: _videoInstitutionOnly,
-                    // كلمة السر فقط إذا كانت الغرفة خاصة وخيار الإظهار مفعَّل
-                    roomCode:   (type === 'private' && showCodeInNotif) ? code : '',
-                    showCode:   (type === 'private' && showCodeInNotif),
-                    noTarget:   false,
-                    ts:         Date.now(),
-                    text:       `🔴 ${user.name} بدأ بثاً مباشراً: "${name}"`
-                };
-                // حفظ في notificationsRoom/{roomId} لتقرأه notifications.html
-                firebase.database().ref('notificationsRoom/' + roomId).set(notif)
-                    .catch(() => {});
-            }
-        }
-    }
-
-    setTimeout(() => { window.location.href = 'roomvideo.html'; }, 700);
-}
-
-// ----------------------------------------------------------------
-// إنشاء غرفة صوتية
-// ----------------------------------------------------------------
-function openCreateVoiceModal() {
-    const user = getCurrentUser();
-    document.getElementById('voiceCreateName').textContent = user.name;
-    const avEl = document.getElementById('voiceCreateAvatar');
-    avEl.style.borderColor = '#7b1fa2';
-    setAvatarDiv(avEl, user.avatar, user.name);
-    document.getElementById('voiceRoomName').value = '';
-    document.getElementById('voiceRoomType').value = 'public';
-    document.getElementById('voiceCodeField').style.display = 'none';
-    document.getElementById('voiceErr').style.display = 'none';
-    document.getElementById('createVoiceModal').classList.add('show');
-}
-function toggleVoiceCode() {
-    document.getElementById('voiceCodeField').style.display =
-        document.getElementById('voiceRoomType').value === 'private' ? 'block' : 'none';
-}
-function confirmCreateVoice() {
-    const name = document.getElementById('voiceRoomName').value.trim();
-    const type = document.getElementById('voiceRoomType').value;
-    const code = document.getElementById('voiceRoomCode').value.trim();
-    if (!name) { showErr('voiceErr','اسم الغرفة مطلوب.'); return; }
-    if (type === 'private' && !code) { showErr('voiceErr','كود الغرفة مطلوب للغرفة الخاصة.'); return; }
-
-    const user = getCurrentUser();
-    const roomId = 'YW' + Math.floor(100000 + Math.random() * 900000);
-    const room = {
-        roomId, roomName:name, roomType:type, roomMode:'voice',
-        roomCode:code||'', ownerName:user.name, ownerAvatar:user.avatar,
-        ownerId:user.uid, ownerUid:user.uid, teacherUid:user.uid,
-        ownerType:user.type,
-        startTime:Date.now(), participantsCount:1, closed:false
-    };
-
-    allRooms.unshift(room);
-    saveRooms();
-
-    localStorage.setItem('yw_room_target',  JSON.stringify({roomId,roomType:type,roomCode:code,roomName:name,ownerUid:user.uid}));
-    localStorage.setItem('yw_active_room',  JSON.stringify({roomId,isOwner:true,roomName:name,roomType:type,roomCode:code,roomMode:'voice',ownerUid:user.uid}));
-    localStorage.setItem('yw_room_mode',    'voice');
-    localStorage.setItem('yw_current_user', JSON.stringify(user));
-    localStorage.setItem('yw_room_owner_uid', user.uid);
-
-    // حفظ في Firebase أيضاً
-    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
-        firebase.database().ref('rooms/' + roomId).set(room).catch(() => {});
-    }
-
-    closeModal('createVoiceModal');
-    showToast('✅ تم إنشاء الغرفة الصوتية! جاري الدخول...');
-    setTimeout(() => { window.location.href = 'roomvideo.html'; }, 700);
-}
-
-// ----------------------------------------------------------------
-// نافذة الانضمام
-// ----------------------------------------------------------------
-function openJoinModal(roomId) {
-    const room = allRooms.find(r => r.roomId === roomId);
-    if (!room) return;
-    pendingJoin = room;
-
-    const user = getCurrentUser();
-    document.getElementById('joinNameDisp').textContent = user.name;
-
-    const isVoice = room.roomMode === 'voice';
-    document.getElementById('joinModalTitle').textContent = isVoice ? 'الانضمام للغرفة الصوتية' : 'الانضمام للغرفة';
-    const iconWrap = document.getElementById('joinModalIconWrap');
-    if (iconWrap) iconWrap.style.background = isVoice ? '#7b1fa2' : '#0d47a1';
-
-    setAvatarDiv(document.getElementById('joinAvatarDisp'), user.avatar, user.name);
-
-    // معلومات الغرفة (مستوى + مادة)
-    const infoDiv = document.getElementById('joinRoomInfo');
-    const infoContent = document.getElementById('joinRoomInfoContent');
-    if (room.levelName || room.subject) {
-        let infoHtml = '';
-        if (room.ownerName) infoHtml += `<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:#0d47a1;stroke-width:2;stroke-linecap:round;flex-shrink:0;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><span style="color:#0d47a1;font-weight:700;">${room.ownerName}</span></div>`;
-        if (room.levelName) infoHtml += `<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:#555;stroke-width:2;stroke-linecap:round;flex-shrink:0;"><path d="M3 21h18M3 7l9-4 9 4M4 7v14M20 7v14"/></svg><span>${room.levelName}</span></div>`;
-        if (room.subject)   infoHtml += `<div style="display:flex;align-items:center;gap:5px;"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:#555;stroke-width:2;stroke-linecap:round;flex-shrink:0;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><span style="color:#c62828;font-weight:700;">${room.subject}</span></div>`;
-        infoContent.innerHTML = infoHtml;
-        infoDiv.style.display = 'block';
-    } else { infoDiv.style.display = 'none'; }
-
-    // تحذير تقييد المؤسسة
-    const lockBanner = document.getElementById('joinInstitutionLockBanner');
-    lockBanner.style.display = room.institutionOnly ? 'flex' : 'none';
-
-    // حقل كلمة السر
-    const passGroup = document.getElementById('joinPassGroup');
-    passGroup.style.display = room.roomPassword ? 'block' : 'none';
-    document.getElementById('joinPassInput').value = '';
-
-    // حقل كود الغرفة الخاصة
-    const codeGroup = document.getElementById('joinRoomCodeGroup');
-    codeGroup.style.display = room.roomType === 'private' ? 'block' : 'none';
-    document.getElementById('joinRoomCodeInput').value = '';
-
-    document.getElementById('joinErr').style.display = 'none';
-
-    const btn = document.getElementById('joinConfirmBtn');
-    btn.style.background = isVoice ? 'linear-gradient(135deg,#7b1fa2,#9c27b0)' : '#0d47a1';
-
-    document.getElementById('joinModal').classList.add('show');
-}
-
-function confirmJoin() {
-    if (!pendingJoin) return;
-    const room = pendingJoin;
-    const user = getCurrentUser();
-
-    // تحقق من تقييد المؤسسة
-    if (room.institutionOnly) {
-        const userLevel   = localStorage.getItem('yadwor-teacher-level')
-            || (typeof state !== 'undefined' ? state.selectedLevel : '') || '';
-        const userSubjects = JSON.parse(localStorage.getItem('yadwor-teacher-subjects') || '[]');
-        const userType = user.type;
-        // يسمح للأستاذ أو التلميذ في نفس المستوى والمادة فقط
-        const levelMatch   = !room.levelId   || userLevel === room.levelId;
-        const subjectMatch = !room.subject   || userSubjects.includes(room.subject);
-        const typeAllowed  = userType === 'teacher' || userType === 'student' || userType === 'institution';
-        if (!typeAllowed || (!levelMatch && room.levelId) || (!subjectMatch && room.subject)) {
-            showErr('joinErr','عذراً، هذه الغرفة مخصصة لأعضاء المؤسسة في نفس المستوى والمادة فقط.');
-            return;
-        }
-    }
-
-    // تحقق من كود الغرفة الخاصة
-    if (room.roomType === 'private') {
-        const enteredCode = document.getElementById('joinRoomCodeInput').value.trim();
-        if (enteredCode !== room.roomCode) { showErr('joinErr','كود الغرفة غير صحيح.'); return; }
-    }
-
-    // تحقق من كلمة السر
-    if (room.roomPassword) {
-        const enteredPass = document.getElementById('joinPassInput').value.trim();
-        if (enteredPass !== room.roomPassword) { showErr('joinErr','كلمة السر غير صحيحة.'); return; }
-    }
-
-    const idx = allRooms.findIndex(r => r.roomId === room.roomId);
-    if (idx > -1) { allRooms[idx].participantsCount = (allRooms[idx].participantsCount || 1) + 1; saveRooms(); }
-
-    localStorage.setItem('yw_room_target',  JSON.stringify({roomId:room.roomId,roomType:room.roomType,roomCode:room.roomCode,roomName:room.roomName}));
-    localStorage.setItem('yw_active_room',  JSON.stringify({roomId:room.roomId,isOwner:false,roomName:room.roomName,roomType:room.roomType,roomCode:room.roomCode,roomMode:room.roomMode}));
-    localStorage.setItem('yw_room_mode',    room.roomMode);
-    localStorage.setItem('yw_current_user', JSON.stringify(user));
-
-    closeModal('joinModal');
-    showToast('جاري الدخول للغرفة...');
-    setTimeout(() => { window.location.href = 'roomvideo.html'; }, 600);
-}
-
-// ----------------------------------------------------------------
-// مساعدات
-// ----------------------------------------------------------------
-function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-function showErr(elId, msg) { const el=document.getElementById(elId); el.textContent=msg; el.style.display='block'; }
-function showToast(msg) {
-    const t = document.getElementById('toastMsg');
-    t.textContent = msg; t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2200);
-}
-function showKickReason(txt) {
-    // إذا كان المستخدم صاحب الغرفة ولا يزال في الغرفة النشطة — لا نعرض رسالة الإخراج
-    try {
-        var floatRoom = JSON.parse(localStorage.getItem('yw_floating_room') || 'null');
-        var activeRoom = JSON.parse(localStorage.getItem('yw_active_room') || 'null');
-        if ((floatRoom && floatRoom.isOwner) || (activeRoom && activeRoom.isOwner)) {
-            // صاحب الغرفة — امسح بيانات الغرفة القديمة فقط إذا كانت الرسالة تقول إخراج
-            return; // لا تعرض رسالة الإخراج لصاحب الغرفة
-        }
-    } catch(e) {}
-    document.getElementById('kickReasonText').textContent = txt || '';
-    document.getElementById('kickReasonBackdrop').style.display = 'block';
-    document.getElementById('kickReasonModal').style.display = 'block';
-}
-function hideKickReason() {
-    document.getElementById('kickReasonBackdrop').style.display = 'none';
-    document.getElementById('kickReasonModal').style.display = 'none';
-}
-
-// ----------------------------------------------------------------
-// تشغيل
-// ----------------------------------------------------------------
-document.addEventListener('DOMContentLoaded', () => {
-    initPage();
-    const params = new URLSearchParams(window.location.search);
-    const reason = params.get('reason') || '';
-    if (reason) {
-        showKickReason(reason);
-        try { params.delete('reason'); window.history.replaceState({},'',(window.location.pathname+(params.toString()?'?'+params.toString():''))); } catch(e){}
-    }
-    // تشغيل الصندوق العائم
-    ywInitFloatingBox();
-});
-
-function ywInitFloatingBox() {
-    var box   = document.getElementById('yw-frb');
-    var modal = document.getElementById('yw-frb-modal');
-    if (!box) return;
-    var floatData = null;
-    try { floatData = JSON.parse(localStorage.getItem('yw_floating_room') || 'null'); } catch(e) {}
-    if (!floatData || !floatData.roomId) { box.classList.remove('show'); return; }
-    if (Date.now() - (floatData.ts || 0) > 24 * 60 * 60 * 1000) {
-        localStorage.removeItem('yw_floating_room');
-        box.classList.remove('show');
-        return;
-    }
-    document.getElementById('yw-frb-name').textContent = floatData.roomName || 'الغرفة';
-    var av = document.getElementById('yw-frb-av');
-    if (floatData.avatar) { av.src = floatData.avatar; } else { av.removeAttribute('src'); }
-    box.classList.add('show');
-    initYwFrbDrag(box);
-
-    box.addEventListener('click', function(e) {
-        if (e.target.closest('#yw-frb-close')) return;
-        if (box._wasDragged) { box._wasDragged = false; return; }
-        try {
-            localStorage.setItem('yw_room_target', JSON.stringify({ roomId: floatData.roomId }));
-            sessionStorage.setItem('targetRoom', floatData.roomId);
-        } catch(ex) {}
-        window.location.href = 'roomvideo.html';
-    });
-    document.getElementById('yw-frb-close').onclick = function(e) {
-        e.stopPropagation(); ywFrbAskLeave();
-    };
-}
-
-function initYwFrbDrag(box) {
-    var dragging = false;
-    var startX, startY, startLeft, startTop;
-    var moveThreshold = 5;
-
-    function getLeft() {
-        return parseInt(box.style.left) || box.getBoundingClientRect().left;
-    }
-    function getTop() {
-        var st = box.style.top;
-        if (st && st !== 'auto') return parseInt(st);
-        var bot = box.style.bottom;
-        var botVal = (bot && bot !== 'auto') ? parseInt(bot) : 76;
-        return window.innerHeight - box.offsetHeight - botVal;
-    }
-    function onStart(cx, cy) {
-        dragging = true;
-        box._wasDragged = false;
-        startX = cx; startY = cy;
-        startLeft = getLeft();
-        startTop  = getTop();
-        box.style.bottom = 'auto';
-        box.style.top    = startTop + 'px';
-        box.style.left   = startLeft + 'px';
-    }
-    function onMove(cx, cy) {
-        if (!dragging) return;
-        var dx = cx - startX;
-        var dy = cy - startY;
-        if (Math.abs(dx) > moveThreshold || Math.abs(dy) > moveThreshold) {
-            box._wasDragged = true;
-        }
-        var nx = startLeft + dx;
-        var ny = startTop  + dy;
-        nx = Math.max(4, Math.min(window.innerWidth  - box.offsetWidth  - 4, nx));
-        ny = Math.max(4, Math.min(window.innerHeight - box.offsetHeight - 4, ny));
-        box.style.left = nx + 'px';
-        box.style.top  = ny + 'px';
-    }
-    function onEnd() { dragging = false; }
-
-    /* Touch */
-    box.addEventListener('touchstart', function(e) {
-        if (e.target.closest('#yw-frb-close')) return;
-        var t = e.touches[0];
-        onStart(t.clientX, t.clientY);
-    }, { passive: true });
-    box.addEventListener('touchmove', function(e) {
-        var t = e.touches[0];
-        onMove(t.clientX, t.clientY);
-        if (box._wasDragged) e.preventDefault();
-    }, { passive: false });
-    box.addEventListener('touchend', onEnd);
-
-    /* Pointer */
-    box.addEventListener('pointerdown', function(e) {
-        if (e.target.closest('#yw-frb-close')) return;
-        onStart(e.clientX, e.clientY);
-        try { box.setPointerCapture(e.pointerId); } catch(_) {}
-    });
-    box.addEventListener('pointermove', function(e) { onMove(e.clientX, e.clientY); });
-    box.addEventListener('pointerup',     onEnd);
-    box.addEventListener('pointercancel', onEnd);
-}
-
-function ywFrbAskLeave() {
-    var modal = document.getElementById('yw-frb-modal');
-    if (modal) modal.classList.add('open');
-}
-function ywFrbCloseModal() {
-    var modal = document.getElementById('yw-frb-modal');
-    if (modal) modal.classList.remove('open');
-}
-function ywFrbDoLeave() {
-    var modal = document.getElementById('yw-frb-modal');
-    var box   = document.getElementById('yw-frb');
-    if (modal) modal.classList.remove('open');
-    if (box)   box.classList.remove('show');
-    var floatData = null;
-    try { floatData = JSON.parse(localStorage.getItem('yw_floating_room') || 'null'); } catch(e) {}
-    localStorage.removeItem('yw_floating_room');
-    localStorage.removeItem('yw_active_room');
-    localStorage.removeItem('yw_room_target');
-    localStorage.removeItem('yw_room_mode');
-    if (floatData && floatData.roomId && floatData.isOwner) {
-        try {
-            if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
-                firebase.database().ref('rooms/' + floatData.roomId).update({
-                    closed: true,
-                    closedReason: 'تم إخراج الجميع بسبب خروج صاحب الغرفة',
-                    closedAt: Date.now(),
-                    closedBy: null
-                });
-                setTimeout(function() {
-                    firebase.database().ref('rooms/' + floatData.roomId).remove().catch(function(){});
-                }, 5000);
-            }
-        } catch(ex) {}
-    }
-}
-</script>
-
-<!-- ===== الصندوق العائم للغرفة النشطة ===== -->
-<style>
-#yw-frb {
-    position: fixed; bottom: 76px; left: 12px; z-index: 9990;
-    background: #fff; border-radius: 14px;
-    box-shadow: 0 4px 22px rgba(0,0,0,0.22);
-    display: none; align-items: center; gap: 8px;
-    padding: 8px 10px 8px 8px; min-width: 170px; max-width: 210px;
-    border: 1px solid rgba(0,0,0,0.07); cursor: pointer;
-    touch-action: none; user-select: none; direction: rtl;
-    font-family: 'Tajawal', sans-serif;
-}
-#yw-frb.show { display: flex; }
-#yw-frb-av { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #0084ff; object-fit: cover; flex-shrink: 0; background: #e4e6eb; }
-#yw-frb-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-#yw-frb-name { font-size: 12px; font-weight: 700; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#yw-frb-sub { font-size: 10px; color: #0084ff; font-weight: 600; display: flex; align-items: center; gap: 3px; }
-#yw-frb-dot { width: 6px; height: 6px; border-radius: 50%; background: #e53935; animation: ywFrbPulse 1.3s infinite; flex-shrink: 0; }
-@keyframes ywFrbPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.85)} }
-#yw-frb-close { width: 26px; height: 26px; border-radius: 50%; background: #f1f3f5; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .15s; }
-#yw-frb-close:hover { background: #ffcdd2; }
-#yw-frb-close svg { width: 12px; height: 12px; fill: none; stroke: #e53935; stroke-width: 2.5; stroke-linecap: round; }
-#yw-frb-modal { position: fixed; inset: 0; z-index: 9995; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; padding: 20px; font-family: 'Tajawal', sans-serif; }
-#yw-frb-modal.open { display: flex; }
-#yw-frb-mbox { background: #fff; border-radius: 16px; padding: 22px 20px; width: 100%; max-width: 300px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.25); }
-#yw-frb-mbox h3 { font-size: 16px; font-weight: 800; color: #111; margin-bottom: 8px; font-family: 'Tajawal', sans-serif; }
-#yw-frb-mbox p  { font-size: 13px; color: #555; margin-bottom: 18px; line-height: 1.6; font-family: 'Tajawal', sans-serif; }
-.yw-frb-btns { display: flex; gap: 10px; }
-.yw-frb-yes { flex: 1; height: 42px; border: none; border-radius: 12px; background: #ff4757; color: #fff; font-weight: 800; font-size: 14px; cursor: pointer; font-family: 'Tajawal', sans-serif; }
-.yw-frb-no  { flex: 1; height: 42px; border: none; border-radius: 12px; background: #f1f3f5; color: #333; font-weight: 700; font-size: 14px; cursor: pointer; font-family: 'Tajawal', sans-serif; }
-</style>
-
-<div id="yw-frb">
-    <img id="yw-frb-av" src="" onerror="this.style.background='#e4e6eb';this.removeAttribute('src')" alt="">
-    <div id="yw-frb-info">
-        <div id="yw-frb-name">الغرفة</div>
-        <div id="yw-frb-sub"><span id="yw-frb-dot"></span><span>مباشر</span></div>
-    </div>
-    <button id="yw-frb-close" title="خروج من الغرفة">
-        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
-</div>
-
-<div id="yw-frb-modal">
-    <div id="yw-frb-mbox">
-        <h3>خروج من الغرفة</h3>
-        <p>هل تريد حقاً الخروج من الغرفة؟</p>
-        <div class="yw-frb-btns">
-            <button class="yw-frb-yes" onclick="ywFrbDoLeave()">نعم، اخرج</button>
-            <button class="yw-frb-no"  onclick="ywFrbCloseModal()">إلغاء</button>
+    return `
+    <div class="rounded-[18px] border p-4 shadow-sm ${n.unread ? 'border-zinc-300 bg-white' : 'border-zinc-200 bg-zinc-50'}" ${clickAttr}>
+      <div class="flex items-start gap-3">
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full overflow-hidden" style="${getIconBg(n.type)}">
+          ${isRoom && n.ownerAvatar
+            ? `<img src="${n.ownerAvatar}" style="width:40px;height:40px;object-fit:cover;" onerror="this.style.display='none'">`
+            : getNotifIcon(n.type)}
         </div>
-    </div>
-</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-[14px] font-bold text-zinc-800 leading-snug">${n.text || (isRoom ? `🔴 ${n.ownerName||''} بدأ بثاً مباشراً` : 'إشعار جديد')}</p>
+          ${!isRoom && n.subject ? `<p class="mt-0.5 text-[11px] font-bold text-indigo-600">${n.examType || ''} · ${n.subject}</p>` : ''}
+          ${!isRoom && n.type === 'exam' && n.teacherName ? `<p class="mt-0.5 text-[11px] text-zinc-400 font-bold">👨‍🏫 ${n.teacherName}</p>` : ''}
+          ${roomExtra}
+          <p class="mt-1.5 text-[12px] text-zinc-500">${formatTimeAgoN(n.publishedAt || n.ts || n.timestamp)}</p>
+        </div>
+        <div class="flex flex-col items-center gap-1">
+          <div class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${n.unread ? 'bg-rose-500' : 'bg-zinc-300'}"></div>
+          ${!isRoom && n.type === 'exam' ? `<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-400 mt-1" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// دخول الغرفة مباشرة من الإشعار
+function joinRoomFromNotif(roomId, roomType, roomCode) {
+  const uid    = localStorage.getItem('yadwor-uid') || '';
+  const name   = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'مستخدم';
+  const avatar = localStorage.getItem('yadwor-avatar-preview') || '';
+  localStorage.setItem('yw_room_target',  JSON.stringify({roomId, roomType, roomCode, roomName:''}));
+  localStorage.setItem('yw_active_room',  JSON.stringify({roomId, isOwner:false, roomType, roomCode, roomMode:'video'}));
+  localStorage.setItem('yw_room_mode',    'video');
+  localStorage.setItem('yw_current_user', JSON.stringify({uid, name, avatar}));
+  window.location.href = 'roomvideo.html';
+}
+
+function showShimmer() {
+  const el = document.getElementById('notifications-list');
+  el.innerHTML = `<div class="space-y-3">${[1,2,3].map(() => `
+    <div class="rounded-[18px] border border-zinc-200 bg-white p-4">
+      <div class="flex items-start gap-3">
+        <div class="shimmer h-10 w-10 rounded-full shrink-0"></div>
+        <div class="flex-1 space-y-2">
+          <div class="shimmer h-3.5 w-3/4 rounded-full"></div>
+          <div class="shimmer h-3 w-1/3 rounded-full"></div>
+        </div>
+        <div class="shimmer h-2.5 w-2.5 rounded-full mt-1 shrink-0"></div>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+// ─── جلب إشعارات الغرف المباشرة من Firebase ───
+async function fetchRoomNotifications(myUid, myType, myReq) {
+  try {
+    const res = await fetch(`${FB_DB_URL_N}/notificationsRoom.json?auth=${FB_API_KEY_N}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data || typeof data !== 'object') return [];
+
+    const lastRead = parseInt(localStorage.getItem('yadwor-notif-last-read') || '0');
+    const rooms = Object.values(data).filter(n => n && n.roomId);
+
+    return rooms.filter(n => {
+      // صاحب الغرفة لا يرى إشعاره
+      if (n.ownerUid === myUid) return false;
+
+      // تلميذ: يرى إشعارات مؤسسته + مستواه + مادته
+      if (myType === 'student') {
+        if (!myReq) return false;
+        const myInstId  = myReq.institutionUid || myReq.institutionId || '';
+        const sameInst  = !n.institutionId || myInstId === n.institutionId;
+        const sameLevel = !n.levelId  || myReq.levelId === n.levelId;
+        const mySubs    = (myReq.subjects || []).map(s => (s.name || s).trim());
+        const sameSub   = !n.subject || mySubs.includes((n.subject || '').trim());
+        if (n.institutionOnly) return sameInst && sameLevel && sameSub;
+        return sameLevel && sameSub;
+      }
+
+      // باقي الأنواع: الغرف العامة بدون استهداف فقط
+      return n.noTarget && n.roomType === 'public';
+    }).map(n => ({
+      ...n,
+      type:   'room',
+      unread: (n.ts || 0) > lastRead
+    })).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  } catch(e) { return []; }
+}
+
+// ─── جلب إشعارات التمارين من Firebase ───
+async function fetchExamNotifications(myUid, myType, myReq, myInstOwnerUid) {
+  try {
+    const res = await fetch(`${FB_DB_URL_N}/notifications.json?auth=${FB_API_KEY_N}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data || typeof data !== 'object') return [];
+
+    const lastRead = parseInt(localStorage.getItem('yadwor-notif-last-read') || '0');
+    const list = Object.values(data).filter(n => n && n.type === 'exam');
+
+    return list.filter(n => {
+      // الأستاذ الناشر نفسه لا يرى إشعار تمرينه
+      if (n.teacherUid === myUid) return false;
+      // أساتذة آخرون لا يرون الإشعار
+      if (myType === 'teacher') return false;
+
+      if (myType === 'student') {
+        if (!myReq) return false;
+        const sameInst   = (myReq.institutionUid || myReq.institutionId || '') === (n.institutionUid || '');
+        const sameLevel  = myReq.levelId === n.levelId;
+        const mySubjects = (myReq.subjects || []).map(s => (s.name || s).trim());
+        const sameSub    = mySubjects.includes((n.subject || '').trim());
+        return sameInst && sameLevel && sameSub;
+      }
+
+      // صاحب المؤسسة يرى كل إشعارات مؤسسته
+      if (myType === 'institution') {
+        return (n.institutionUid || '') === myUid;
+      }
+
+      return false;
+    }).map(n => ({
+      ...n,
+      unread: (n.publishedAt || 0) > lastRead
+    })).sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
+  } catch(e) { return []; }
+}
+
+// ─── جلب إشعارات اللايكات والتعليقات من Firebase ───
+async function fetchInteractionNotifications(myUid) {
+  try {
+    const res = await fetch(`${FB_DB_URL_N}/interactions/${myUid}.json?auth=${FB_API_KEY_N}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data || typeof data !== 'object') return [];
+    const lastRead = parseInt(localStorage.getItem('yadwor-notif-last-read') || '0');
+    return Object.values(data)
+      .filter(n => n && n.type)
+      .map(n => ({ ...n, unread: (n.publishedAt || n.timestamp || 0) > lastRead }))
+      .sort((a, b) => (b.publishedAt || b.timestamp || 0) - (a.publishedAt || a.timestamp || 0));
+  } catch(e) { return []; }
+}
+
+async function loadNotifications() {
+  showShimmer();
+
+  const myUid  = localStorage.getItem('yadwor-uid') || '';
+  const myType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
+
+  // ── جلب طلب انضمام المستخدم من Firebase (لا localStorage) ──
+  let myReq = null;
+  if (myUid) {
+    try {
+      const allInstRes = await fetch(`${FB_DB_URL_N}/joinRequests.json?auth=${FB_API_KEY_N}`);
+      if (allInstRes.ok) {
+        const allInst = await allInstRes.json();
+        if (allInst && typeof allInst === 'object') {
+          for (const instUid of Object.keys(allInst)) {
+            const instReqs = allInst[instUid];
+            if (!instReqs) continue;
+            const found = Object.values(instReqs).find(r =>
+              r && r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
+            );
+            if (found) { myReq = found; break; }
+          }
+        }
+      }
+    } catch(e) {}
+  }
+
+  // ── جلب الإشعارات من Firebase ──
+  const [examNotifs, interactionNotifs, roomNotifs] = await Promise.all([
+    fetchExamNotifications(myUid, myType, myReq),
+    fetchInteractionNotifications(myUid),
+    fetchRoomNotifications(myUid, myType, myReq)
+  ]);
+
+  allNotifications = [...roomNotifs, ...examNotifs, ...interactionNotifs]
+    .sort((a, b) => (b.publishedAt || b.ts || b.timestamp || 0) - (a.publishedAt || a.ts || a.timestamp || 0));
+
+  renderList();
+
+  // ── تمييز الكل كمقروء بعد 2 ثانية ──
+  setTimeout(() => {
+    allNotifications.forEach(n => n.unread = false);
+    localStorage.setItem('yadwor-notif-last-read', String(Date.now()));
+    const badgeEl = document.getElementById('notif-badge');
+    if (badgeEl) badgeEl.style.display = 'none';
+    renderList();
+  }, 2000);
+}
+
+// ── Realtime: فحص كل 30 ثانية لإشعارات غرف جديدة ──
+(function startRoomNotifPoller() {
+  let lastTs = Date.now();
+  setInterval(async () => {
+    const myUid = localStorage.getItem('yadwor-uid') || '';
+    if (!myUid) return;
+    try {
+      const res = await fetch(`${FB_DB_URL_N}/notificationsRoom.json?auth=${FB_API_KEY_N}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data) return;
+      const newOnes = Object.values(data).filter(n => n && n.ts > lastTs && n.ownerUid !== myUid);
+      if (newOnes.length) { lastTs = Date.now(); loadNotifications(); }
+    } catch(e) {}
+  }, 30000);
+})();
+
+loadNotifications();
+</script>
+<script src="floating-room.js"></script>
 </body>
 </html>
