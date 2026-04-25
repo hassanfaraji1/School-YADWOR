@@ -113,6 +113,80 @@ async function fetchAcceptedRequestsForInstitution(institutionUid) {
   } catch(e) { return []; }
 }
 
+// =================== مزامنة بيانات المستخدم من Firebase ===================
+/**
+ * syncUserFromFirebase()
+ * يجلب بيانات المستخدم الحالي من Firebase ويحفظها في localStorage
+ * بجميع المفاتيح المعروفة لضمان توافق كل الصفحات.
+ * يُستدعى في initPage() لكل صفحة.
+ */
+async function syncUserFromFirebase() {
+  const uid = localStorage.getItem('yadwor-uid') || '';
+  if (!uid || uid.startsWith('guest_')) return null;
+  try {
+    const res = await fetch(`${FB_DB_URL}/users/${uid}.json?auth=${FB_API_KEY}`);
+    if (!res.ok) return null;
+    const fb = await res.json();
+    if (!fb) return null;
+
+    // استخراج الحقول بكل أسمائها الممكنة من Firebase
+    const name   = fb.name || fb.displayName || fb.userName || '';
+    const avatar = fb.avatar || fb.avatarUrl || fb.profileImage || fb.photoURL || '';
+    const type   = fb.accountType || fb.profileType || fb.type || fb.userType || '';
+    const institutionName = fb.institutionName || fb.institution || '';
+    const institutionUid  = fb.institutionUid  || fb.institutionId || '';
+    const levelId   = fb.levelId   || fb.level  || '';
+    const subjects  = fb.subjects  || fb.teacherSubjects || [];
+    const bio       = fb.bio       || '';
+    const location  = fb.location  || '';
+    const username  = fb.username  || fb.userName || '';
+
+    // ── حفظ في localStorage بكل المفاتيح المعروفة ──
+    if (name)     { localStorage.setItem('yadwor-settings-name', name); localStorage.setItem('yadwor-user-name', name); }
+    if (avatar)   { localStorage.setItem('yadwor-avatar-preview', avatar); localStorage.setItem('yadwor-avatar-url', avatar); }
+    if (type)     { localStorage.setItem('yadwor-profile-type', type); localStorage.setItem('yadwor-account-type', type); }
+    if (username) { localStorage.setItem('yadwor-username', username); }
+    if (bio)      { localStorage.setItem('yadwor-bio', bio); }
+    if (location) { localStorage.setItem('yadwor-location', location); }
+    if (institutionName) {
+      localStorage.setItem('yadwor-institution-name', institutionName);
+      localStorage.setItem('yadwor-teacher-institution', institutionName);
+    }
+    if (institutionUid) {
+      localStorage.setItem('yadwor-institution-uid', institutionUid);
+      localStorage.setItem('yadwor-teacher-institution-uid', institutionUid);
+    }
+    if (levelId) {
+      localStorage.setItem('yadwor-teacher-level', levelId);
+      localStorage.setItem('yadwor-selected-level', levelId);
+    }
+    if (subjects && (Array.isArray(subjects) ? subjects.length : Object.keys(subjects).length)) {
+      const subArr = Array.isArray(subjects)
+        ? subjects.map(s => s.name || s)
+        : Object.values(subjects).map(s => s.name || s);
+      localStorage.setItem('yadwor-teacher-subjects', JSON.stringify(subArr));
+      localStorage.setItem('yadwor-selected-subjects', JSON.stringify(subArr));
+    }
+
+    // حفظ طلب الانضمام للتلميذ إن وُجد مدمجاً في بيانات المستخدم
+    if (fb.joinRequest) {
+      localStorage.setItem('yadwor-my-join-request', JSON.stringify(fb.joinRequest));
+    }
+
+    // حفظ نسخة JSON كاملة
+    localStorage.setItem('yadwor-user-data', JSON.stringify({ ...fb, uid }));
+
+    // تحديث state إن كان موجوداً
+    if (typeof state !== 'undefined') {
+      if (name)   { state.settingsName = name; }
+      if (avatar) { state.settingsAvatarPreview = avatar; }
+      if (type)   { state.profileType = type; state.settingsAccountType = type; }
+    }
+
+    return fb;
+  } catch(e) { return null; }
+}
+
 // =================== بيانات المستخدم الحالي ===================
 function _myUid()      { return localStorage.getItem('yadwor-uid')            || ''; }
 function _myUsername() { return localStorage.getItem('yadwor-username')        || ''; }
@@ -195,14 +269,25 @@ profiles['influencer'] = {
 };
 
 function getRealUser() {
-  const raw = localStorage.getItem('yadwor-user-data');
-  if (raw) { try { return JSON.parse(raw); } catch(e) {} }
+  // أولاً: من yadwor-user-data (النسخة المزامنة من Firebase)
+  try {
+    const raw = localStorage.getItem('yadwor-user-data');
+    if (raw) {
+      const ud = JSON.parse(raw);
+      if (ud && ud.uid) return ud;
+    }
+  } catch(e) {}
+  // ثانياً: من المفاتيح الفردية
   return {
-    uid: _myUid(), name: _myName(), username: _myUsername(),
-    avatar: _myAvatar(), cover: _myCover(),
-    bio: localStorage.getItem('yadwor-bio') || '',
-    location: localStorage.getItem('yadwor-location') || '',
-    accountType: _myType(), followers: 0, following: 0, verified: false
+    uid:         _myUid(),
+    name:        _myName(),
+    username:    _myUsername(),
+    avatar:      _myAvatar(),
+    cover:       _myCover(),
+    bio:         localStorage.getItem('yadwor-bio')      || '',
+    location:    localStorage.getItem('yadwor-location') || '',
+    accountType: _myType(),
+    followers: 0, following: 0, verified: false
   };
 }
 
@@ -996,7 +1081,39 @@ async function updateBellBadgeFromFirebase() {
       }
     } catch(e) {}
 
-    const total = examUnread + interactionUnread;
+    // إشعارات الغرف المباشرة
+    let roomUnread = 0;
+    try {
+      const resR = await fetch(`${FB_DB_URL}/notificationsRoom.json?auth=${FB_API_KEY}`);
+      if (resR.ok) {
+        const dataR = await resR.json();
+        if (dataR && typeof dataR === 'object') {
+          const roomList = Object.values(dataR).filter(n => n && n.roomId && n.ownerUid !== myUid);
+          if (myType === 'student') {
+            // جلب بيانات التلميذ للفلترة (من cache أو Firebase)
+            let myReqForRoom = null;
+            try {
+              const cachedReq = localStorage.getItem('yadwor-my-join-request');
+              if (cachedReq) myReqForRoom = JSON.parse(cachedReq);
+            } catch(e) {}
+            if (myReqForRoom) {
+              const mySubs = (myReqForRoom.subjects || []).map(s => (s.name || s).trim());
+              roomUnread = roomList.filter(n => {
+                if ((n.ts || 0) <= lastRead) return false;
+                const sameLevel = !n.levelId || myReqForRoom.levelId === n.levelId;
+                const sameSub   = !n.subject || mySubs.includes((n.subject || '').trim());
+                return sameLevel && sameSub;
+              }).length;
+            }
+          } else if (myType !== 'teacher') {
+            // باقي الأنواع: الغرف العامة بدون استهداف
+            roomUnread = roomList.filter(n => n.noTarget && n.roomType === 'public' && (n.ts || 0) > lastRead).length;
+          }
+        }
+      }
+    } catch(e) {}
+
+    const total = examUnread + interactionUnread + roomUnread;
     if (total > 0) {
       badgeEl.textContent = total > 99 ? '99+' : String(total);
       badgeEl.style.display = '';
