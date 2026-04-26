@@ -435,7 +435,7 @@
                     <!-- حقول الاستهداف -->
                     <div id="videoTargetFields">
 
-                        <!-- للأستاذ: بيانات تلقائية من joinRequests (للعلم فقط) -->
+                        <!-- للأستاذ: بيانات تلقائية من joinRequests -->
                         <div id="teacherInfoCard" style="display:none;background:#f0f7ff;border-radius:13px;padding:11px 13px;margin-bottom:13px;border:1.5px solid #c0d8f5;">
                             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                                 <div style="background:#0d47a1;border-radius:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -446,17 +446,15 @@
                                     <div style="font-size:0.7rem;color:#4a6fa5;font-family:'Tajawal',sans-serif;">سيصل الإشعار للتلاميذ المرتبطين ببياناتك</div>
                                 </div>
                             </div>
-                            <div id="teacherInfoBadges" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
-                            <div style="margin-top:7px;font-size:0.7rem;color:#5a7bb5;font-family:'Tajawal',sans-serif;display:flex;align-items:center;gap:4px;">
-                                <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:none;stroke:#5a7bb5;stroke-width:2;stroke-linecap:round;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                                الاستهداف يتم تلقائياً · لا حاجة لاختيار يدوي
+                            <div id="teacherInfoBadges" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;"></div>
+                            <div style="font-size:0.7rem;color:#5a7bb5;font-family:'Tajawal',sans-serif;display:flex;align-items:center;gap:4px;">
+                                <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:none;stroke:#5a7bb5;stroke-width:2;stroke-linecap:round;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                الاستهداف تلقائي · لا حاجة لاختيار يدوي
                             </div>
                         </div>
 
-                        <!-- للمؤسسة: اختيار يدوي للمستوى والمادة -->
+                        <!-- للمؤسسة: اختيار يدوي -->
                         <div id="institutionTargetFields" style="display:none;">
-
-                    <!-- بانر -->
                     <div style="background:#fff8f0;border-radius:13px;padding:10px 13px;margin-bottom:13px;display:flex;align-items:center;gap:10px;">
                         <div style="background:#ff8c42;border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                             <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
@@ -466,7 +464,6 @@
                             <div style="font-size:0.75rem;color:#5a3010;margin-top:2px;font-family:'Tajawal',sans-serif;font-weight:600;">سيصل إشعار للتلاميذ المسجّلين في هذه المادة</div>
                         </div>
                     </div>
-
                     <!-- المستوى -->
                     <div style="margin-bottom:12px;">
                         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
@@ -481,11 +478,8 @@
                             </button>
                             <div id="videoLevelPanel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;left:0;background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,0.14);z-index:200;max-height:280px;overflow-y:auto;border:1.5px solid #e0e6ed;scrollbar-width:none;"></div>
                         </div>
-                        <select id="videoLevel" onchange="onVideoLevelChange()" style="display:none;">
-                            <option value="">— اختر المستوى —</option>
-                        </select>
+                        <select id="videoLevel" onchange="onVideoLevelChange()" style="display:none;"><option value="">— اختر المستوى —</option></select>
                     </div>
-
                     <!-- المادة -->
                     <div id="videoSubjectGroup" style="display:none;margin-bottom:12px;">
                         <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
@@ -494,7 +488,6 @@
                         </div>
                         <div id="videoSubjectChips" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;"></div>
                     </div>
-
                     <!-- بطاقة التأكيد -->
                     <div id="videoSelectionCard" style="display:none;background:linear-gradient(135deg,#0d47a1,#1976d2);border-radius:13px;padding:11px 14px;margin-bottom:12px;flex-direction:row;align-items:center;gap:10px;box-shadow:0 4px 14px rgba(13,71,161,0.22);">
                         <div style="background:rgba(255,255,255,0.18);border-radius:9px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -505,10 +498,8 @@
                             <div style="font-size:0.67rem;color:rgba(255,255,255,.72);margin-top:1px;font-family:'Tajawal',sans-serif;">سيصل الإشعار للمشتركين</div>
                         </div>
                     </div>
-
                         </div><!-- end institutionTargetFields -->
                     </div><!-- end videoTargetFields -->
-
                 </div><!-- end videoLevelSubjectSection -->
 
                 <!-- نوع الغرفة -->
@@ -736,115 +727,80 @@
 <script src="shared.js"></script>
 <script>
 // ================================================================
-// YADWOR Rooms — مربوط بـ shared.js بالكامل — بدون Firebase/script.js
+// YADWOR Rooms
 // ================================================================
 
 const ROOMS_KEY = 'yadwor-rooms';
-let allRooms   = [];
-let currentTab = 'all';
+let allRooms    = [];
+let currentTab  = 'all';
 let pendingJoin = null;
 
-// ----------------------------------------------------------------
-// Firebase config
-// ----------------------------------------------------------------
-const FB_DB  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
-const FB_KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
-
-// cache داخلي لتجنب تكرار الطلبات
-let _cachedUser = null;
+// cache المستخدم في الذاكرة (يُملأ مرة واحدة من Firebase)
+let _currentUser = null;
 
 // ----------------------------------------------------------------
-// جلب بيانات المستخدم من Firebase
-// البنية الحقيقية في Firebase:
-//   users/{uid}           → name, avatar, accountType, institutionUid, ...
-//   joinRequests/{instUid}/{reqId} → uid, role, levelId, levelName, subjects, status=accepted
+// جلب بيانات المستخدم من Firebase (users + joinRequests)
+// يستخدم fetchMyUserDataFromFirebase و fetchMyAcceptedJoinRequestFromFirebase
+// المعرَّفتان في shared.js
 // ----------------------------------------------------------------
-async function fetchFullUserFromFirebase() {
+async function loadCurrentUser() {
+    if (_currentUser) return _currentUser;
+
     const uid = localStorage.getItem('yadwor-uid') || '';
-    if (!uid) return null;
-    try {
-        // 1) جلب بيانات المستخدم الأساسية
-        const uRes = await fetch(`${FB_DB}/users/${uid}.json?auth=${FB_KEY}`);
-        const uData = uRes.ok ? await uRes.json() : null;
-        if (!uData) return null;
-
-        const user = {
-            uid,
-            name:           uData.name || uData.displayName || '',
-            avatar:         uData.avatar || uData.avatarUrl || uData.photoURL || '',
-            type:           uData.accountType || uData.profileType || 'user',
-            institutionUid: uData.institutionUid || uData.institutionId || '',
-            institutionName:'',
-            levelId:        '',
-            levelName:      '',
-            subjects:       [],
-        };
-
-        user.typeLabel = {
-            teacher:'أستاذ', institution:'مؤسسة تعليمية',
-            student:'تلميذ', user:'مستخدم',
-            content_creator:'منشئ محتوى', influencer:'مؤثر تعليمي'
-        }[user.type] || 'مستخدم';
-
-        // 2) إذا كان أستاذ أو تلميذ → جلب بيانات الانضمام من joinRequests
-        if ((user.type === 'teacher' || user.type === 'student') && user.institutionUid) {
-            const jRes = await fetch(`${FB_DB}/joinRequests/${user.institutionUid}.json?auth=${FB_KEY}`);
-            if (jRes.ok) {
-                const jData = await jRes.json();
-                if (jData && typeof jData === 'object') {
-                    // البحث عن طلب الانضمام الخاص بهذا المستخدم (accepted)
-                    const myReq = Object.values(jData).find(
-                        r => r && r.uid === uid && r.status === 'accepted'
-                    );
-                    if (myReq) {
-                        user.levelId    = myReq.levelId   || '';
-                        user.levelName  = myReq.levelName || '';
-                        user.institutionName = myReq.institutionUsername || '';
-                        // subjects: مصفوفة أو قائمة من أسماء المواد
-                        const rawSubs = myReq.subjects || [];
-                        user.subjects = Array.isArray(rawSubs)
-                            ? rawSubs.map(s => (typeof s === 'object' ? s.name : s) || '').filter(Boolean)
-                            : Object.values(rawSubs).map(s => (typeof s === 'object' ? s.name : s) || '').filter(Boolean);
-                    }
-                }
-            }
-        }
-
-        // 3) جلب اسم المؤسسة من users/{institutionUid}
-        if (user.institutionUid && !user.institutionName) {
-            const instRes = await fetch(`${FB_DB}/users/${user.institutionUid}.json?auth=${FB_KEY}`);
-            if (instRes.ok) {
-                const instData = await instRes.json();
-                if (instData) user.institutionName = instData.name || instData.username || '';
-            }
-        }
-
-        _cachedUser = user;
-        return user;
-    } catch(e) {
-        console.warn('fetchFullUserFromFirebase error:', e);
-        return null;
+    if (!uid) {
+        _currentUser = { uid:'', name:'مستخدم', avatar:'', type:'user', typeLabel:'مستخدم',
+                         institutionUid:'', institutionName:'', levelId:'', levelName:'', subjects:[] };
+        return _currentUser;
     }
-}
 
-function getCurrentUserSync() {
-    if (_cachedUser) return _cachedUser;
-    const uid    = localStorage.getItem('yadwor-uid') || '';
-    const type   = localStorage.getItem('yadwor-profile-type') || localStorage.getItem('yadwor-account-type') || 'user';
-    const name   = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || '';
-    const avatar = localStorage.getItem('yadwor-avatar-preview') || localStorage.getItem('yadwor-avatar-url') || '';
-    return {
-        uid: uid || 'guest', name: name || '...', avatar, type,
-        typeLabel: {teacher:'أستاذ',institution:'مؤسسة تعليمية',student:'تلميذ',user:'مستخدم',content_creator:'منشئ محتوى',influencer:'مؤثر تعليمي'}[type] || 'مستخدم',
-        institutionUid:'', institutionName:'', levelId:'', levelName:'', subjects:[]
+    // 1) بيانات المستخدم الأساسية
+    const uData = await fetchMyUserDataFromFirebase();
+
+    // 2) طلب الانضمام المقبول (للأستاذ/التلميذ)
+    const jData = await fetchMyAcceptedJoinRequestFromFirebase();
+
+    const type = (uData && (uData.accountType || uData.profileType)) || 'user';
+    const typeLabels = {
+        teacher:'أستاذ', institution:'مؤسسة تعليمية',
+        student:'تلميذ', user:'مستخدم',
+        content_creator:'منشئ محتوى', influencer:'مؤثر تعليمي'
     };
-}
 
-// الدالة الموحدة (async)
-async function getCurrentUser() {
-    if (_cachedUser) return _cachedUser;
-    const fb = await fetchFullUserFromFirebase();
-    return fb || getCurrentUserSync();
+    // اسم المؤسسة — نجلبه من users/{institutionUid}
+    let institutionName = '';
+    const institutionUid = (uData && (uData.institutionUid || uData.institutionId)) || '';
+    if (institutionUid) {
+        try {
+            const r = await fetch(`${FB_DB_URL}/users/${institutionUid}.json?auth=${FB_API_KEY}`);
+            if (r.ok) {
+                const inst = await r.json();
+                if (inst) institutionName = inst.name || inst.username || '';
+            }
+        } catch(e) {}
+    }
+
+    // المواد من joinRequest
+    let subjects = [];
+    if (jData && jData.subjects) {
+        const raw = jData.subjects;
+        subjects = Array.isArray(raw)
+            ? raw.map(s => (typeof s === 'object' ? s.name : s) || '').filter(Boolean)
+            : Object.values(raw).map(s => (typeof s === 'object' ? s.name : s) || '').filter(Boolean);
+    }
+
+    _currentUser = {
+        uid,
+        name:           (uData && (uData.name || uData.displayName)) || 'مستخدم',
+        avatar:         (uData && (uData.avatar || uData.avatarUrl || uData.photoURL)) || '',
+        type,
+        typeLabel:      typeLabels[type] || 'مستخدم',
+        institutionUid,
+        institutionName,
+        levelId:        (jData && jData.levelId)   || '',
+        levelName:      (jData && jData.levelName) || '',
+        subjects,
+    };
+    return _currentUser;
 }
 
 // ----------------------------------------------------------------
@@ -853,9 +809,6 @@ async function getCurrentUser() {
 function setAvatarDiv(el, avatarUrl, name) {
     if (!el) return;
     if (avatarUrl) {
-        el.style.backgroundImage = `url('${avatarUrl}')`;
-        el.style.backgroundSize  = 'cover';
-        el.style.backgroundPosition = 'center';
         el.style.background = `url('${avatarUrl}') center/cover`;
         el.style.color = 'transparent';
         el.textContent = '';
@@ -869,27 +822,27 @@ function setAvatarDiv(el, avatarUrl, name) {
 }
 
 // ----------------------------------------------------------------
-// تهيئة الصفحة
+// تهيئة الصفحة — async لجلب Firebase
 // ----------------------------------------------------------------
-function _applyUserToHeader(user) {
+async function initPage() {
+    // إظهار loader مؤقت
     const nameEl   = document.getElementById('headerName');
     const badgeEl  = document.getElementById('headerTypeBadge');
     const avatarEl = document.getElementById('headerAvatar');
-    if (nameEl)   nameEl.textContent  = user.name      || '...';
-    if (badgeEl)  badgeEl.textContent = user.typeLabel  || 'مستخدم';
-    if (avatarEl) setAvatarDiv(avatarEl, user.avatar, user.name);
-}
+    if (nameEl)  nameEl.textContent  = '...';
+    if (badgeEl) badgeEl.textContent = '...';
 
-async function initPage() {
-    // عرض فوري من localStorage
-    _applyUserToHeader(getCurrentUserSync());
     document.getElementById('createVideoBtn').onclick = openCreateVideoModal;
     loadRooms();
     renderRooms();
 
-    // جلب Firebase في الخلفية وتحديث الهيدر
-    const user = await getCurrentUser();
-    _applyUserToHeader(user);
+    // جلب بيانات المستخدم من Firebase
+    const user = await loadCurrentUser();
+
+    if (nameEl)   nameEl.textContent  = user.name;
+    if (badgeEl)  badgeEl.textContent = user.typeLabel;
+    if (avatarEl) setAvatarDiv(avatarEl, user.avatar, user.name);
+
     if (typeof updateBellBadgeFromFirebase === 'function') updateBellBadgeFromFirebase();
 }
 
@@ -1077,24 +1030,23 @@ function _bindLockLabel() {
     };
 }
 
-// ── عرض بيانات الأستاذ كبيانات للعلم فقط (من joinRequests) ──
+// ── عرض بيانات الأستاذ (من joinRequests) للعلم فقط ──
 function _showTeacherInfoCard(user) {
-    document.getElementById('teacherInfoCard').style.display = 'block';
-    document.getElementById('institutionTargetFields').style.display = 'none';
-
+    const card = document.getElementById('teacherInfoCard');
+    const inst = document.getElementById('institutionTargetFields');
+    if (card) card.style.display = 'block';
+    if (inst) inst.style.display = 'none';
     const badges = document.getElementById('teacherInfoBadges');
     if (!badges) return;
     badges.innerHTML = '';
-
-    const addBadge = (text, bg, color) => {
+    const add = (text, bg, color) => {
         if (!text) return;
         badges.insertAdjacentHTML('beforeend',
-            `<span style="background:${bg};color:${color};font-size:0.72rem;font-weight:800;padding:3px 10px;border-radius:7px;display:inline-flex;align-items:center;font-family:'Tajawal',sans-serif;">${text}</span>`
-        );
+            `<span style="background:${bg};color:${color};font-size:0.72rem;font-weight:800;padding:3px 10px;border-radius:7px;font-family:'Tajawal',sans-serif;">${text}</span>`);
     };
-    addBadge('🏫 ' + (user.institutionName || '—'), '#e8f0fe', '#0d47a1');
-    addBadge('📚 ' + (user.levelName || user.levelId || '—'), '#e8f0fe', '#0d47a1');
-    addBadge('✏️ ' + (user.subjects && user.subjects.length ? user.subjects.join(' · ') : '—'), '#fce4ec', '#c62828');
+    add('🏫 ' + (user.institutionName || '—'), '#e8f0fe', '#0d47a1');
+    add('📚 ' + (user.levelName || user.levelId || '—'), '#e8f0fe', '#0d47a1');
+    add('✏️ ' + (user.subjects && user.subjects.length ? user.subjects.join(' · ') : '—'), '#fce4ec', '#c62828');
 }
 
 // ── toggle: غرفة بدون استهداف ──
@@ -1103,18 +1055,18 @@ function onNoTargetToggle() {
     if (cb) cb.checked = !cb.checked;
     _applyNoTarget(cb ? cb.checked : false);
 }
-function _applyNoTarget(active) {
+function _applyNoTarget(on) {
     const track  = document.getElementById('noTargetTrack');
     const thumb  = document.getElementById('noTargetThumb');
     const fields = document.getElementById('videoTargetFields');
-    if (track) track.style.background = active ? '#0d47a1' : '#c8d0e0';
-    if (thumb) { thumb.style.left = active ? '3px' : 'auto'; thumb.style.right = active ? 'auto' : '3px'; }
-    if (fields) fields.style.display = active ? 'none' : 'block';
+    if (track) track.style.background = on ? '#0d47a1' : '#c8d0e0';
+    if (thumb) { thumb.style.left = on?'3px':'auto'; thumb.style.right = on?'auto':'3px'; }
+    if (fields) fields.style.display = on ? 'none' : 'block';
 }
 
 async function openCreateVideoModal() {
-    // جلب بيانات المستخدم من Firebase (joinRequests)
-    const user = await getCurrentUser();
+    // جلب بيانات المستخدم من Firebase
+    const user = await loadCurrentUser();
 
     // ضبط هوية المستخدم في النافذة
     document.getElementById('videoCreateName').textContent = user.name;
@@ -1132,21 +1084,15 @@ async function openCreateVideoModal() {
     _videoSelectedLevel = ''; _videoSelectedSubject = ''; _videoInstitutionOnly = false;
     document.getElementById('videoSubjectGroup').style.display  = 'none';
     document.getElementById('videoSelectionCard').style.display = 'none';
-
     selectRoomType('public');
-
     const triggerText = document.getElementById('videoLevelTriggerText');
     if (triggerText) { triggerText.textContent = '— اختر المستوى —'; triggerText.style.color = '#888'; }
     const levelPanel = document.getElementById('videoLevelPanel');
     if (levelPanel) levelPanel.style.display = 'none';
-
     const showCodeCb = document.getElementById('videoShowCodeInNotif');
     if (showCodeCb) { showCodeCb.checked = false; onShowCodeToggle(); }
-
     const cbInst = document.getElementById('videoInstitutionOnly');
     if (cbInst) { cbInst.checked = false; onInstitutionLockChange(); }
-
-    // إعادة ضبط toggle بدون استهداف
     const cbNoTarget = document.getElementById('videoNoTarget');
     if (cbNoTarget) cbNoTarget.checked = false;
     _applyNoTarget(false);
@@ -1157,19 +1103,17 @@ async function openCreateVideoModal() {
     if (user.type === 'teacher' || user.type === 'influencer') {
         section.style.display = 'block';
         lockRow.style.display = 'block';
-        // ── للأستاذ: عرض بياناته تلقائياً للعلم فقط ──
+        // للأستاذ: عرض بياناته تلقائياً من joinRequests
         _showTeacherInfoCard(user);
-        // تعيين بيانات الاستهداف تلقائياً من joinRequests
         _videoSelectedLevel   = user.levelId || '';
-        _videoSelectedSubject = (user.subjects && user.subjects.length) ? user.subjects[0] : '';
+        _videoSelectedSubject = (user.subjects && user.subjects[0]) || '';
     } else if (user.type === 'institution') {
         section.style.display = 'block';
         lockRow.style.display = 'block';
-        // ── للمؤسسة: اختيار يدوي ──
-        if (document.getElementById('teacherInfoCard'))
-            document.getElementById('teacherInfoCard').style.display = 'none';
-        if (document.getElementById('institutionTargetFields'))
-            document.getElementById('institutionTargetFields').style.display = 'block';
+        const card = document.getElementById('teacherInfoCard');
+        const inst = document.getElementById('institutionTargetFields');
+        if (card) card.style.display = 'none';
+        if (inst) inst.style.display = 'block';
         buildInstitutionLevelSelector();
     } else {
         section.style.display = 'none';
@@ -1181,10 +1125,8 @@ async function openCreateVideoModal() {
 }
 
 function buildTeacherLevelSelector(user) {
-    // هذه الدالة لم تعد تُستخدم للأستاذ — بياناته تأتي من Firebase/joinRequests
-    // نتركها هنا لتجنب أي خطأ إذا نوودعت من مكان آخر
+    // لم تعد تُستخدم — بيانات الأستاذ تأتي من Firebase/joinRequests تلقائياً
 }
-
 
 
 function buildInstitutionLevelSelector() {
@@ -1449,42 +1391,30 @@ function onShowCodeToggle() {
     }
 }
 
-function confirmCreateVideo() {
-    const name     = document.getElementById('videoRoomName').value.trim();
-    const type     = document.getElementById('videoRoomType').value;
-    const code     = document.getElementById('videoRoomCode').value.trim();
-    const showCodeInNotif = document.getElementById('videoShowCodeInNotif') ? document.getElementById('videoShowCodeInNotif').checked : false;
-    if (!name) { showErr('videoErr','اسم الغرفة مطلوب.'); return; }
-    if (type === 'private' && !code) { showErr('videoErr','كود الغرفة مطلوب للغرفة الخاصة.'); return; }
-
 async function confirmCreateVideo() {
     const name  = document.getElementById('videoRoomName').value.trim();
     const type  = document.getElementById('videoRoomType').value;
     const codeEl = document.getElementById('videoRoomCode');
     const code  = codeEl ? codeEl.value.trim() : '';
-    const showCodeInNotif = document.getElementById('videoShowCodeInNotif')
-        ? document.getElementById('videoShowCodeInNotif').checked : false;
-    const noTarget = document.getElementById('videoNoTarget')
-        ? document.getElementById('videoNoTarget').checked : false;
+    const showCodeInNotif = document.getElementById('videoShowCodeInNotif')?.checked || false;
+    const noTarget        = document.getElementById('videoNoTarget')?.checked        || false;
 
     if (!name) { showErr('videoErr','اسم الغرفة مطلوب.'); return; }
     if (type === 'private' && !code) { showErr('videoErr','كود الغرفة مطلوب للغرفة الخاصة.'); return; }
 
-    // جلب بيانات المستخدم من Firebase (يشمل joinRequests)
-    const user = await getCurrentUser();
+    // جلب بيانات المستخدم من Firebase (مع joinRequests)
+    const user = await loadCurrentUser();
 
-    // التحقق من الاستهداف (فقط إذا لم يكن noTarget)
-    if (!noTarget) {
-        if (user.type === 'institution') {
-            if (!_videoSelectedLevel)   { showErr('videoErr','الرجاء اختيار المستوى الدراسي.'); return; }
-            if (!_videoSelectedSubject) { showErr('videoErr','الرجاء اختيار المادة الدراسية.'); return; }
-        }
-        // للأستاذ: البيانات تأتي من joinRequests تلقائياً
-        if (user.type === 'teacher' || user.type === 'influencer') {
-            // لا نوقف العملية — نستخدم ما لدينا
-            _videoSelectedLevel   = _videoSelectedLevel   || user.levelId || '';
-            _videoSelectedSubject = _videoSelectedSubject || (user.subjects && user.subjects[0]) || '';
-        }
+    // التحقق من الاستهداف
+    if (!noTarget && user.type === 'institution') {
+        if (!_videoSelectedLevel)   { showErr('videoErr','الرجاء اختيار المستوى الدراسي.'); return; }
+        if (!_videoSelectedSubject) { showErr('videoErr','الرجاء اختيار المادة الدراسية.'); return; }
+    }
+
+    // للأستاذ: استخدام بياناته من joinRequests مباشرةً
+    if (!noTarget && (user.type === 'teacher' || user.type === 'influencer')) {
+        _videoSelectedLevel   = _videoSelectedLevel   || user.levelId              || '';
+        _videoSelectedSubject = _videoSelectedSubject || (user.subjects?.[0] || '') ;
     }
 
     const roomId = 'YW' + Math.floor(100000 + Math.random() * 900000);
@@ -1504,7 +1434,7 @@ async function confirmCreateVideo() {
         teacherUid:  user.uid,
         ownerType:   user.type,
         levelId:     noTarget ? '' : (_videoSelectedLevel  || ''),
-        levelName:   noTarget ? '' : (lvl ? lvl.name : (user.levelName || _videoSelectedLevel || '')),
+        levelName:   noTarget ? '' : (lvl ? lvl.name : (user.levelName || '')),
         levelCycle:  lvl ? lvl.cycle : '',
         subject:     noTarget ? '' : (_videoSelectedSubject || ''),
         institutionUid:  user.institutionUid  || '',
@@ -1519,10 +1449,11 @@ async function confirmCreateVideo() {
     allRooms.unshift({...roomData});
     saveRooms();
 
+    // حفظ بيانات الغرفة للانتقال
     const rtData = JSON.stringify({roomId, roomType:type, roomCode:code, roomName:name, ownerUid:user.uid});
     try { sessionStorage.setItem('yw_room_target', rtData); } catch(e) {}
     try { localStorage.setItem('yw_room_target', rtData); } catch(e) {}
-    localStorage.setItem('yw_active_room',    JSON.stringify({roomId, isOwner:true, roomName:name, roomType:type, roomCode:code, roomMode:'video', ownerUid:user.uid}));
+    localStorage.setItem('yw_active_room',    JSON.stringify({roomId,isOwner:true,roomName:name,roomType:type,roomCode:code,roomMode:'video',ownerUid:user.uid}));
     localStorage.setItem('yw_room_mode',      'video');
     localStorage.setItem('yw_current_user',   JSON.stringify(user));
     localStorage.setItem('yw_room_owner_uid', user.uid);
@@ -1536,31 +1467,24 @@ async function confirmCreateVideo() {
             .then(() => console.log('✅ الغرفة حُفظت:', roomId))
             .catch(err => console.warn('⚠️ فشل الحفظ:', err));
 
-        // إرسال إشعار للتلاميذ المستهدفين
+        // إشعار للتلاميذ المستهدفين
         if (!noTarget && (roomData.levelId || roomData.subject)) {
             const notif = {
-                type:        'room',
-                subtype:     'live_room',
-                roomId,
-                roomName:    name,
-                roomType:    type,
-                ownerName:   user.name,
-                ownerAvatar: user.avatar,
-                ownerUid:    user.uid,
-                ownerType:   user.type,
-                levelId:     roomData.levelId,
-                levelName:   roomData.levelName,
-                subject:     roomData.subject,
+                type:'room', subtype:'live_room',
+                roomId, roomName:name, roomType:type,
+                ownerName:user.name, ownerAvatar:user.avatar, ownerUid:user.uid, ownerType:user.type,
+                levelId:   roomData.levelId,   levelName:roomData.levelName,
+                subject:   roomData.subject,
                 institutionUid:  roomData.institutionUid,
                 institutionName: roomData.institutionName,
                 institutionOnly: _videoInstitutionOnly,
-                roomCode:    (type === 'private' && showCodeInNotif) ? code : '',
-                showCode:    (type === 'private' && showCodeInNotif),
-                noTarget:    false,
-                ts:          Date.now(),
-                text:        `🔴 ${user.name} بدأ بثاً مباشراً: "${name}"`
+                roomCode: (type==='private' && showCodeInNotif) ? code : '',
+                showCode: (type==='private' && showCodeInNotif),
+                noTarget: false,
+                ts:   Date.now(),
+                text: `🔴 ${user.name} بدأ بثاً مباشراً: "${name}"`
             };
-            firebase.database().ref('notificationsRoom/' + roomId).set(notif).catch(() => {});
+            firebase.database().ref('notificationsRoom/' + roomId).set(notif).catch(()=>{});
         }
     }
 
