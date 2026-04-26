@@ -788,8 +788,10 @@ async function publishPost() {
 
 // Init
 renderHome();
-// تحديث badge الإشعارات من Firebase
+// تحديث badge الإشعارات من Firebase مع Realtime listener
 updateBellBadgeFromFirebase();
+// طلب إذن إشعارات المتصفح (Push Notifications)
+requestPushPermission();
 </script>
 <script src="floating-room.js"></script>
 </body>
