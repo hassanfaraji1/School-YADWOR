@@ -910,12 +910,28 @@ function openDrawer(){  const d=document.getElementById('drawer'); if(d)d.classL
 function closeDrawer(){ const d=document.getElementById('drawer'); if(d)d.classList.add('hidden'); }
 function getDefaultTab(type){ if(type==='institution')return'teachers'; if(type==='teacher')return'students'; if(type==='student')return'teachers'; return'posts'; }
 
-// =================== BELL BADGE (Firebase) ===================
+// =================== BELL BADGE (Firebase Realtime Listener) ===================
+
+// آخر وقت قراءة محفوظ في الذاكرة فقط (لا localStorage)
+let _bellLastReadTs = 0;
+
+// جلب آخر وقت قراءة من Firebase عند التشغيل
+(async function _initBellLastRead() {
+  const uid = localStorage.getItem('yadwor-uid') || '';
+  if (!uid) return;
+  try {
+    const res = await fetch(`${FB_DB_URL}/userMeta/${uid}/notifLastRead.json?auth=${FB_API_KEY}`);
+    if (res.ok) {
+      const val = await res.json();
+      if (val && typeof val === 'number') _bellLastReadTs = val;
+    }
+  } catch(e) {}
+})();
+
 /**
- * تحديث رقم الجرس (badge) من Firebase مباشرة
- * تُستدعى في كل صفحة تحتوي على #notif-badge
+ * حساب عدد الإشعارات غير المقروءة وتحديث الـ badge
  */
-async function updateBellBadgeFromFirebase() {
+async function _computeAndUpdateBadge() {
   const badgeEl = document.getElementById('notif-badge');
   if (!badgeEl) return;
 
@@ -923,33 +939,27 @@ async function updateBellBadgeFromFirebase() {
   const myType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
   if (!myUid) { badgeEl.style.display = 'none'; return; }
 
-  // آخر وقت قرأ فيه المستخدم الإشعارات
-  const lastRead = parseInt(localStorage.getItem('yadwor-notif-last-read') || '0');
+  const lastRead = _bellLastReadTs;
 
   try {
-    // جلب إشعارات التمارين من Firebase
+    // ── إشعارات التمارين ──
     let examUnread = 0;
     const resN = await fetch(`${FB_DB_URL}/notifications.json?auth=${FB_API_KEY}`);
     if (resN.ok) {
       const dataN = await resN.json();
       if (dataN && typeof dataN === 'object') {
         const examList = Object.values(dataN).filter(n => n && n.type === 'exam');
-
         if (myType === 'teacher') {
-          // الأستاذ لا يرى إشعار تمارينه ولا تمارين الآخرين
           examUnread = 0;
         } else if (myType === 'institution') {
-          // صاحب المؤسسة يرى كل إشعارات مؤسسته
           examUnread = examList.filter(n =>
             (n.institutionUid || '') === myUid && (n.publishedAt || 0) > lastRead
           ).length;
         } else if (myType === 'student') {
-          // جلب طلب انضمام التلميذ
           let myReq = null;
           try {
             const allReqs = (typeof state !== 'undefined' && state.joinRequests) ? state.joinRequests : [];
             myReq = allReqs.find(r => r.status === 'accepted' && (r.uid === myUid || r.userId === myUid));
-            // إذا لم يوجد محلياً → جلب من Firebase
             if (!myReq) {
               const resAll = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
               if (resAll.ok) {
@@ -967,14 +977,13 @@ async function updateBellBadgeFromFirebase() {
               }
             }
           } catch(e) {}
-
           if (myReq) {
             const mySubjectNames = (myReq.subjects || []).map(s => (s.name || s).trim());
             examUnread = examList.filter(n => {
               if ((n.publishedAt || 0) <= lastRead) return false;
-              const sameInst = (myReq.institutionUid || myReq.institutionId || '') === (n.institutionUid || '');
+              const sameInst  = (myReq.institutionUid || myReq.institutionId || '') === (n.institutionUid || '');
               const sameLevel = myReq.levelId === n.levelId;
-              const sameSub = mySubjectNames.includes((n.subject || '').trim());
+              const sameSub   = mySubjectNames.includes((n.subject || '').trim());
               return sameInst && sameLevel && sameSub;
             }).length;
           }
@@ -982,7 +991,7 @@ async function updateBellBadgeFromFirebase() {
       }
     }
 
-    // إشعارات اللايكات والتعليقات من Firebase
+    // ── إشعارات اللايكات والتعليقات ──
     let interactionUnread = 0;
     try {
       const resI = await fetch(`${FB_DB_URL}/interactions/${myUid}.json?auth=${FB_API_KEY}`);
@@ -996,7 +1005,7 @@ async function updateBellBadgeFromFirebase() {
       }
     } catch(e) {}
 
-    // ── إشعارات غرف البث من notificationsRoom ──
+    // ── إشعارات غرف البث ──
     let roomUnread = 0;
     try {
       const resR = await fetch(`${FB_DB_URL}/notificationsRoom.json?auth=${FB_API_KEY}`);
@@ -1005,7 +1014,6 @@ async function updateBellBadgeFromFirebase() {
         if (dataR && typeof dataR === 'object') {
           const roomList = Object.values(dataR).filter(n => n && n.roomId && n.ownerUid !== myUid);
           if (myType === 'student') {
-            // التلميذ يرى إشعارات مؤسسته + مستواه + مادته فقط
             let myReqR = null;
             try {
               const resAllR = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
@@ -1033,7 +1041,6 @@ async function updateBellBadgeFromFirebase() {
               }).length;
             }
           } else if (myType !== 'teacher') {
-            // المؤسسة وباقي الأنواع
             roomUnread = roomList.filter(n =>
               (n.ts || 0) > lastRead && (n.noTarget || (n.institutionUid === myUid))
             ).length;
@@ -1053,3 +1060,139 @@ async function updateBellBadgeFromFirebase() {
     badgeEl.style.display = 'none';
   }
 }
+
+/**
+ * تحديث رقم الجرس (badge) من Firebase مع Realtime listener
+ * تُستدعى في كل صفحة تحتوي على #notif-badge
+ */
+function updateBellBadgeFromFirebase() {
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  if (!myUid) return;
+
+  // الحساب الأولي فوراً
+  _computeAndUpdateBadge();
+
+  // Realtime listener عبر Firebase SSE للتحديث الفوري بدون refresh
+  function _startSSEListener(path) {
+    const url = `${FB_DB_URL}/${path}.json?auth=${FB_API_KEY}`;
+    try {
+      const evtSource = new EventSource(url);
+      evtSource.addEventListener('put', function() {
+        _computeAndUpdateBadge();
+      });
+      evtSource.addEventListener('patch', function() {
+        _computeAndUpdateBadge();
+      });
+      evtSource.onerror = function() {
+        evtSource.close();
+        // إعادة المحاولة بعد 10 ثوان
+        setTimeout(() => _startSSEListener(path), 10000);
+      };
+    } catch(err) {}
+  }
+
+  _startSSEListener('notificationsRoom');
+  _startSSEListener('notifications');
+  _startSSEListener(`interactions/${myUid}`);
+  _startSSEListener(`userMeta/${myUid}/notifLastRead`);
+}
+
+// =================== WEB PUSH NOTIFICATIONS ===================
+/**
+ * طلب إذن الإشعارات وتسجيل Service Worker
+ * تُستدعى مرة واحدة بعد تسجيل الدخول
+ */
+async function requestPushPermission() {
+  if (!('Notification' in window)) return;
+  if (!('serviceWorker' in navigator)) return;
+
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return;
+
+    // تسجيل Service Worker
+    await navigator.serviceWorker.register('sw.js');
+  } catch(e) {}
+}
+
+/**
+ * إرسال إشعار محلي للمتصفح/الهاتف
+ * يُستدعى عند وصول إشعار جديد من Firebase
+ */
+function sendBrowserNotification(title, body, url) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+
+  try {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'SHOW_NOTIFICATION',
+        title: title,
+        body: body,
+        url: url || 'notifications.html'
+      });
+    } else {
+      const notif = new Notification(title, {
+        body: body,
+        icon: 'https://res.cloudinary.com/dlujoziwz/image/upload/v1/yadwor-icon.png',
+        badge: 'https://res.cloudinary.com/dlujoziwz/image/upload/v1/yadwor-icon.png',
+        data: { url: url || 'notifications.html' }
+      });
+      notif.onclick = function() {
+        window.focus();
+        window.location.href = url || 'notifications.html';
+        notif.close();
+      };
+    }
+  } catch(e) {}
+}
+
+/**
+ * مراقب إشعارات الغرف الجديدة — يُرسل Push عند ورود غرفة جديدة
+ * يعمل في الخلفية عبر SSE
+ */
+(function _startRoomPushWatcher() {
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  if (!myUid) return;
+
+  let _knownRoomKeys = new Set();
+  let _initialized = false;
+
+  const url = `${FB_DB_URL}/notificationsRoom.json?auth=${FB_API_KEY}`;
+  try {
+    const evtSource = new EventSource(url);
+    evtSource.addEventListener('put', function(e) {
+      try {
+        const payload = JSON.parse(e.data);
+        if (!payload || !payload.data) return;
+        const data = payload.data;
+        if (typeof data !== 'object') return;
+
+        const keys = Object.keys(data);
+
+        if (!_initialized) {
+          // عند أول تحميل: سجّل المفاتيح الموجودة دون إرسال إشعار
+          keys.forEach(k => _knownRoomKeys.add(k));
+          _initialized = true;
+          return;
+        }
+
+        // ابحث عن مفاتيح جديدة
+        keys.forEach(k => {
+          if (_knownRoomKeys.has(k)) return;
+          _knownRoomKeys.add(k);
+          const n = data[k];
+          if (!n || n.ownerUid === myUid) return;
+          // أرسل إشعاراً للمتصفح
+          const title = 'YADWOR – بث مباشر جديد 🔴';
+          const body  = n.text || `${n.ownerName || 'أستاذ'} بدأ بثاً مباشراً`;
+          sendBrowserNotification(title, body, 'notifications.html');
+        });
+      } catch(err) {}
+    });
+    evtSource.onerror = function() {
+      evtSource.close();
+      setTimeout(_startRoomPushWatcher, 15000);
+    };
+  } catch(err) {}
+})()
