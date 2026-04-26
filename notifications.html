@@ -83,6 +83,9 @@ const FB_API_KEY_N = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
 let currentTab = 'all';
 let allNotifications = [];
 
+// ── وقت آخر قراءة محفوظ في الذاكرة فقط (لا localStorage) ──
+let _lastReadTs = 0;
+
 function setNotifTab(tab) {
   currentTab = tab;
   ['all','exams','rooms','likes','comments'].forEach(t => {
@@ -125,14 +128,14 @@ function formatTimeAgoN(ts) {
   if (m < 60) return `منذ ${m} د`;
   const h = Math.floor(m / 60);
   if (h < 24) return `منذ ${h} س`;
-  return `منذ ${Math.floor(h/24)} يوم`;
+  const d = Math.floor(h / 24);
+  return `منذ ${d} يوم`;
 }
 
 // ================================================================
 // نافذة كلمة السر للغرف الخاصة
 // ================================================================
 function _showPasswordModal(roomId, correctCode) {
-  // إزالة أي نافذة سابقة
   const old = document.getElementById('_roomPassModal');
   if (old) old.remove();
 
@@ -167,7 +170,6 @@ function _showPasswordModal(roomId, correctCode) {
     </div>`;
   document.body.appendChild(modal);
 
-  // focus على حقل الإدخال
   setTimeout(() => {
     const inp = document.getElementById('_roomPassInput');
     if (inp) { inp.focus(); inp.addEventListener('keydown', e => { if (e.key==='Enter') _confirmRoomPass(roomId, correctCode); }); }
@@ -183,7 +185,6 @@ function _confirmRoomPass(roomId, correctCode) {
     if (inp) { inp.style.borderColor = '#e53935'; setTimeout(() => { inp.style.borderColor = '#e0e6ed'; }, 1500); }
     return;
   }
-  // كلمة السر صحيحة → دخول الغرفة
   document.getElementById('_roomPassModal').remove();
   _doJoinRoom(roomId, 'private', correctCode);
 }
@@ -199,13 +200,10 @@ function _doJoinRoom(roomId, roomType, roomCode) {
   window.location.href = 'roomvideo.html';
 }
 
-// الدالة التي تُستدعى من زر "دخول الغرفة مباشرة"
 function joinRoomFromNotif(roomId, roomType, roomCode) {
   if (roomType === 'private') {
-    // إذا كانت كلمة السر معروضة في الإشعار → اسأل المستخدم
     _showPasswordModal(roomId, roomCode);
   } else {
-    // غرفة عامة → دخول مباشر
     _doJoinRoom(roomId, roomType, roomCode);
   }
 }
@@ -230,12 +228,10 @@ function renderList() {
   el.innerHTML = `<div class="space-y-3">${list.map(n => {
     const isRoom = n.type === 'room';
 
-    // إشعار التمرين → ينقل لصفحة الأستاذ
     const clickAttr = (!isRoom && n.type === 'exam' && n.teacherUid)
       ? `onclick="window.location.href='profile.html?uid=${n.teacherUid}'" style="cursor:pointer;"`
       : '';
 
-    // ── محتوى خاص بإشعار الغرفة ──
     let roomExtra = '';
     if (isRoom) {
       const badges = [];
@@ -245,7 +241,6 @@ function renderList() {
       else                          badges.push(`<span style="background:#e8f5e9;color:#2e7d32;font-size:10px;font-weight:800;padding:2px 9px;border-radius:6px;">🌐 عامة</span>`);
       roomExtra += badges.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">${badges.join('')}</div>` : '';
 
-      // كلمة السر — تُعرض فقط إذا أرسلها الأستاذ في الإشعار
       if (n.showCode && n.roomCode) {
         roomExtra += `
         <div style="margin-top:6px;background:#f0f4ff;border-radius:8px;padding:5px 10px;display:flex;align-items:center;gap:6px;">
@@ -254,17 +249,14 @@ function renderList() {
         </div>`;
       }
 
-      // زر الدخول
       if (n.roomId) {
         const isPrivate = n.roomType === 'private';
         roomExtra += `
         <button onclick="joinRoomFromNotif('${n.roomId}','${n.roomType||'public'}','${n.roomCode||''}')"
-          style="margin-top:8px;width:100%;padding:10px;background:linear-gradient(135deg,#0d47a1,#1565c0);color:#fff;border:none;border-radius:11px;
-          font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 3px 10px rgba(13,71,161,0.25);">
-          ${isPrivate
-            ? `<svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> دخول الغرفة (كلمة السر مطلوبة)`
-            : `<svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;flex-shrink:0;"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> دخول الغرفة مباشرة`
-          }
+          style="margin-top:8px;width:100%;padding:8px 6px;background:linear-gradient(135deg,#0d47a1,#1565c0);color:#fff;border:none;border-radius:11px;
+          font-family:'Tajawal',sans-serif;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;box-shadow:0 3px 10px rgba(13,71,161,0.25);white-space:nowrap;overflow:hidden;">
+          <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;flex-shrink:0;">${isPrivate ? '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' : '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>'}</svg>
+          ${isPrivate ? 'دخول الغرفة 🔒' : 'دخول الغرفة'}
         </button>`;
       }
     }
@@ -316,11 +308,8 @@ async function fetchRoomNotifications(myUid, myType, myReq) {
     const data = await res.json();
     if (!data || typeof data !== 'object') return [];
 
-    const lastRead = parseInt(localStorage.getItem('yadwor-notif-last-read') || '0');
-
     return Object.values(data).filter(n => {
       if (!n || !n.roomId) return false;
-      // صاحب الغرفة لا يرى إشعاره
       if (n.ownerUid === myUid) return false;
 
       if (myType === 'student') {
@@ -332,12 +321,11 @@ async function fetchRoomNotifications(myUid, myType, myReq) {
         const sameSub   = !n.subject || mySubs.includes((n.subject||'').trim());
         return sameInst && sameLevel && sameSub;
       }
-      // باقي الأنواع: الغرف العامة بدون استهداف فقط
       return n.noTarget && n.roomType === 'public';
     }).map(n => ({
       ...n,
       type:   'room',
-      unread: (n.ts || 0) > lastRead
+      unread: (n.ts || 0) > _lastReadTs
     })).sort((a, b) => (b.ts || 0) - (a.ts || 0));
   } catch(e) { return []; }
 }
@@ -349,8 +337,8 @@ async function fetchExamNotifications(myUid, myType, myReq) {
     if (!res.ok) return [];
     const data = await res.json();
     if (!data || typeof data !== 'object') return [];
-    const lastRead = parseInt(localStorage.getItem('yadwor-notif-last-read') || '0');
     const list = Object.values(data).filter(n => n && n.type === 'exam');
+
     return list.filter(n => {
       if (n.teacherUid === myUid) return false;
       if (myType === 'teacher') return false;
@@ -364,7 +352,7 @@ async function fetchExamNotifications(myUid, myType, myReq) {
       }
       if (myType === 'institution') return (n.institutionUid || '') === myUid;
       return false;
-    }).map(n => ({ ...n, unread: (n.publishedAt || 0) > lastRead }))
+    }).map(n => ({ ...n, unread: (n.publishedAt || 0) > _lastReadTs }))
       .sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
   } catch(e) { return []; }
 }
@@ -376,10 +364,9 @@ async function fetchInteractionNotifications(myUid) {
     if (!res.ok) return [];
     const data = await res.json();
     if (!data || typeof data !== 'object') return [];
-    const lastRead = parseInt(localStorage.getItem('yadwor-notif-last-read') || '0');
     return Object.values(data)
       .filter(n => n && n.type)
-      .map(n => ({ ...n, unread: (n.publishedAt || n.timestamp || 0) > lastRead }))
+      .map(n => ({ ...n, unread: (n.publishedAt || n.timestamp || 0) > _lastReadTs }))
       .sort((a, b) => (b.publishedAt || b.timestamp || 0) - (a.publishedAt || a.timestamp || 0));
   } catch(e) { return []; }
 }
@@ -408,7 +395,6 @@ async function loadNotifications() {
     } catch(e) {}
   }
 
-  // جلب الإشعارات الثلاثة بالتوازي
   const [roomNotifs, examNotifs, interactionNotifs] = await Promise.all([
     fetchRoomNotifications(myUid, myType, myReq),
     fetchExamNotifications(myUid, myType, myReq),
@@ -422,238 +408,75 @@ async function loadNotifications() {
 
   // تمييز الكل كمقروء بعد 2 ثانية وتحديث badge
   setTimeout(() => {
+    _lastReadTs = Date.now();
     allNotifications.forEach(n => n.unread = false);
-    localStorage.setItem('yadwor-notif-last-read', String(Date.now()));
+    // حفظ آخر وقت قراءة في Firebase بدلاً من localStorage
+    const myUid2 = localStorage.getItem('yadwor-uid') || '';
+    if (myUid2) {
+      fetch(`${FB_DB_URL_N}/userMeta/${myUid2}/notifLastRead.json?auth=${FB_API_KEY_N}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(_lastReadTs)
+      }).catch(() => {});
+    }
     const badgeEl = document.getElementById('notif-badge');
     if (badgeEl) badgeEl.style.display = 'none';
     renderList();
   }, 2000);
 }
 
-// Polling كل 30 ثانية لإشعارات الغرف الجديدة
-(function startRoomPoller() {
-  let lastTs = Date.now();
-  setInterval(async () => {
-    const uid = localStorage.getItem('yadwor-uid') || '';
-    if (!uid) return;
+// ─── Firebase Realtime Listener لإشعارات الغرف ───
+(function startRealtimeListener() {
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  if (!myUid) return;
+
+  // استخدام SSE (Server-Sent Events) من Firebase Realtime Database
+  // للاستماع الفوري لتغييرات notificationsRoom
+  let lastKnownCount = 0;
+
+  function listenToFirebasePath(path, callback) {
+    const url = `${FB_DB_URL_N}/${path}.json?auth=${FB_API_KEY_N}`;
     try {
-      const r = await fetch(`${FB_DB_URL_N}/notificationsRoom.json?auth=${FB_API_KEY_N}`);
-      if (!r.ok) return;
-      const d = await r.json();
-      if (!d) return;
-      const newOnes = Object.values(d).filter(n => n && n.ts > lastTs && n.ownerUid !== uid);
-      if (newOnes.length) { lastTs = Date.now(); loadNotifications(); }
-    } catch(e) {}
-  }, 30000);
-})();
+      const evtSource = new EventSource(url);
+      evtSource.addEventListener('put', function(e) {
+        try {
+          const payload = JSON.parse(e.data);
+          callback(payload);
+        } catch(err) {}
+      });
+      evtSource.addEventListener('patch', function(e) {
+        try {
+          const payload = JSON.parse(e.data);
+          callback(payload);
+        } catch(err) {}
+      });
+      evtSource.onerror = function() {
+        evtSource.close();
+        // إعادة المحاولة بعد 5 ثوان عند انقطاع الاتصال
+        setTimeout(() => listenToFirebasePath(path, callback), 5000);
+      };
+    } catch(err) {}
+  }
 
-loadNotifications();
-</script>
-
-function setNotifTab(tab) {
-  currentTab = tab;
-  ['all','exams','rooms','likes','comments'].forEach(t => {
-    const btn = document.getElementById('ntab-' + t);
-    if (btn) btn.className = 'notif-tab ' + (t === tab ? 'active' : '') + ' px-4 py-3 text-[13px] shrink-0';
+  // الاستماع لإشعارات الغرف بشكل فوري
+  listenToFirebasePath('notificationsRoom', function(payload) {
+    if (!payload || !payload.data) return;
+    // إعادة تحميل الإشعارات عند ورود تغيير جديد
+    loadNotifications();
   });
-  renderList();
-}
 
-function getFilteredNotifs() {
-  if (currentTab === 'all') return allNotifications;
-  if (currentTab === 'exams') return allNotifications.filter(n => n.type === 'exam');
-  if (currentTab === 'rooms') return allNotifications.filter(n => n.type === 'room');
-  if (currentTab === 'likes') return allNotifications.filter(n => n.type === 'like');
-  if (currentTab === 'comments') return allNotifications.filter(n => n.type === 'comment');
-  return allNotifications;
-}
+  // الاستماع لإشعارات التمارين بشكل فوري
+  listenToFirebasePath('notifications', function(payload) {
+    if (!payload || !payload.data) return;
+    loadNotifications();
+  });
 
-function getNotifIcon(type) {
-  if (type === 'exam') return '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>';
-  if (type === 'room') return '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>';
-  if (type === 'like') return '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="#ef4444" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
-  if (type === 'comment') return '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
-  return '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
-}
-
-function getIconBg(type) {
-  if (type === 'exam')    return 'background:#eef2ff;';
-  if (type === 'room')    return 'background:#fff7ed;';
-  if (type === 'like')    return 'background:#fff1f2;';
-  if (type === 'comment') return 'background:#f0f9ff;';
-  return 'background:#f4f4f5;';
-}
-
-function formatTimeAgoN(ts) {
-  if (!ts) return 'الآن';
-  const diff = Date.now() - ts;
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return 'الآن';
-  if (m < 60) return `منذ ${m} د`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `منذ ${h} س`;
-  const d = Math.floor(h / 24);
-  return `منذ ${d} يوم`;
-}
-
-function renderList() {
-  const el = document.getElementById('notifications-list');
-  const list = getFilteredNotifs();
-
-  if (!list.length) {
-    el.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-center gap-3">
-      <div class="h-16 w-16 rounded-full bg-zinc-100 flex items-center justify-center">
-        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-      </div>
-      <p class="text-[14px] font-bold text-zinc-400">لا توجد إشعارات في هذا القسم</p>
-    </div>`;
-    return;
-  }
-
-  el.innerHTML = `<div class="space-y-3">${list.map(n => {
-    // إشعار التمرين → ينقل لصفحة الأستاذ
-    const clickAttr = (n.type === 'exam' && n.teacherUid)
-      ? `onclick="window.location.href='profile.html?uid=${n.teacherUid}'" style="cursor:pointer;"`
-      : '';
-    return `
-    <div class="rounded-[18px] border p-4 shadow-sm ${n.unread ? 'border-zinc-300 bg-white' : 'border-zinc-200 bg-zinc-50'}" ${clickAttr}>
-      <div class="flex items-start gap-3">
-        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style="${getIconBg(n.type)}">
-          ${getNotifIcon(n.type)}
-        </div>
-        <div class="flex-1 min-w-0">
-          <p class="text-[14px] font-bold text-zinc-800 leading-snug">${n.text || 'إشعار جديد'}</p>
-          ${n.subject ? `<p class="mt-0.5 text-[11px] font-bold text-indigo-600">${n.examType || ''} · ${n.subject}</p>` : ''}
-          ${n.type === 'exam' && n.teacherName ? `<p class="mt-0.5 text-[11px] text-zinc-400 font-bold">👨‍🏫 ${n.teacherName}</p>` : ''}
-          <p class="mt-1.5 text-[12px] text-zinc-500">${formatTimeAgoN(n.publishedAt || n.timestamp)}</p>
-        </div>
-        <div class="flex flex-col items-center gap-1">
-          <div class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${n.unread ? 'bg-rose-500' : 'bg-zinc-300'}"></div>
-          ${n.type === 'exam' ? `<svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-400 mt-1" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>` : ''}
-        </div>
-      </div>
-    </div>`;
-  }).join('')}</div>`;
-}
-
-function showShimmer() {
-  const el = document.getElementById('notifications-list');
-  el.innerHTML = `<div class="space-y-3">${[1,2,3].map(() => `
-    <div class="rounded-[18px] border border-zinc-200 bg-white p-4">
-      <div class="flex items-start gap-3">
-        <div class="shimmer h-10 w-10 rounded-full shrink-0"></div>
-        <div class="flex-1 space-y-2">
-          <div class="shimmer h-3.5 w-3/4 rounded-full"></div>
-          <div class="shimmer h-3 w-1/3 rounded-full"></div>
-        </div>
-        <div class="shimmer h-2.5 w-2.5 rounded-full mt-1 shrink-0"></div>
-      </div>
-    </div>`).join('')}</div>`;
-}
-
-// ─── جلب إشعارات التمارين من Firebase ───
-async function fetchExamNotifications(myUid, myType, myReq, myInstOwnerUid) {
-  try {
-    const res = await fetch(`${FB_DB_URL_N}/notifications.json?auth=${FB_API_KEY_N}`);
-    if (!res.ok) return [];
-    const data = await res.json();
-    if (!data || typeof data !== 'object') return [];
-
-    const lastRead = parseInt(localStorage.getItem('yadwor-notif-last-read') || '0');
-    const list = Object.values(data).filter(n => n && n.type === 'exam');
-
-    return list.filter(n => {
-      // الأستاذ الناشر نفسه لا يرى إشعار تمرينه
-      if (n.teacherUid === myUid) return false;
-      // أساتذة آخرون لا يرون الإشعار
-      if (myType === 'teacher') return false;
-
-      if (myType === 'student') {
-        if (!myReq) return false;
-        const sameInst   = (myReq.institutionUid || myReq.institutionId || '') === (n.institutionUid || '');
-        const sameLevel  = myReq.levelId === n.levelId;
-        const mySubjects = (myReq.subjects || []).map(s => (s.name || s).trim());
-        const sameSub    = mySubjects.includes((n.subject || '').trim());
-        return sameInst && sameLevel && sameSub;
-      }
-
-      // صاحب المؤسسة يرى كل إشعارات مؤسسته
-      if (myType === 'institution') {
-        return (n.institutionUid || '') === myUid;
-      }
-
-      return false;
-    }).map(n => ({
-      ...n,
-      unread: (n.publishedAt || 0) > lastRead
-    })).sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
-  } catch(e) { return []; }
-}
-
-// ─── جلب إشعارات اللايكات والتعليقات من Firebase ───
-async function fetchInteractionNotifications(myUid) {
-  try {
-    const res = await fetch(`${FB_DB_URL_N}/interactions/${myUid}.json?auth=${FB_API_KEY_N}`);
-    if (!res.ok) return [];
-    const data = await res.json();
-    if (!data || typeof data !== 'object') return [];
-    const lastRead = parseInt(localStorage.getItem('yadwor-notif-last-read') || '0');
-    return Object.values(data)
-      .filter(n => n && n.type)
-      .map(n => ({ ...n, unread: (n.publishedAt || n.timestamp || 0) > lastRead }))
-      .sort((a, b) => (b.publishedAt || b.timestamp || 0) - (a.publishedAt || a.timestamp || 0));
-  } catch(e) { return []; }
-}
-
-async function loadNotifications() {
-  showShimmer();
-
-  const myUid  = localStorage.getItem('yadwor-uid') || '';
-  const myType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
-
-  // ── جلب طلب انضمام المستخدم من Firebase (لا localStorage) ──
-  let myReq = null;
-  if (myUid) {
-    try {
-      const allInstRes = await fetch(`${FB_DB_URL_N}/joinRequests.json?auth=${FB_API_KEY_N}`);
-      if (allInstRes.ok) {
-        const allInst = await allInstRes.json();
-        if (allInst && typeof allInst === 'object') {
-          for (const instUid of Object.keys(allInst)) {
-            const instReqs = allInst[instUid];
-            if (!instReqs) continue;
-            const found = Object.values(instReqs).find(r =>
-              r && r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
-            );
-            if (found) { myReq = found; break; }
-          }
-        }
-      }
-    } catch(e) {}
-  }
-
-  // ── جلب الإشعارات من Firebase ──
-  const [examNotifs, interactionNotifs] = await Promise.all([
-    fetchExamNotifications(myUid, myType, myReq),
-    fetchInteractionNotifications(myUid)
-  ]);
-
-  allNotifications = [...examNotifs, ...interactionNotifs]
-    .sort((a, b) => (b.publishedAt || b.timestamp || 0) - (a.publishedAt || a.timestamp || 0));
-
-  renderList();
-
-  // ── تمييز الكل كمقروء بعد 2 ثانية ──
-  setTimeout(() => {
-    allNotifications.forEach(n => n.unread = false);
-    // حفظ وقت القراءة لكي تعمل updateBellBadgeFromFirebase بشكل صحيح
-    localStorage.setItem('yadwor-notif-last-read', String(Date.now()));
-    // تحديث badge الجرس
-    const badgeEl = document.getElementById('notif-badge');
-    if (badgeEl) badgeEl.style.display = 'none';
-    renderList();
-  }, 2000);
-}
+  // الاستماع لإشعارات التفاعلات الخاصة بالمستخدم
+  listenToFirebasePath(`interactions/${myUid}`, function(payload) {
+    if (!payload || !payload.data) return;
+    loadNotifications();
+  });
+})();
 
 loadNotifications();
 </script>
