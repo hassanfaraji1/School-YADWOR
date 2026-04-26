@@ -912,7 +912,7 @@ function getDefaultTab(type){ if(type==='institution')return'teachers'; if(type=
 
 // =================== BELL BADGE (Firebase Realtime Listener) ===================
 
-// آخر وقت قراءة محفوظ في الذاكرة فقط (لا localStorage)
+// آخر وقت قراءة — يُجلب من Firebase ويُحفظ هنا في الذاكرة
 let _bellLastReadTs = 0;
 
 // جلب آخر وقت قراءة من Firebase عند التشغيل
@@ -923,10 +923,32 @@ let _bellLastReadTs = 0;
     const res = await fetch(`${FB_DB_URL}/userMeta/${uid}/notifLastRead.json?auth=${FB_API_KEY}`);
     if (res.ok) {
       const val = await res.json();
-      if (val && typeof val === 'number') _bellLastReadTs = val;
+      if (val && typeof val === 'number') {
+        _bellLastReadTs = val;
+      }
     }
   } catch(e) {}
+  // بعد جلب وقت القراءة → أرسل بيانات المستخدم للـ Service Worker
+  _sendInitToSW();
 })();
+
+// إرسال بيانات المستخدم للـ Service Worker لكي يعمل في الخلفية
+function _sendInitToSW() {
+  if (!('serviceWorker' in navigator)) return;
+  const uid  = localStorage.getItem('yadwor-uid') || '';
+  const type = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
+  if (!uid) return;
+  navigator.serviceWorker.ready.then(function(reg) {
+    if (reg.active) {
+      reg.active.postMessage({
+        type:     'INIT_SW',
+        uid:      uid,
+        userType: type,
+        lastRead: _bellLastReadTs
+      });
+    }
+  }).catch(function() {});
+}
 
 /**
  * حساب عدد الإشعارات غير المقروءة وتحديث الـ badge
@@ -1069,14 +1091,14 @@ function updateBellBadgeFromFirebase() {
   const myUid = localStorage.getItem('yadwor-uid') || '';
   if (!myUid) return;
 
-  // الحساب الأولي فوراً
-  _computeAndUpdateBadge();
+  // الحساب الأولي فوراً بعد جلب آخر وقت قراءة
+  _fbGetLastReadThenCompute();
 
   // Realtime listener عبر Firebase SSE للتحديث الفوري بدون refresh
   function _startSSEListener(path) {
-    const url = `${FB_DB_URL}/${path}.json?auth=${FB_API_KEY}`;
+    var url = FB_DB_URL + '/' + path + '.json?auth=' + FB_API_KEY;
     try {
-      const evtSource = new EventSource(url);
+      var evtSource = new EventSource(url);
       evtSource.addEventListener('put', function() {
         _computeAndUpdateBadge();
       });
@@ -1085,58 +1107,100 @@ function updateBellBadgeFromFirebase() {
       });
       evtSource.onerror = function() {
         evtSource.close();
-        // إعادة المحاولة بعد 10 ثوان
-        setTimeout(() => _startSSEListener(path), 10000);
+        setTimeout(function() { _startSSEListener(path); }, 10000);
       };
     } catch(err) {}
   }
 
   _startSSEListener('notificationsRoom');
   _startSSEListener('notifications');
-  _startSSEListener(`interactions/${myUid}`);
-  _startSSEListener(`userMeta/${myUid}/notifLastRead`);
+  _startSSEListener('interactions/' + myUid);
+
+  // مراقبة notifLastRead في Firebase لتحديث _bellLastReadTs فورياً
+  // عندما يقرأ المستخدم من جهاز آخر أو عند فتح notifications.html
+  var lrUrl = FB_DB_URL + '/userMeta/' + myUid + '/notifLastRead.json?auth=' + FB_API_KEY;
+  try {
+    var lrEvt = new EventSource(lrUrl);
+    lrEvt.addEventListener('put', function(e) {
+      try {
+        var payload = JSON.parse(e.data);
+        if (payload && payload.data && typeof payload.data === 'number') {
+          _bellLastReadTs = payload.data;
+          _computeAndUpdateBadge();
+        }
+      } catch(err) {}
+    });
+    lrEvt.onerror = function() { lrEvt.close(); };
+  } catch(err) {}
+}
+
+// جلب آخر وقت قراءة من Firebase ثم حساب الـ badge
+async function _fbGetLastReadThenCompute() {
+  const uid = localStorage.getItem('yadwor-uid') || '';
+  if (!uid) return;
+  try {
+    const res = await fetch(FB_DB_URL + '/userMeta/' + uid + '/notifLastRead.json?auth=' + FB_API_KEY);
+    if (res.ok) {
+      const val = await res.json();
+      if (val && typeof val === 'number') {
+        _bellLastReadTs = val;
+      }
+    }
+  } catch(e) {}
+  _computeAndUpdateBadge();
 }
 
 // =================== WEB PUSH NOTIFICATIONS ===================
+
 /**
- * طلب إذن الإشعارات وتسجيل Service Worker
- * تُستدعى مرة واحدة بعد تسجيل الدخول
+ * تسجيل Service Worker وطلب إذن الإشعارات
+ * تُستدعى عند كل تحميل للصفحة
  */
 async function requestPushPermission() {
-  if (!('Notification' in window)) return;
   if (!('serviceWorker' in navigator)) return;
 
   try {
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') return;
+    // تسجيل Service Worker (أو إعادة استخدامه إذا كان مسجلاً)
+    const reg = await navigator.serviceWorker.register('sw.js', { scope: './' });
 
-    // تسجيل Service Worker
-    await navigator.serviceWorker.register('sw.js');
+    // انتظر حتى يصبح Service Worker جاهزاً
+    await navigator.serviceWorker.ready;
+
+    // طلب إذن الإشعارات إذا لم يُمنح بعد
+    if ('Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+
+    // أرسل بيانات المستخدم للـ SW بعد التسجيل
+    _sendInitToSW();
+
   } catch(e) {}
 }
 
 /**
  * إرسال إشعار محلي للمتصفح/الهاتف
- * يُستدعى عند وصول إشعار جديد من Firebase
+ * يُستدعى عند وصول إشعار جديد من Firebase (عند فتح الصفحة)
  */
 function sendBrowserNotification(title, body, url) {
   if (!('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;
 
   try {
+    // إرسال عبر Service Worker (يعمل حتى في الخلفية)
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
       navigator.serviceWorker.controller.postMessage({
-        type: 'SHOW_NOTIFICATION',
+        type:  'SHOW_NOTIFICATION',
         title: title,
-        body: body,
-        url: url || 'notifications.html'
+        body:  body,
+        url:   url || 'notifications.html'
       });
     } else {
-      const notif = new Notification(title, {
-        body: body,
-        icon: 'https://res.cloudinary.com/dlujoziwz/image/upload/v1/yadwor-icon.png',
+      // fallback: إشعار مباشر عند توفر الصفحة
+      var notif = new Notification(title, {
+        body:  body,
+        icon:  'https://res.cloudinary.com/dlujoziwz/image/upload/v1/yadwor-icon.png',
         badge: 'https://res.cloudinary.com/dlujoziwz/image/upload/v1/yadwor-icon.png',
-        data: { url: url || 'notifications.html' }
+        data:  { url: url || 'notifications.html' }
       });
       notif.onclick = function() {
         window.focus();
@@ -1148,51 +1212,28 @@ function sendBrowserNotification(title, body, url) {
 }
 
 /**
- * مراقب إشعارات الغرف الجديدة — يُرسل Push عند ورود غرفة جديدة
- * يعمل في الخلفية عبر SSE
+ * إخبار Service Worker بأن المستخدم قرأ الإشعارات
+ * (يمنع إعادة ظهور الإشعارات القديمة)
  */
-(function _startRoomPushWatcher() {
-  const myUid = localStorage.getItem('yadwor-uid') || '';
-  if (!myUid) return;
-
-  let _knownRoomKeys = new Set();
-  let _initialized = false;
-
-  const url = `${FB_DB_URL}/notificationsRoom.json?auth=${FB_API_KEY}`;
-  try {
-    const evtSource = new EventSource(url);
-    evtSource.addEventListener('put', function(e) {
-      try {
-        const payload = JSON.parse(e.data);
-        if (!payload || !payload.data) return;
-        const data = payload.data;
-        if (typeof data !== 'object') return;
-
-        const keys = Object.keys(data);
-
-        if (!_initialized) {
-          // عند أول تحميل: سجّل المفاتيح الموجودة دون إرسال إشعار
-          keys.forEach(k => _knownRoomKeys.add(k));
-          _initialized = true;
-          return;
-        }
-
-        // ابحث عن مفاتيح جديدة
-        keys.forEach(k => {
-          if (_knownRoomKeys.has(k)) return;
-          _knownRoomKeys.add(k);
-          const n = data[k];
-          if (!n || n.ownerUid === myUid) return;
-          // أرسل إشعاراً للمتصفح
-          const title = 'YADWOR – بث مباشر جديد 🔴';
-          const body  = n.text || `${n.ownerName || 'أستاذ'} بدأ بثاً مباشراً`;
-          sendBrowserNotification(title, body, 'notifications.html');
-        });
-      } catch(err) {}
+function markNotificationsRead(ts) {
+  _bellLastReadTs = ts || Date.now();
+  // حفظ في Firebase
+  var uid = localStorage.getItem('yadwor-uid') || '';
+  if (uid) {
+    fetch(FB_DB_URL + '/userMeta/' + uid + '/notifLastRead.json?auth=' + FB_API_KEY, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(_bellLastReadTs)
+    }).catch(function() {});
+  }
+  // إخبار SW
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'MARK_READ',
+      ts:   _bellLastReadTs
     });
-    evtSource.onerror = function() {
-      evtSource.close();
-      setTimeout(_startRoomPushWatcher, 15000);
-    };
-  } catch(err) {}
-})()
+  }
+  // إخفاء الـ badge فوراً
+  var badgeEl = document.getElementById('notif-badge');
+  if (badgeEl) badgeEl.style.display = 'none';
+}
