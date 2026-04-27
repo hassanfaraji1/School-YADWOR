@@ -8,6 +8,16 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+  if (!firebase.apps.length) {
+    firebase.initializeApp({
+      apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
+      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com"
+    });
+  }
+</script>
 <style>
   * { box-sizing: border-box; }
   body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
@@ -129,7 +139,8 @@
 <script src="shared.js"></script>
 <script>
 const FB_JR_URL = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
-const FB_JR_KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+// SDK helper
+function _jrDb() { return firebase.database(); }
 
 function isCurrentUserInstitution() {
   return (localStorage.getItem('yadwor-account-type') || 'influencer') === 'institution';
@@ -144,20 +155,14 @@ async function applyAccountTypeOnAcceptance(request) {
   state.settingsAccountType = newType;
   try { const ru = getRealUser(); ru.accountType = newType; localStorage.setItem('yadwor-user-data', JSON.stringify(ru)); } catch(e) {}
   try {
-    await fetch(`${FB_JR_URL}/users/${uid}.json?auth=${FB_JR_KEY}`, {
-      method: 'PATCH', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ accountType: newType, updatedAt: Date.now() })
-    });
+    await _jrDb().ref('users/' + uid).update({ accountType: newType, updatedAt: Date.now() });
   } catch(e) {}
 }
 
 async function updateJoinRequestStatusInFirebase(id, status) {
   try {
     const myUid = localStorage.getItem('yadwor-uid') || '';
-    await fetch(`${FB_JR_URL}/joinRequests/${myUid}/${id}.json?auth=${FB_JR_KEY}`, {
-      method: 'PATCH', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ status: status, updatedAt: Date.now() })
-    });
+    await _jrDb().ref('joinRequests/' + myUid + '/' + id).update({ status: status, updatedAt: Date.now() });
   } catch(e) {}
 }
 
@@ -165,9 +170,8 @@ async function loadJoinRequestsFromFirebase() {
   const myUid = localStorage.getItem('yadwor-uid') || '';
   if (!myUid) return null;
   try {
-    const res = await fetch(`${FB_JR_URL}/joinRequests/${myUid}.json?auth=${FB_JR_KEY}`);
-    if (!res.ok) return null;
-    const data = await res.json();
+    const snap = await _jrDb().ref('joinRequests/' + myUid).once('value');
+    const data = snap.val();
     if (!data) return [];
     if (typeof data === 'object' && !Array.isArray(data)) return Object.values(data).filter(r => r && r.id);
     return [];
@@ -181,28 +185,28 @@ async function deleteTeacherExamsAndResults(teacherUid, institutionUid) {
   if (!teacherUid || !institutionUid) return;
   try {
     // حذف الاختبارات من Firebase
-    const examsRes = await fetch(`${FB_JR_URL}/exams.json?auth=${FB_JR_KEY}`);
-    if (examsRes.ok) {
-      const examsData = await examsRes.json();
+    const examsSnap = await _jrDb().ref('exams').once('value');
+    {
+      const examsData = examsSnap.val();
       if (examsData && typeof examsData === 'object') {
         for (const [examId, exam] of Object.entries(examsData)) {
           if (!exam) continue;
           if (String(exam.teacherUid) === String(teacherUid) && String(exam.institutionUid) === String(institutionUid)) {
-            await fetch(`${FB_JR_URL}/exams/${examId}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' });
-            await fetch(`${FB_JR_URL}/notifications/${examId}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' });
+            await _jrDb().ref('exams/' + examId).remove();
+            await _jrDb().ref('notifications/' + examId).remove();
           }
         }
       }
     }
     // حذف النتائج من Firebase
-    const resultsRes = await fetch(`${FB_JR_URL}/results.json?auth=${FB_JR_KEY}`);
-    if (resultsRes.ok) {
-      const resultsData = await resultsRes.json();
+    const resultsSnap = await _jrDb().ref('results').once('value');
+    {
+      const resultsData = resultsSnap.val();
       if (resultsData && typeof resultsData === 'object') {
         for (const [rId, result] of Object.entries(resultsData)) {
           if (!result) continue;
           if (String(result.teacherUid) === String(teacherUid) && String(result.institutionUid) === String(institutionUid)) {
-            await fetch(`${FB_JR_URL}/results/${rId}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' });
+            await _jrDb().ref('results/' + rId).remove();
           }
         }
       }
@@ -477,10 +481,7 @@ async function acceptRequest(id) {
       const newType = r.role === 'teacher' ? 'teacher' : 'student';
       const myInstUid = localStorage.getItem('yadwor-uid') || '';
       try {
-        await fetch(`${FB_JR_URL}/users/${r.uid}.json?auth=${FB_JR_KEY}`, {
-          method: 'PATCH', headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ accountType: newType, profileType: newType, institutionUid: myInstUid, joinedInstitution: true, updatedAt: Date.now() })
-        });
+        await _jrDb().ref('users/' + r.uid).update({ accountType: newType, profileType: newType, institutionUid: myInstUid, joinedInstitution: true, updatedAt: Date.now() });
       } catch(e) {}
     }
   }
@@ -501,7 +502,7 @@ async function rejectRequest(id) {
   } catch(e) {}
   try {
     const myU = localStorage.getItem('yadwor-uid') || '';
-    await fetch(`${FB_JR_URL}/joinRequests/${myU}/${id}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' });
+    await _jrDb().ref('joinRequests/' + myU + '/' + id).remove();
   } catch(e) {}
   closeRequestModal();
   showToast('تم رفض الطلب');
@@ -522,10 +523,7 @@ async function removeMember(id) {
 
   if (r && r.uid) {
     try {
-      await fetch(`${FB_JR_URL}/users/${r.uid}.json?auth=${FB_JR_KEY}`, {
-        method: 'PATCH', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ accountType: 'influencer', profileType: 'influencer', institutionUid: null, joinedInstitution: false, updatedAt: Date.now() })
-      });
+      await _jrDb().ref('users/' + r.uid).update({ accountType: 'influencer', profileType: 'influencer', institutionUid: null, joinedInstitution: false, updatedAt: Date.now() });
     } catch(e) {}
   }
 
@@ -537,7 +535,7 @@ async function removeMember(id) {
     try { const ru = getRealUser(); ru.accountType = 'influencer'; localStorage.setItem('yadwor-user-data', JSON.stringify(ru)); } catch(e) {}
   }
 
-  try { await fetch(`${FB_JR_URL}/joinRequests/${myInstUid}/${id}.json?auth=${FB_JR_KEY}`, { method: 'DELETE' }); } catch(e) {}
+  try { await _jrDb().ref('joinRequests/' + myInstUid + '/' + id).remove(); } catch(e) {}
   try {
     const rej = JSON.parse(localStorage.getItem('yadwor-rejected-request-ids') || '[]');
     if (!rej.includes(id)) rej.push(id);
