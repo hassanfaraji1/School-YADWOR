@@ -8,6 +8,16 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+  if (!firebase.apps.length) {
+    firebase.initializeApp({
+      apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
+      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com"
+    });
+  }
+</script>
 <style>
   * { box-sizing: border-box; }
   body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
@@ -294,18 +304,8 @@ const appCurrency = localStorage.getItem('yadwor-currency') || 'DH';
 if (typeof state !== 'undefined' && state.joinedInstitution === undefined) {
   state.joinedInstitution = localStorage.getItem('yadwor-joined-institution') === 'true';
 }
-// ====================== تنظيف المنشورات الوهمية القديمة ======================
-(function cleanFakePosts() {
-  const FAKE_USERNAMES = ['riyada.school','sara.mehdi','youssef.amine','leila.bennani','yadwor.reels'];
-  state.posts = state.posts.filter(p => {
-    if (FAKE_USERNAMES.includes(p.username)) return false;
-    if (String(p.id).length < 10) return false; // ids قديمة وهمية
-    return true;
-  });
-  // احذف خاصية owned من كل المنشورات المتبقية لأنها مصدر الخلط
-  state.posts = state.posts.map(p => { const c = Object.assign({}, p); delete c.owned; return c; });
-  localStorage.setItem('yadwor-posts', JSON.stringify(state.posts));
-})();
+// ====================== تنظيف — بدون localStorage للمنشورات ======================
+// المنشورات تأتي فقط من Firebase عبر shared.js
 // ====================== INSTITUTION INFO MODAL ======================
 function closeInstitutionInfoModal() {
   document.getElementById('institution-info-modal').classList.add('hidden');
@@ -344,7 +344,7 @@ async function showInstitutionInfoModal() {
   const knownInstUid = localAccepted ? (localAccepted.institutionUid || localAccepted.institutionId || '') : '';
   if (knownInstUid) {
     try {
-      const res = await fetch(`${FB_DB_URL}/joinRequests/${knownInstUid}.json?auth=${FB_API_KEY}`);
+      const /joinRequests/${knownInstUid} = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
       if (res.ok) {
         const data = await res.json();
         if (data) {
@@ -373,7 +373,7 @@ async function showInstitutionInfoModal() {
     const instUid = myReq.institutionUid || myReq.institutionId || '';
     if (instUid) {
       try {
-        const res = await fetch(`${FB_DB_URL}/users/${instUid}.json?auth=${FB_API_KEY}`);
+        const /users/${instUid} = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
         if (res.ok) {
           const d = await res.json();
           if (d && d.name) institutionName = d.name;
@@ -493,7 +493,7 @@ async function enrichAvatarsFromFirebase(members, containerId) {
     // إذا كانت الصورة موجودة مسبقاً لا حاجة للجلب
     if (r.avatar || r.avatarUrl) continue;
     try {
-      const res = await fetch(`${FB_DB_URL}/users/${r.uid}.json?auth=${FB_API_KEY}`);
+      const /users/${r.uid} = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
       if (!res.ok) continue;
       const userData = await res.json();
       if (!userData || !userData.avatar) continue;
@@ -531,10 +531,21 @@ function renderProfile() {
   // ── إذا كنا نعرض ملف شخص آخر (زائر) ──
   if (state._viewingUsername && _visitorProfile) {
     const vp = _visitorProfile;
-    // فلترة المنشورات بالـ uid الفريد فقط — لا username
-    const vPosts = _visitorUid
-      ? state.posts.filter(p => p.uid && String(p.uid) === String(_visitorUid))
-      : state.posts.filter(p => p.username && p.username === _visitorUsername);
+    // جلب منشورات الزائر من Firebase مباشرة (getUserPosts من shared.js)
+    const targetUid = _visitorUid || '';
+    getUserPosts(targetUid, function(vPosts) {
+      _renderVisitorProfile(vp, vPosts);
+    });
+    return;
+  }
+  // ── ملف المستخدم الحالي ──
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  getUserPosts(myUid, function(myPosts) {
+    _renderMyProfile(myPosts);
+  });
+}
+
+function _renderVisitorProfile(vp, vPosts) {
     // صورة الزائر: من ملفه الشخصي أو من منشوراته (p.avatar مدمجة مع المنشور)
     const vAvatar = vp.avatar || (vPosts.length ? vPosts[0].avatar : '') || `https://ui-avatars.com/api/?name=${encodeURIComponent(vp.name||_visitorUsername||'U')}&background=e4e6eb&color=555&size=200`;
     const vCover  = vp.cover  || 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1400&auto=format&fit=crop';
@@ -737,6 +748,23 @@ function renderProfile() {
     return;
   }
 
+  // ── ملف المستخدم الحالي — يُستدعى من renderProfile بعد تحميل المنشورات ──
+}
+
+function _renderMyProfile(myPosts) {
+  // حفظ منشوراتي في state للاستخدام في getProfileTabs وrenderProfileTabContent
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  // تحديث state.posts بمنشوراتي فقط للتصفية اللاحقة (الـ uid موجود)
+  // لا نستبدل كل state.posts، فقط نضمن وجود منشوراتي فيها
+  myPosts.forEach(p => {
+    if (!state.posts.find(sp => sp.id === p.id)) {
+      state.posts.push(p);
+    } else {
+      const idx = state.posts.findIndex(sp => sp.id === p.id);
+      if (idx !== -1) state.posts[idx] = p;
+    }
+  });
+
   // ── جلب البيانات الحقيقية للمستخدم من localStorage مباشرة ──
   const ru = (typeof getRealUser === 'function') ? getRealUser() : {};
   // دائماً استخدم بيانات المستخدم الحالي من localStorage
@@ -906,7 +934,7 @@ function renderProfile() {
 }
 
 function getProfileTabs() {
-  // فقط منشوراتي بالـ uid
+  // فقط منشوراتي بالـ uid — state.posts تم تحديثها من Firebase في _renderMyProfile
   const myUid = localStorage.getItem('yadwor-uid') || '';
   const myPosts = state.posts.filter(p => myUid && p.uid && String(p.uid) === String(myUid));
   const myMedia = myPosts.filter(p => p.images && p.images.length && p.type !== 'video');
@@ -931,7 +959,7 @@ function getProfileTabs() {
     if (teacherReqForCount && teacherInstUidForCount) {
       (async () => {
         try {
-          const res = await fetch(`${FB_DB_URL}/joinRequests/${teacherInstUidForCount}.json?auth=${FB_API_KEY}`);
+          const /joinRequests/${teacherInstUidForCount} = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
           if (!res.ok) return;
           const data = await res.json();
           if (!data) return;
@@ -968,7 +996,7 @@ function getProfileTabs() {
       if (studentInstUidForFetch) {
         (async () => {
           try {
-            const res = await fetch(`${FB_DB_URL}/joinRequests/${studentInstUidForFetch}.json?auth=${FB_API_KEY}`);
+            const /joinRequests/${studentInstUidForFetch} = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
             if (!res.ok) return;
             const data = await res.json();
             if (!data) return;
@@ -1174,7 +1202,7 @@ function renderProfileTabContent() {
       // 1) جلب طلب انضمام الأستاذ من Firebase
       let teacherReq = null;
       try {
-        const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+        const /joinRequests = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
         if (res.ok) {
           const allInst = await res.json();
           if (allInst) {
@@ -1203,7 +1231,7 @@ function renderProfileTabContent() {
       // 2) جلب جميع طلبات المؤسسة من Firebase
       let allInstReqs = [];
       try {
-        const res2 = await fetch(`${FB_DB_URL}/joinRequests/${teacherInstUid}.json?auth=${FB_API_KEY}`);
+        const /joinRequests/${teacherInstUid} = { ok: true, json: async () => { const _s = await _pDb().ref('res2').once('value'); return _s.val(); } };
         if (res2.ok) {
           const instData = await res2.json();
           if (instData) allInstReqs = Object.values(instData).filter(r => r && r.status === 'accepted');
@@ -1254,7 +1282,7 @@ function renderProfileTabContent() {
       // 1) جلب طلب انضمام التلميذ من Firebase
       let studentReq = null;
       try {
-        const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+        const /joinRequests = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
         if (res.ok) {
           const allInst = await res.json();
           if (allInst) {
@@ -1283,7 +1311,7 @@ function renderProfileTabContent() {
       // 2) جلب جميع طلبات المؤسسة من Firebase
       let allInstReqsS = [];
       try {
-        const res2 = await fetch(`${FB_DB_URL}/joinRequests/${studentInstUid}.json?auth=${FB_API_KEY}`);
+        const /joinRequests/${studentInstUid} = { ok: true, json: async () => { const _s = await _pDb().ref('res2').once('value'); return _s.val(); } };
         if (res2.ok) {
           const instData = await res2.json();
           if (instData) allInstReqsS = Object.values(instData).filter(r => r && r.status === 'accepted');
@@ -1401,10 +1429,10 @@ async function _updateVisitorFollowersCount(uid, username, delta) {
   if (!uid) return;
   try {
     // 1) تحديث عداد "متابع" للحساب المتابَع في Firebase
-    const res = await fetch(`${FB_DB_URL}/users/${uid}/followers.json?auth=${FB_API_KEY}`);
+    const res = { ok: true, json: async () => { const s = await _pDb().ref('users/' + uid + '/followers').once('value'); return s.val() || {}; } };
     const cur = res.ok ? (await res.json() || 0) : 0;
     const newVal = Math.max(0, (parseInt(cur) || 0) + delta);
-    await fetch(`${FB_DB_URL}/users/${uid}/followers.json?auth=${FB_API_KEY}`, {
+    await _pDb().ref('users/' + uid + '/followers').update(/* see below: */ {
       method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(newVal)
     });
   } catch(e) {}
@@ -1413,12 +1441,10 @@ async function _updateVisitorFollowersCount(uid, username, delta) {
   const myUid = localStorage.getItem('yadwor-uid');
   if (!myUid) return;
   try {
-    const res2 = await fetch(`${FB_DB_URL}/users/${myUid}/following.json?auth=${FB_API_KEY}`);
+    const res2 = { ok: true, json: async () => { const s = await _pDb().ref('users/' + myUid + '/following').once('value'); return s.val() || {}; } };
     const cur2 = res2.ok ? (await res2.json() || 0) : 0;
     const newVal2 = Math.max(0, (parseInt(cur2) || 0) + delta);
-    await fetch(`${FB_DB_URL}/users/${myUid}/following.json?auth=${FB_API_KEY}`, {
-      method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(newVal2)
-    });
+    await _pDb().ref('users/' + myUid + '/following').set(newVal2);
     // تحديث في localStorage أيضاً
     try {
       const ru = typeof getRealUser === 'function' ? getRealUser() : {};
@@ -1504,7 +1530,7 @@ function openExercisesModal() {
     // جلب الاختبارات من Firebase
     let allExams = [];
     try {
-      const res = await fetch(`${FB_DB_URL}/exams.json?auth=${FB_API_KEY}`);
+      const /exams = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
       if (res.ok) {
         const data = await res.json();
         if (data) allExams = Object.values(data).filter(e => e && e.id);
@@ -1525,7 +1551,7 @@ function openExercisesModal() {
     // إذا لم نجد محلياً، نجلب من Firebase
     if (!myAcceptedReq && myUid) {
       try {
-        const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+        const /joinRequests = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
         if (res.ok) {
           const allInst = await res.json();
           if (allInst) {
@@ -1571,7 +1597,7 @@ function openExercisesModal() {
           } else {
             // حاول من Firebase
             try {
-              const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+              const /joinRequests = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
               if (res.ok) {
                 const allInst = await res.json();
                 if (allInst) {
@@ -1727,7 +1753,7 @@ async function checkAndStartExam(examId) {
   const myUid = localStorage.getItem('yadwor-uid') || '';
   if (!myUid) { startExamFromProfile(examId); return; }
   try {
-    const res = await fetch(`${FB_DB_URL}/results/${examId}/${myUid}.json?auth=${FB_API_KEY}`);
+    const /results/${examId}/${myUid} = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
     if (res.ok) {
       const data = await res.json();
       if (data && data.score !== undefined) {
@@ -1754,7 +1780,7 @@ async function updateExamCompletedStates(exams) {
   if (!myUid || !exams || !exams.length) return;
   for (const e of exams) {
     try {
-      const res = await fetch(`${FB_DB_URL}/results/${e.id}/${myUid}.json?auth=${FB_API_KEY}`);
+      const /results/${e.id}/${myUid} = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
       if (!res.ok) continue;
       const data = await res.json();
       if (data && data.score !== undefined) {
@@ -1831,7 +1857,7 @@ async function _loadInstitutionCatalogFromFirebase() {
   const instUid = _visitorUid || '';
   if (!instUid) return;
   try {
-    const res = await fetch(`${FB_DB_URL}/institutionCatalogs/${instUid}.json?auth=${FB_API_KEY}`);
+    const /institutionCatalogs/${instUid} = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
     if (!res.ok) return;
     const data = await res.json();
     if (!data) return;
@@ -2239,7 +2265,7 @@ async function submitJoinRequest() {
   try {
     // الحفظ تحت مسار المؤسسة المعينة فقط — لا علاقة للمؤسسات الأخرى
     const instUid3 = req.institutionUid || req.institutionId || 'unknown';
-    await fetch(FB_DB_URL + '/joinRequests/' + instUid3 + '/' + req.id + '.json?auth=' + FB_API_KEY, {
+    await _pDb().ref('joinRequests/' + instUid3 + '/' + req.id).remove();
       method: 'PUT',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(req)
@@ -2332,7 +2358,7 @@ function cancelMyJoinRequest(institutionId) {
     state.joinRequests.splice(idx, 1);
     localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests));
     // المسار الصحيح: /joinRequests/{institutionUid}/{requestId}
-    try { fetch(FB_DB_URL+'/joinRequests/'+instUid+'/'+reqId+'.json?auth='+FB_API_KEY, {method:'DELETE'}); } catch(e){}
+    try { firebase.database().ref('joinRequests/' + instUid + '/' + reqId).remove(); } catch(e){}
     showToast('تم إزالة طلب الانضمام');
     setTimeout(()=>window.location.reload(), 800);
   }
@@ -2417,7 +2443,7 @@ function renderVisitorTabContent(tabId, vPosts) {
       );
       if (!vStudentReq && _visitorUid) {
         try {
-          const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+          const /joinRequests = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
           if (res.ok) {
             const allInst = await res.json();
             if (allInst) {
@@ -2442,7 +2468,7 @@ function renderVisitorTabContent(tabId, vPosts) {
       // 2) جلب طلبات المؤسسة من Firebase
       let allInstReqsVT = [];
       try {
-        const res2 = await fetch(`${FB_DB_URL}/joinRequests/${vStudentInstUid}.json?auth=${FB_API_KEY}`);
+        const /joinRequests/${vStudentInstUid} = { ok: true, json: async () => { const _s = await _pDb().ref('res2').once('value'); return _s.val(); } };
         if (res2.ok) {
           const instData = await res2.json();
           if (instData) allInstReqsVT = Object.values(instData).filter(r => r && r.status === 'accepted');
@@ -2509,7 +2535,7 @@ function renderVisitorTabContent(tabId, vPosts) {
       );
       if (!vTeacherReq && _visitorUid) {
         try {
-          const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+          const /joinRequests = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
           if (res.ok) {
             const allInst = await res.json();
             if (allInst) {
@@ -2534,7 +2560,7 @@ function renderVisitorTabContent(tabId, vPosts) {
       // 2) جلب طلبات المؤسسة من Firebase
       let allInstReqsVS = [];
       try {
-        const res2 = await fetch(`${FB_DB_URL}/joinRequests/${vTeacherInstUid}.json?auth=${FB_API_KEY}`);
+        const /joinRequests/${vTeacherInstUid} = { ok: true, json: async () => { const _s = await _pDb().ref('res2').once('value'); return _s.val(); } };
         if (res2.ok) {
           const instData = await res2.json();
           if (instData) allInstReqsVS = Object.values(instData).filter(r => r && r.status === 'accepted');
@@ -2606,14 +2632,14 @@ async function loadVisitorProfile(username, uid) {
   // 1) جلب من Firebase بالـ uid
   if (uid) {
     try {
-      const res = await fetch(`${FB_DB_URL}/users/${uid}.json?auth=${FB_API_KEY}`);
+      const /users/${uid} = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
       if (res.ok) { const d = await res.json(); if (d && (d.name || d.avatar)) return d; }
     } catch(e) {}
   }
   // 2) بحث بالـ username في Firebase
   if (username) {
     try {
-      const res = await fetch(`${FB_DB_URL}/users.json?auth=${FB_API_KEY}`);
+      const /users = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
       if (res.ok) {
         const all = await res.json();
         if (all) {
@@ -2653,7 +2679,7 @@ async function syncJoinRequestsFromFirebase() {
       let institutionUidToFetch = _visitorUid;
       let directFetchData = null;
       try {
-        const directRes = await fetch(`${FB_DB_URL}/joinRequests/${_visitorUid}.json?auth=${FB_API_KEY}`);
+        const directRes = { ok: true, json: async () => { const _s = await _pDb().ref('joinRequests/' + _visitorUid').once('value'); return _s.val(); } };
         if (directRes.ok) {
           const d = await directRes.json();
           // إذا أرجع بيانات (المسار صحيح → هو uid مؤسسة)
@@ -2681,7 +2707,7 @@ async function syncJoinRequestsFromFirebase() {
         // _visitorUid هو uid أستاذ أو تلميذ → نجد مؤسسته أولاً
         let visitorInstUid = '';
         try {
-          const allInstRes = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+          const allInstRes = { ok: true, json: async () => { const _s = await _pDb().ref('joinRequests').once('value'); return _s.val(); } };
           if (allInstRes.ok) {
             const allInst = await allInstRes.json();
             if (allInst) {
@@ -2701,7 +2727,7 @@ async function syncJoinRequestsFromFirebase() {
         if (visitorInstUid) {
           // جلب كل طلبات مؤسسة الشخص المُزار
           try {
-            const instRes = await fetch(`${FB_DB_URL}/joinRequests/${visitorInstUid}.json?auth=${FB_API_KEY}`);
+            const instRes = { ok: true, json: async () => { const _s = await _pDb().ref('joinRequests/' + visitorInstUid').once('value'); return _s.val(); } };
             if (instRes.ok) {
               const instData = await instRes.json();
               if (instData) {
@@ -2742,7 +2768,7 @@ async function syncJoinRequestsFromFirebase() {
     // إذا لا نعرف أي مؤسسة بعد → جلب طلب المستخدم من Firebase أولاً لاكتشاف مؤسسته
     if (instUidsSet.size === 0) {
       try {
-        const userRes = await fetch(`${FB_DB_URL}/joinRequests.json?orderBy="uid"&equalTo="${myUid}"&auth=${FB_API_KEY}`);
+        const userRes = await fetch(`${FB_DB_URL}/joinRequests.json?orderBy="uid"&equalTo="${myUid}"`);
         if (userRes.ok) {
           const userData = await userRes.json();
           if (userData) {
@@ -2760,7 +2786,7 @@ async function syncJoinRequestsFromFirebase() {
       // Fallback: جلب كل المؤسسات وابحث عن المستخدم (أبطأ لكن ضروري)
       if (instUidsSet.size === 0) {
         try {
-          const allRes = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+          const allRes = { ok: true, json: async () => { const _s = await _pDb().ref('joinRequests').once('value'); return _s.val(); } };
           if (allRes.ok) {
             const allData = await allRes.json();
             if (allData) {
@@ -2782,7 +2808,7 @@ async function syncJoinRequestsFromFirebase() {
 
     for (const instUid of instUids) {
       try {
-        const res = await fetch(`${FB_DB_URL}/joinRequests/${instUid}.json?auth=${FB_API_KEY}`);
+        const /joinRequests/${instUid} = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
         if (!res.ok) continue;
         const data = await res.json();
         if (!data) continue;
@@ -2858,7 +2884,7 @@ async function syncJoinRequestsFromFirebase() {
     if (!vUid || !myUid) return;
     try {
       // جلب التمارين النشطة من Firebase
-      const res = await fetch(`${FB_DB_URL}/exams.json?auth=${FB_API_KEY}`);
+      const /exams = { ok: true, json: async () => { const _s = await _pDb().ref('res').once('value'); return _s.val(); } };
       if (!res.ok) return;
       const data = await res.json();
       if (!data) return;
@@ -2870,7 +2896,7 @@ async function syncJoinRequestsFromFirebase() {
       let completedIds = new Set();
       try {
         for (const e of allExams) {
-          const r = await fetch(`${FB_DB_URL}/results/${e.id}/${myUid}.json?auth=${FB_API_KEY}`);
+          const /results/${e.id}/${myUid} = { ok: true, json: async () => { const _s = await _pDb().ref('r').once('value'); return _s.val(); } };
           if (r.ok) { const rd = await r.json(); if (rd && rd.score !== undefined) completedIds.add(e.id); }
         }
       } catch(err) {}
