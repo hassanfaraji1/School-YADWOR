@@ -8,6 +8,16 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+  if (!firebase.apps.length) {
+    firebase.initializeApp({
+      apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
+      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com"
+    });
+  }
+</script>
 <style>
   * { box-sizing: border-box; }
   body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #000; color: #fff; overflow: hidden; }
@@ -75,10 +85,10 @@ let reelSoundEnabled = false;
     <p class="text-[15px] font-bold opacity-50">جاري تحميل الريلز...</p>
   </div>`;
 
-  // جلب كل المنشورات من Firebase (بما فيها ريلز الآخرين)
-  await syncPostsFromFirebase();
-
-  renderReels();
+  // جلب الريلز من Firebase (onValue realtime)
+  getPosts(function(posts) {
+    renderReels();
+  });
 
   // إذا قادم من منشور محدد
   const gotoReel = localStorage.getItem('yadwor-goto-reel');
@@ -119,14 +129,18 @@ function toggleReelSave(id) {
   if(btn) btn.style.color = post.saved ? '#facc15' : 'white';
   if(svg) svg.setAttribute('fill', post.saved ? 'currentColor' : 'none');
   showToast(post.saved ? 'تم حفظ الريلز ✓' : 'تمت الإزالة');
-  try { localStorage.setItem('yadwor-posts', JSON.stringify(state.posts)); } catch(e) {}
+  // حفظ في Firebase عبر shared.js
+  if(post.savedBy === undefined) post.savedBy = {};
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  if(myUid) { if(post.saved) post.savedBy[myUid] = true; else delete post.savedBy[myUid]; }
+  try { firebase.database().ref('posts/' + id + '/savedBy').set(post.savedBy || {}); } catch(e) {}
 }
 let reelReplyTarget = null;
 let reelLikedComments = JSON.parse(localStorage.getItem('yadwor-reel-liked-comments') || '[]');
 
 function renderReels() {
   const container = document.getElementById('reels-container');
-  const reelPosts = state.posts.filter(p => p.type === 'video' && p.images && p.images.length);
+  const reelPosts = state.posts.filter(p => (p.type === 'reel' || p.type === 'video') && p.video);
   
   if (!reelPosts.length) {
     container.innerHTML = `<div class="reel-item flex-col gap-4 text-zinc-400">
