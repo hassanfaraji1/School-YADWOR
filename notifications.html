@@ -7,6 +7,16 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+  if (!firebase.apps.length) {
+    firebase.initializeApp({
+      apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
+      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com"
+    });
+  }
+</script>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
 *{box-sizing:border-box}
@@ -26,27 +36,39 @@ input:focus{outline:none}
 .n-tab{border-bottom:2px solid transparent;font-size:13px;font-weight:700;color:#71717a;padding:10px 14px;white-space:nowrap;transition:.2s;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer}
 .n-tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:800}
 
-/* بطاقة إشعار */
-.ncard{background:#fff;border:1.5px solid #e8e8ec;border-radius:6px;padding:14px;margin-bottom:8px}
-.ncard.unread{border-color:var(--blue);background:#f0f6ff}
+/* بطاقة إشعار — تصميم نظيف حديث */
+.ncard{
+  background:#fff;
+  border:1px solid #f0f0f4;
+  border-radius:14px;
+  padding:14px 16px;
+  margin-bottom:10px;
+  box-shadow:0 1px 6px rgba(0,0,0,.04);
+  transition:box-shadow .15s;
+}
+.ncard:hover{box-shadow:0 3px 12px rgba(0,0,0,.07)}
+.ncard.unread{
+  border-color:#dde8ff;
+  background:#f7f9ff;
+}
 
 /* نقطة مقروء/غير مقروء */
-.n-dot-unread{width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-top:4px}
-.n-dot-read  {width:8px;height:8px;border-radius:50%;background:#d4d4d8;flex-shrink:0;margin-top:4px}
+.n-dot-unread{width:7px;height:7px;border-radius:50%;background:#3b82f6;flex-shrink:0;margin-top:5px}
+.n-dot-read  {width:7px;height:7px;border-radius:50%;background:#e4e4e7;flex-shrink:0;margin-top:5px}
 
 /* أيقونة الإشعار */
-.n-icon{width:42px;height:42px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.n-icon.blue  {background:#ddeaff}
-.n-icon.yellow{background:#fff3cc}
-.n-icon.green {background:#e3f5e8}
+.n-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#f4f4f6}
+.n-icon.blue  {background:#eef2ff}
+.n-icon.yellow{background:#fffbeb}
+.n-icon.green {background:#f0fdf4}
 
-/* badge tag - بدون border مستدير */
-.n-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:3px 7px;border-radius:4px}
-.n-tag.blue  {background:#ddeaff;color:var(--blue)}
-.n-tag.yellow{background:#fff3cc;color:#7a5000}
+/* badge tag */
+.n-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px}
+.n-tag.blue  {background:#eef2ff;color:#3b5bdb}
+.n-tag.yellow{background:#fffbeb;color:#92400e}
 
 /* زر دخول الغرفة */
-.btn-room{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;padding:9px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-family:'Tajawal',sans-serif;font-size:12px;font-weight:800;cursor:pointer}
+.btn-room{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:#1e40af;color:#fff;border:none;border-radius:8px;font-family:'Tajawal',sans-serif;font-size:12px;font-weight:800;cursor:pointer;letter-spacing:.2px}
 .btn-room:active{opacity:.85}
 
 /* نافذة الإعدادات */
@@ -136,10 +158,11 @@ input:focus{outline:none}
 <script src="shared.js"></script>
 <script>
 // ══════════════════════════════════════════════════
-// ثوابت
+// ثوابت — نستخدم Firebase SDK مباشرة
 // ══════════════════════════════════════════════════
-var FB_N   = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
-var FB_KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+function _fbRef(path) {
+  return firebase.database().ref(path);
+}
 
 var currentTab       = 'all';
 var allNotifications = [];
@@ -159,9 +182,9 @@ function openPhoneSettings() {
 
   // محاولة جلب من Firebase أولاً
   if (uid) {
-    fetch(FB_N + '/userMeta/' + uid + '/whatsappPhone.json?auth=' + FB_KEY)
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(v){
+    _fbRef('userMeta/' + uid + '/whatsappPhone').once('value')
+      .then(function(snap) {
+        var v = snap.val();
         if (v && typeof v === 'object') {
           savedPhone  = v.number  || '';
           savedPrefix = v.prefix  || '+212';
@@ -226,16 +249,13 @@ function _savePhoneNumber() {
   var fullNumber = prefix + number;
 
   if (uid) {
-    fetch(FB_N + '/userMeta/' + uid + '/whatsappPhone.json?auth=' + FB_KEY, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prefix: prefix, number: number, full: fullNumber })
-    }).then(function(){
-      _showToast('تم حفظ رقم الواتساب بنجاح');
-      document.getElementById('_phoneSettingsOverlay').remove();
-    }).catch(function(){
-      _showToast('حدث خطأ، حاول مجدداً');
-    });
+    _fbRef('userMeta/' + uid + '/whatsappPhone').set({ prefix: prefix, number: number, full: fullNumber })
+      .then(function(){
+        _showToast('تم حفظ رقم الواتساب بنجاح');
+        document.getElementById('_phoneSettingsOverlay').remove();
+      }).catch(function(){
+        _showToast('حدث خطأ، حاول مجدداً');
+      });
   } else {
     _showToast('سجّل دخولك أولاً');
   }
@@ -610,8 +630,9 @@ async function _loadLastRead() {
   var uid = localStorage.getItem('yadwor-uid') || '';
   if (!uid) return;
   try {
-    var r = await fetch(FB_N + '/userMeta/' + uid + '/notifLastRead.json?auth=' + FB_KEY);
-    if (r.ok) { var v = await r.json(); if (v && typeof v === 'number') _lastReadTs = v; }
+    var snap = await _fbRef('userMeta/' + uid + '/notifLastRead').once('value');
+    var v = snap.val();
+    if (v && typeof v === 'number') _lastReadTs = v;
   } catch(e) {}
 }
 
@@ -620,9 +641,8 @@ async function _loadLastRead() {
 // ══════════════════════════════════════════════════
 async function fetchRoomNotifications(myUid, myType, myReq) {
   try {
-    var res  = await fetch(FB_N + '/notificationsRoom.json?auth=' + FB_KEY);
-    if (!res.ok) return [];
-    var data = await res.json();
+    var snap = await _fbRef('notificationsRoom').once('value');
+    var data = snap.val();
     if (!data || typeof data !== 'object') return [];
 
     return Object.values(data).filter(function(n) {
@@ -648,9 +668,8 @@ async function fetchRoomNotifications(myUid, myType, myReq) {
 // ══════════════════════════════════════════════════
 async function fetchExamNotifications(myUid, myType, myReq) {
   try {
-    var res  = await fetch(FB_N + '/notifications.json?auth=' + FB_KEY);
-    if (!res.ok) return [];
-    var data = await res.json();
+    var snap = await _fbRef('notifications').once('value');
+    var data = snap.val();
     if (!data || typeof data !== 'object') return [];
     var list = Object.values(data).filter(function(n){ return n && n.type === 'exam'; });
 
@@ -676,9 +695,8 @@ async function fetchExamNotifications(myUid, myType, myReq) {
 // ══════════════════════════════════════════════════
 async function fetchInteractionNotifications(myUid) {
   try {
-    var res  = await fetch(FB_N + '/interactions/' + myUid + '.json?auth=' + FB_KEY);
-    if (!res.ok) return [];
-    var data = await res.json();
+    var snap = await _fbRef('interactions/' + myUid).once('value');
+    var data = snap.val();
     if (!data || typeof data !== 'object') return [];
     return Object.values(data)
       .filter(function(n){ return n && (n.type==='like'||n.type==='comment'||n.type==='reply'); })
@@ -700,16 +718,14 @@ async function loadNotifications() {
 
   if (myUid) {
     try {
-      var r = await fetch(FB_N + '/joinRequests.json?auth=' + FB_KEY);
-      if (r.ok) {
-        var all = await r.json();
-        if (all && typeof all === 'object') {
-          var keys = Object.keys(all);
-          for (var i = 0; i < keys.length; i++) {
-            var vals = Object.values(all[keys[i]] || {});
-            var found = vals.find(function(req){ return req && req.status==='accepted' && (req.uid===myUid||req.userId===myUid); });
-            if (found) { myReq = found; break; }
-          }
+      var snapJR = await _fbRef('joinRequests').once('value');
+      var all = snapJR.val();
+      if (all && typeof all === 'object') {
+        var keys = Object.keys(all);
+        for (var i = 0; i < keys.length; i++) {
+          var vals = Object.values(all[keys[i]] || {});
+          var found = vals.find(function(req){ return req && req.status==='accepted' && (req.uid===myUid||req.userId===myUid); });
+          if (found) { myReq = found; break; }
         }
       }
     } catch(e) {}
@@ -736,20 +752,21 @@ async function loadNotifications() {
 }
 
 // ══════════════════════════════════════════════════
-// SSE Realtime listener
+// Realtime listener — onValue بدلاً من SSE
 // ══════════════════════════════════════════════════
-(function startSSE() {
+var _realtimeDebounce = null;
+function _debouncedLoad() {
+  clearTimeout(_realtimeDebounce);
+  _realtimeDebounce = setTimeout(function() { loadNotifications(); }, 600);
+}
+
+(function startRealtimeListeners() {
   var myUid = localStorage.getItem('yadwor-uid') || '';
   if (!myUid) return;
-  function listen(path) {
-    var s = new EventSource(FB_N + '/' + path + '.json?auth=' + FB_KEY);
-    s.addEventListener('put',   function(e){ try{ if (JSON.parse(e.data).data) loadNotifications(); }catch(x){} });
-    s.addEventListener('patch', function(e){ try{ if (JSON.parse(e.data).data) loadNotifications(); }catch(x){} });
-    s.onerror = function(){ s.close(); setTimeout(function(){ listen(path); }, 8000); };
-  }
-  listen('notificationsRoom');
-  listen('notifications');
-  listen('interactions/' + myUid);
+
+  _fbRef('notificationsRoom').on('value', function() { _debouncedLoad(); });
+  _fbRef('notifications').on('value', function() { _debouncedLoad(); });
+  _fbRef('interactions/' + myUid).on('value', function() { _debouncedLoad(); });
 })();
 
 loadNotifications();
