@@ -6,6 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+  if (!firebase.apps.length) {
+    firebase.initializeApp({
+      apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
+      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com"
+    });
+  }
+</script>
     <style>
         :root {
             --primary: #0d47a1;
@@ -771,11 +781,9 @@ async function loadCurrentUser() {
     const institutionUid = (uData && (uData.institutionUid || uData.institutionId)) || '';
     if (institutionUid) {
         try {
-            const r = await fetch(`${FB_DB_URL}/users/${institutionUid}.json?auth=${FB_API_KEY}`);
-            if (r.ok) {
-                const inst = await r.json();
-                if (inst) institutionName = inst.name || inst.username || '';
-            }
+            const instSnap = await firebase.database().ref('users/' + institutionUid).once('value');
+            const inst = instSnap.val();
+            if (inst) institutionName = inst.name || inst.username || '';
         } catch(e) {}
     }
 
