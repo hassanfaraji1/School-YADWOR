@@ -8,6 +8,16 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+  if (!firebase.apps.length) {
+    firebase.initializeApp({
+      apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
+      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com"
+    });
+  }
+</script>
 <style>
   * { box-sizing: border-box; }
   body { font-family: 'Tajawal', system-ui, sans-serif; background: #faf8f6; color: #18181b; }
@@ -206,18 +216,19 @@ function isStudentMatchingTeacher(student, teacher) {
 
 // ---- Firebase & Local data ----
 const _FB  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
-const _KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+
+// ═══ مساعد SDK ═══
+function _db() { return firebase.database(); }
 
 // cache للاختبارات المجلوبة من Firebase
 let _examsCacheLoaded = false;
 let _examsCache = [];
 
-// جلب الاختبارات من Firebase
+// جلب الاختبارات من Firebase — SDK
 async function fetchExamsFromFirebase() {
   try {
-    const res = await fetch(`${_FB}/exams.json?auth=${_KEY}`);
-    if (!res.ok) return null;
-    const data = await res.json();
+    const snap = await _db().ref('exams').once('value');
+    const data = snap.val();
     if (!data) return [];
     return Object.values(data).filter(e => e && e.id);
   } catch(e) { return null; }
@@ -225,19 +236,18 @@ async function fetchExamsFromFirebase() {
 
 function getExams() {
   if (_examsCacheLoaded) return [..._examsCache];
-  try { return JSON.parse(localStorage.getItem('yadwor-exams') || '[]'); } catch(e) { return []; }
+  return [];
 }
 
 function saveExams(list) {
   _examsCache = list;
   _examsCacheLoaded = true;
-  // احتفظ بـ localStorage كـ fallback فقط
-  try { localStorage.setItem('yadwor-exams', JSON.stringify(list)); } catch(e) {}
 }
 
+// حذف اختبار — SDK
 async function deleteExamFromFirebase(examId) {
   try {
-    await fetch(`${_FB}/exams/${examId}.json?auth=${_KEY}`, { method: 'DELETE' });
+    await _db().ref('exams/' + examId).remove();
   } catch(e) {}
 }
 
@@ -317,17 +327,14 @@ function _getMyAccountInfo() {
   return { myUid, myType, myReq };
 }
 
-// ---- جلب بيانات الانضمام من Firebase (async) ----
+// ---- جلب بيانات الانضمام من Firebase (SDK) ----
 async function _fetchMyAccountInfoFromFirebase() {
   const myUid  = localStorage.getItem('yadwor-uid') || '';
   const myType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || 'influencer';
-  const FB  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
-  const KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
   if (!myUid) return { myUid, myType, myReq: null };
   try {
-    const res = await fetch(`${FB}/joinRequests.json?auth=${KEY}`);
-    if (!res.ok) return { myUid, myType, myReq: _getMyAccountInfo().myReq };
-    const allInstitutions = await res.json();
+    const snap = await _db().ref('joinRequests').once('value');
+    const allInstitutions = snap.val();
     if (!allInstitutions) return { myUid, myType, myReq: null };
     for (const instUid of Object.keys(allInstitutions)) {
       const instReqs = allInstitutions[instUid];
@@ -336,15 +343,12 @@ async function _fetchMyAccountInfoFromFirebase() {
         r && r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
       );
       if (found) {
-        // حفظ في localStorage للاستخدام الفوري لاحقاً
-        const local = (() => { try { return JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]'); } catch(e) { return []; } })();
-        if (!local.find(r => r.id === found.id)) { local.push(found); localStorage.setItem('yadwor-join-requests', JSON.stringify(local)); }
         return { myUid, myType, myReq: found };
       }
     }
     return { myUid, myType, myReq: null };
   } catch(e) {
-    return { myUid, myType, myReq: _getMyAccountInfo().myReq };
+    return { myUid, myType, myReq: null };
   }
 }
 
@@ -914,29 +918,21 @@ function publishExam() {
   saveExams(exams);
   savePendingQuestions([]);
 
-  // ── حفظ الاختبار في Firebase ──
+  // ── حفظ الاختبار في Firebase SDK ──
   try {
-    const FB  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
-    const KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
     const myName = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'أستاذ';
-    fetch(`${FB}/exams/${exam.id}.json?auth=${KEY}`, {
-      method: 'PUT',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(exam)
-    }).catch(()=>{});
-    fetch(`${FB}/notifications/${exam.id}.json?auth=${KEY}`, {
-      method: 'PUT',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        id: exam.id, type: 'exam', examType: exam.type,
-        title: exam.title, subject: exam.subject, levelId: exam.levelId,
-        teacherUid: exam.teacherUid, teacherName: myName,
-        institutionUid: exam.institutionUid,
-        publishedAt: exam.publishedAt, expiresAt: exam.expiresAt,
-        text: `نشر ${myName} ${exam.type}: ${exam.title}`,
-        unread: true
-      })
-    }).catch(()=>{});
+    // حفظ الاختبار
+    _db().ref('exams/' + exam.id).set(exam).catch(() => {});
+    // حفظ الإشعار
+    _db().ref('notifications/' + exam.id).set({
+      id: exam.id, type: 'exam', examType: exam.type,
+      title: exam.title, subject: exam.subject, levelId: exam.levelId,
+      teacherUid: exam.teacherUid, teacherName: myName,
+      institutionUid: exam.institutionUid,
+      publishedAt: exam.publishedAt, expiresAt: exam.expiresAt,
+      text: `نشر ${myName} ${exam.type}: ${exam.title}`,
+      unread: true
+    }).catch(() => {});
   } catch(e) {}
 
   // Reset exam meta (احتفظ بالمستوى والمادة للأستاذ لأنهما ثابتان)
