@@ -8,6 +8,16 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+  if (!firebase.apps.length) {
+    firebase.initializeApp({
+      apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
+      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com"
+    });
+  }
+</script>
 <style>
   * { box-sizing: border-box; }
   body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
@@ -206,7 +216,8 @@
 <script src="shared.js"></script>
 <script>
 const FB_DB_URL_S = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
-const FB_API_KEY_S = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+// SDK helper
+function _sDb() { return firebase.database(); }
 
 let pendingAvatarSrc = null;
 let pendingCoverSrc = null;
@@ -309,7 +320,7 @@ async function savePhotos() {
 
       // حدّث صورة المستخدم في جميع منشوراته محلياً
       state.posts = state.posts.map(p => _isMine(p) ? Object.assign({},p,{avatar:avatarUrl}) : p);
-      localStorage.setItem('yadwor-posts', JSON.stringify(state.posts));
+      // posts منشورات في Firebase فقط
 
       // حدّث في Firebase في الخلفية
       updateMyPostsAvatarInFirebase(avatarUrl);
@@ -366,11 +377,7 @@ async function saveUserProfileToFirebaseSettings() {
     updatedAt: Date.now()
   };
   try {
-    await fetch(`${FB_DB_URL_S}/users/${uid}.json?auth=${FB_API_KEY_S}`, {
-      method: 'PATCH',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(data)
-    });
+    await _sDb().ref('users/' + uid).update(data);
   } catch(e) { console.warn('Firebase profile save failed:', e); }
 }
 
@@ -431,11 +438,7 @@ async function saveAccountType() {
   const uid = localStorage.getItem('yadwor-uid');
   if (uid) {
     try {
-      await fetch(`${FB_DB_URL_S}/users/${uid}.json?auth=${FB_API_KEY_S}`, {
-        method: 'PATCH',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ accountType: type, updatedAt: Date.now() })
-      });
+      await _sDb().ref('users/' + uid).update({ accountType: type, updatedAt: Date.now() });
     } catch(e) { console.warn('Firebase accountType save failed:', e); }
   }
 
