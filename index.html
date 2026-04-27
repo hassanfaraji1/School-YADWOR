@@ -8,6 +8,16 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+  if (!firebase.apps.length) {
+    firebase.initializeApp({
+      apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
+      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com"
+    });
+  }
+</script>
 <style>
   * { box-sizing: border-box; }
   body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
@@ -158,6 +168,8 @@
 const FB_DB_URL = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
 const FB_API_KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
 const FB_AUTH_URL = 'https://identitytoolkit.googleapis.com/v1/accounts';
+// SDK helper (Realtime Database)
+function _iDb() { return firebase.database(); }
 
 let authMode = 'login';
 let selectedGender = '';
@@ -207,11 +219,7 @@ function onCountryChange() {
 
 async function saveNewUserToFirebase(userData) {
   try {
-    await fetch(`${FB_DB_URL}/users/${userData.uid}.json?auth=${FB_API_KEY}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(userData)
-    });
+    await _iDb().ref('users/' + userData.uid).set(userData);
   } catch(e) { console.warn('Firebase save failed', e); }
 }
 
@@ -249,8 +257,8 @@ async function doLogin() {
     const uid = data.localId;
     let userData = null;
     try {
-      const dbRes = await fetch(`${FB_DB_URL}/users/${uid}.json?auth=${FB_API_KEY}`);
-      if (dbRes.ok) userData = await dbRes.json();
+      const dbSnap = await _iDb().ref('users/' + uid).once('value');
+      userData = dbSnap.val();
     } catch(e) {}
 
     // حفظ في localStorage
