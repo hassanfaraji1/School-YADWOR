@@ -1,5 +1,5 @@
 // ============================================================
-// YADWOR – shared.js  (نسخة نظيفة كاملة)
+// YADWOR – shared.js  (نسخة مُصلَحة — Firebase SDK v9 Modular)
 // ============================================================
 
 // =================== ثوابت Firebase / Cloudinary ===================
@@ -7,6 +7,16 @@ const FB_DB_URL  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
 const FB_API_KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
 const CLD_NAME   = 'dlujoziwz';
 const CLD_PRESET = 'my_app_upload';
+
+// =================== Firebase SDK v9 (compat via CDN) ===================
+// يُستخدم firebase compat الذي يُحمَّل عبر CDN في كل صفحة HTML
+// الدوال تعمل عبر window.firebase (compat mode)
+function _getDB() {
+  if (window.firebase && window.firebase.database) {
+    return window.firebase.database();
+  }
+  return null;
+}
 
 // ============================================================
 // دوال المطابقة المنطقية بين الأستاذ والتلميذ والتمارين
@@ -44,13 +54,22 @@ function canStudentSeeExercise(student, exercise) {
 }
 
 // ============================================================
-// جلب بيانات المستخدم الحالي كاملةً من Firebase
+// جلب بيانات المستخدم الحالي كاملةً من Firebase SDK
 // ============================================================
 async function fetchMyUserDataFromFirebase() {
   const uid = localStorage.getItem('yadwor-uid') || '';
   if (!uid) return null;
   try {
-    const res = await fetch(`${FB_DB_URL}/users/${uid}.json?auth=${FB_API_KEY}`);
+    const db = _getDB();
+    if (db) {
+      return new Promise((resolve) => {
+        db.ref('users/' + uid).once('value').then(snap => {
+          resolve(snap.val() || null);
+        }).catch(() => resolve(null));
+      });
+    }
+    // fallback REST
+    const res = await fetch(`${FB_DB_URL}/users/${uid}.json`);
     if (!res.ok) return null;
     const data = await res.json();
     return data || null;
@@ -61,7 +80,25 @@ async function fetchMyAcceptedJoinRequestFromFirebase() {
   const uid = localStorage.getItem('yadwor-uid') || '';
   if (!uid) return null;
   try {
-    const res = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
+    const db = _getDB();
+    if (db) {
+      return new Promise((resolve) => {
+        db.ref('joinRequests').once('value').then(snap => {
+          const allInstitutions = snap.val();
+          if (!allInstitutions) return resolve(null);
+          for (const instUid of Object.keys(allInstitutions)) {
+            const instReqs = allInstitutions[instUid];
+            if (!instReqs) continue;
+            const found = Object.values(instReqs).find(r =>
+              r && r.status === 'accepted' && (r.uid === uid || r.userId === uid)
+            );
+            if (found) return resolve(found);
+          }
+          resolve(null);
+        }).catch(() => resolve(null));
+      });
+    }
+    const res = await fetch(`${FB_DB_URL}/joinRequests.json`);
     if (!res.ok) return null;
     const allInstitutions = await res.json();
     if (!allInstitutions) return null;
@@ -78,7 +115,7 @@ async function fetchMyAcceptedJoinRequestFromFirebase() {
 }
 
 // ============================================================
-// STATE (بيانات التطبيق في الذاكرة)
+// STATE (بيانات التطبيق في الذاكرة — بدون localStorage للمنشورات)
 // ============================================================
 let state = {
   posts:         [],
@@ -97,14 +134,9 @@ let state = {
   _loading:      false
 };
 
-// تحميل المنشورات من localStorage
-try {
-  const saved = localStorage.getItem('yadwor-posts');
-  if (saved) state.posts = JSON.parse(saved);
-} catch(e) { state.posts = []; }
-
+// لا نحمّل المنشورات من localStorage — مصدر الحقيقة هو Firebase فقط
 function saveData() {
-  try { localStorage.setItem('yadwor-posts', JSON.stringify(state.posts)); } catch(e) {}
+  // لا نحفظ المنشورات محلياً — بدون localStorage
 }
 
 // ============================================================
@@ -178,26 +210,109 @@ async function uploadVideoToCloudinary(file) {
 }
 
 // ============================================================
-// Firebase – منشورات
+// Firebase SDK — منشورات (مصدر الحقيقة الوحيد)
 // ============================================================
+
+/**
+ * getPosts() — جلب كل المنشورات من Firebase (onValue realtime)
+ * يمسح state.posts ثم يعبؤها من Firebase لمنع التكرار
+ */
+function getPosts(callback) {
+  const db = _getDB();
+  if (!db) {
+    callback([]);
+    return;
+  }
+  db.ref('posts').orderByChild('publishedAt').limitToLast(50).on('value', snap => {
+    const data = snap.val();
+    if (!data) {
+      state.posts = [];
+      callback([]);
+      return;
+    }
+    const posts = Object.entries(data)
+      .map(([id, p]) => ({ ...p, id }))
+      .sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
+    state.posts = posts;
+    callback(posts);
+  });
+}
+
+/**
+ * getUserPosts(userId) — جلب منشورات مستخدم محدد من Firebase
+ */
+function getUserPosts(userId, callback) {
+  const db = _getDB();
+  if (!db || !userId) {
+    callback([]);
+    return;
+  }
+  db.ref('posts').orderByChild('uid').equalTo(userId).on('value', snap => {
+    const data = snap.val();
+    if (!data) {
+      callback([]);
+      return;
+    }
+    const posts = Object.entries(data)
+      .map(([id, p]) => ({ ...p, id }))
+      .sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
+    callback(posts);
+  });
+}
+
+/**
+ * createPost(post) — حفظ منشور جديد في Firebase باستخدام push
+ * يعود بـ id المنشور الجديد
+ */
+async function createPost(post) {
+  const db = _getDB();
+  if (!db) return null;
+  try {
+    const newRef = db.ref('posts').push();
+    const postWithId = { ...post, id: newRef.key };
+    await newRef.set(postWithId);
+    return newRef.key;
+  } catch(e) {
+    console.warn('createPost error:', e);
+    return null;
+  }
+}
+
 async function syncPostsFromFirebase() {
   try {
-    const res = await fetch(`${FB_DB_URL}/posts.json?auth=${FB_API_KEY}&orderBy="$key"&limitToLast=30`);
+    const db = _getDB();
+    if (db) {
+      return new Promise((resolve) => {
+        db.ref('posts').orderByChild('publishedAt').limitToLast(50).once('value').then(snap => {
+          const data = snap.val();
+          if (!data) { state.posts = []; resolve(); return; }
+          const fbPosts = Object.entries(data)
+            .map(([id, p]) => ({ ...p, id }))
+            .sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
+          state.posts = fbPosts;
+          resolve();
+        }).catch(() => resolve());
+      });
+    }
+    // fallback REST (بدون auth param — Firebase rules يجب أن تسمح)
+    const res = await fetch(`${FB_DB_URL}/posts.json?orderBy="publishedAt"&limitToLast=50`);
     if (!res.ok) return;
     const data = await res.json();
     if (!data) return;
-    const fbPosts = Object.entries(data).map(([id, p]) => ({ ...p, id })).reverse();
-    // دمج مع المحلية (المنشورات المملوكة للمستخدم الحالي)
-    const myUid = state.myUid;
-    const localOwned = state.posts.filter(p => p.uid === myUid && !fbPosts.find(f => f.id === p.id));
-    state.posts = [...fbPosts, ...localOwned].sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
-    saveData();
+    state.posts = Object.entries(data)
+      .map(([id, p]) => ({ ...p, id }))
+      .sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
   } catch(e) {}
 }
 
 async function savePostToFirebase(post) {
   try {
-    await fetch(`${FB_DB_URL}/posts/${post.id}.json?auth=${FB_API_KEY}`, {
+    const db = _getDB();
+    if (db) {
+      await db.ref('posts/' + post.id).set(post);
+      return;
+    }
+    await fetch(`${FB_DB_URL}/posts/${post.id}.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(post)
@@ -207,13 +322,23 @@ async function savePostToFirebase(post) {
 
 async function deletePostFromFirebase(postId) {
   try {
-    await fetch(`${FB_DB_URL}/posts/${postId}.json?auth=${FB_API_KEY}`, { method: 'DELETE' });
+    const db = _getDB();
+    if (db) {
+      await db.ref('posts/' + postId).remove();
+      return;
+    }
+    await fetch(`${FB_DB_URL}/posts/${postId}.json`, { method: 'DELETE' });
   } catch(e) {}
 }
 
 async function updatePostInFirebase(postId, updates) {
   try {
-    await fetch(`${FB_DB_URL}/posts/${postId}.json?auth=${FB_API_KEY}`, {
+    const db = _getDB();
+    if (db) {
+      await db.ref('posts/' + postId).update(updates);
+      return;
+    }
+    await fetch(`${FB_DB_URL}/posts/${postId}.json`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)
@@ -226,7 +351,20 @@ async function updatePostInFirebase(postId, updates) {
 // ============================================================
 async function fetchCommentsFromFirebase(postId) {
   try {
-    const res = await fetch(`${FB_DB_URL}/comments/${postId}.json?auth=${FB_API_KEY}`);
+    const db = _getDB();
+    if (db) {
+      return new Promise((resolve) => {
+        db.ref('comments/' + postId).once('value').then(snap => {
+          const data = snap.val();
+          if (!data) return resolve([]);
+          const arr = Object.entries(data)
+            .map(([id, c]) => ({ ...c, id }))
+            .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+          resolve(arr);
+        }).catch(() => resolve([]));
+      });
+    }
+    const res = await fetch(`${FB_DB_URL}/comments/${postId}.json`);
     if (!res.ok) return [];
     const data = await res.json();
     if (!data) return [];
@@ -236,7 +374,12 @@ async function fetchCommentsFromFirebase(postId) {
 
 async function saveCommentToFirebase(postId, comment) {
   try {
-    await fetch(`${FB_DB_URL}/comments/${postId}/${comment.id}.json?auth=${FB_API_KEY}`, {
+    const db = _getDB();
+    if (db) {
+      await db.ref('comments/' + postId + '/' + comment.id).set(comment);
+      return;
+    }
+    await fetch(`${FB_DB_URL}/comments/${postId}/${comment.id}.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(comment)
@@ -246,19 +389,23 @@ async function saveCommentToFirebase(postId, comment) {
 
 // ============================================================
 // Firebase – إشعارات التفاعل (لايك / تعليق / رد)
-// يُستدعى عند وضع لايك أو تعليق أو رد
 // ============================================================
 async function saveInteractionNotif(targetUid, notifObj) {
   if (!targetUid || !notifObj) return;
-  // لا ترسل إشعاراً لنفسك
   const myUid = localStorage.getItem('yadwor-uid') || '';
   if (targetUid === myUid) return;
   try {
     const id = 'n_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-    await fetch(`${FB_DB_URL}/interactions/${targetUid}/${id}.json?auth=${FB_API_KEY}`, {
+    const notif = { ...notifObj, id, publishedAt: Date.now() };
+    const db = _getDB();
+    if (db) {
+      await db.ref('interactions/' + targetUid + '/' + id).set(notif);
+      return;
+    }
+    await fetch(`${FB_DB_URL}/interactions/${targetUid}/${id}.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...notifObj, id, publishedAt: Date.now() })
+      body: JSON.stringify(notif)
     });
   } catch(e) {}
 }
@@ -363,15 +510,23 @@ async function toggleLike(postId) {
   const wasLiked = !!post.likedBy[myUid];
   if (wasLiked) { delete post.likedBy[myUid]; }
   else          { post.likedBy[myUid] = true; }
-  saveData();
   if (typeof renderHome === 'function') renderHome();
-  // تحديث Firebase
+  // تحديث Firebase SDK
   try {
-    await fetch(`${FB_DB_URL}/posts/${postId}/likedBy/${myUid}.json?auth=${FB_API_KEY}`, {
-      method: wasLiked ? 'DELETE' : 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: wasLiked ? undefined : 'true'
-    });
+    const db = _getDB();
+    if (db) {
+      if (wasLiked) {
+        await db.ref('posts/' + postId + '/likedBy/' + myUid).remove();
+      } else {
+        await db.ref('posts/' + postId + '/likedBy/' + myUid).set(true);
+      }
+    } else {
+      await fetch(`${FB_DB_URL}/posts/${postId}/likedBy/${myUid}.json`, {
+        method: wasLiked ? 'DELETE' : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: wasLiked ? undefined : 'true'
+      });
+    }
   } catch(e) {}
   // إشعار صاحب المنشور
   if (!wasLiked && post.uid && post.uid !== myUid) {
@@ -394,14 +549,22 @@ async function toggleSave(postId) {
   if (!post.savedBy) post.savedBy = {};
   const wasSaved = !!post.savedBy[myUid];
   if (wasSaved) { delete post.savedBy[myUid]; } else { post.savedBy[myUid] = true; }
-  saveData();
   if (typeof renderHome === 'function') renderHome();
   try {
-    await fetch(`${FB_DB_URL}/posts/${postId}/savedBy/${myUid}.json?auth=${FB_API_KEY}`, {
-      method: wasSaved ? 'DELETE' : 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: wasSaved ? undefined : 'true'
-    });
+    const db = _getDB();
+    if (db) {
+      if (wasSaved) {
+        await db.ref('posts/' + postId + '/savedBy/' + myUid).remove();
+      } else {
+        await db.ref('posts/' + postId + '/savedBy/' + myUid).set(true);
+      }
+    } else {
+      await fetch(`${FB_DB_URL}/posts/${postId}/savedBy/${myUid}.json`, {
+        method: wasSaved ? 'DELETE' : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: wasSaved ? undefined : 'true'
+      });
+    }
   } catch(e) {}
 }
 
@@ -459,7 +622,6 @@ async function saveEdit() {
   if ((post.editCount || 0) >= 2) { showToast('لا يمكن التعديل أكثر من مرتين'); return; }
   post.text = newText;
   post.editCount = (post.editCount || 0) + 1;
-  saveData();
   closeEditModal();
   if (typeof renderHome === 'function') renderHome();
   await updatePostInFirebase(postId, { text: newText, editCount: post.editCount });
@@ -476,7 +638,6 @@ function closeDeleteModal() { document.getElementById('delete-modal')?.classList
 async function confirmDelete() {
   const postId = _menuPostId;
   state.posts = state.posts.filter(p => p.id !== postId);
-  saveData();
   closeDeleteModal();
   if (typeof renderHome === 'function') renderHome();
   await deletePostFromFirebase(postId);
@@ -519,7 +680,6 @@ async function openComments(postId) {
   // تحديث عداد المشاهدات
   if (post) {
     post.viewCount = (post.viewCount || 0) + 1;
-    saveData();
     updatePostInFirebase(postId, { viewCount: post.viewCount });
   }
   const comments = await fetchCommentsFromFirebase(postId);
@@ -560,7 +720,6 @@ async function submitComment() {
   const post = state.posts.find(p => p.id === _openPostId);
   if (post) {
     post.commentCount = (post.commentCount || 0) + 1;
-    saveData();
     updatePostInFirebase(_openPostId, { commentCount: post.commentCount });
   }
   // إشعار صاحب المنشور
@@ -632,10 +791,9 @@ function handleDraftVideo(input) {
 }
 
 // ============================================================
-// BELL BADGE — Firebase Realtime Listener
+// BELL BADGE — Firebase Realtime (onValue)
 // ============================================================
 
-// آخر وقت قراءة — يُجلب من Firebase
 let _bellLastReadTs = 0;
 
 // جلب آخر وقت قراءة من Firebase عند التشغيل
@@ -643,13 +801,19 @@ let _bellLastReadTs = 0;
   const uid = localStorage.getItem('yadwor-uid') || '';
   if (!uid) return;
   try {
-    const res = await fetch(`${FB_DB_URL}/userMeta/${uid}/notifLastRead.json?auth=${FB_API_KEY}`);
-    if (res.ok) {
-      const val = await res.json();
+    const db = _getDB();
+    if (db) {
+      const snap = await db.ref('userMeta/' + uid + '/notifLastRead').once('value');
+      const val = snap.val();
       if (val && typeof val === 'number') _bellLastReadTs = val;
+    } else {
+      const res = await fetch(`${FB_DB_URL}/userMeta/${uid}/notifLastRead.json`);
+      if (res.ok) {
+        const val = await res.json();
+        if (val && typeof val === 'number') _bellLastReadTs = val;
+      }
     }
   } catch(e) {}
-  // أرسل بيانات المستخدم للـ Service Worker
   _sendInitToSW();
 })();
 
@@ -683,11 +847,13 @@ async function _computeAndUpdateBadge() {
   const lastRead = _bellLastReadTs;
 
   try {
-    // إشعارات التمارين
     let examUnread = 0;
-    const resN = await fetch(`${FB_DB_URL}/notifications.json?auth=${FB_API_KEY}`);
-    if (resN.ok) {
-      const dataN = await resN.json();
+    const db = _getDB();
+
+    if (db) {
+      // إشعارات التمارين
+      const snapN = await db.ref('notifications').once('value');
+      const dataN = snapN.val();
       if (dataN && typeof dataN === 'object') {
         const examList = Object.values(dataN).filter(n => n && n.type === 'exam');
         if (myType === 'teacher') {
@@ -697,16 +863,14 @@ async function _computeAndUpdateBadge() {
         } else if (myType === 'student') {
           let myReq = null;
           try {
-            const resAll = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
-            if (resAll.ok) {
-              const allInst = await resAll.json();
-              if (allInst) {
-                for (const instUid of Object.keys(allInst)) {
-                  const found = Object.values(allInst[instUid] || {}).find(r =>
-                    r && r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
-                  );
-                  if (found) { myReq = found; break; }
-                }
+            const snapAll = await db.ref('joinRequests').once('value');
+            const allInst = snapAll.val();
+            if (allInst) {
+              for (const instUid of Object.keys(allInst)) {
+                const found = Object.values(allInst[instUid] || {}).find(r =>
+                  r && r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
+                );
+                if (found) { myReq = found; break; }
               }
             }
           } catch(e) {}
@@ -722,71 +886,63 @@ async function _computeAndUpdateBadge() {
           }
         }
       }
-    }
 
-    // إشعارات التفاعلات (لايك + تعليق + رد)
-    let interactionUnread = 0;
-    try {
-      const resI = await fetch(`${FB_DB_URL}/interactions/${myUid}.json?auth=${FB_API_KEY}`);
-      if (resI.ok) {
-        const dataI = await resI.json();
-        if (dataI && typeof dataI === 'object') {
-          interactionUnread = Object.values(dataI).filter(n =>
-            n && (n.type === 'like' || n.type === 'comment' || n.type === 'reply') &&
-            (n.publishedAt || n.timestamp || 0) > lastRead
+      // إشعارات التفاعلات
+      let interactionUnread = 0;
+      const snapI = await db.ref('interactions/' + myUid).once('value');
+      const dataI = snapI.val();
+      if (dataI && typeof dataI === 'object') {
+        interactionUnread = Object.values(dataI).filter(n =>
+          n && (n.type === 'like' || n.type === 'comment' || n.type === 'reply') &&
+          (n.publishedAt || n.timestamp || 0) > lastRead
+        ).length;
+      }
+
+      // إشعارات غرف البث
+      let roomUnread = 0;
+      const snapR = await db.ref('notificationsRoom').once('value');
+      const dataR = snapR.val();
+      if (dataR && typeof dataR === 'object') {
+        const roomList = Object.values(dataR).filter(n => n && n.roomId && n.ownerUid !== myUid);
+        if (myType === 'student') {
+          let myReqR = null;
+          try {
+            const snapAllR = await db.ref('joinRequests').once('value');
+            const allInstR = snapAllR.val();
+            if (allInstR) {
+              for (const iUid of Object.keys(allInstR)) {
+                const found = Object.values(allInstR[iUid] || {}).find(r =>
+                  r && r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
+                );
+                if (found) { myReqR = found; break; }
+              }
+            }
+          } catch(e) {}
+          if (myReqR) {
+            const mySubs = (myReqR.subjects || []).map(s => (s.name || s).trim());
+            roomUnread = roomList.filter(n => {
+              if ((n.ts || 0) <= lastRead) return false;
+              const sameLevel = !n.levelId  || myReqR.levelId === n.levelId;
+              const sameSub   = !n.subject  || mySubs.includes((n.subject || '').trim());
+              const sameInst  = !n.institutionOnly ||
+                (myReqR.institutionUid || myReqR.institutionId || '') === (n.institutionUid || '');
+              return sameLevel && sameSub && sameInst;
+            }).length;
+          }
+        } else if (myType !== 'teacher') {
+          roomUnread = roomList.filter(n =>
+            (n.ts || 0) > lastRead && (n.noTarget || n.institutionUid === myUid)
           ).length;
         }
       }
-    } catch(e) {}
 
-    // إشعارات غرف البث
-    let roomUnread = 0;
-    try {
-      const resR = await fetch(`${FB_DB_URL}/notificationsRoom.json?auth=${FB_API_KEY}`);
-      if (resR.ok) {
-        const dataR = await resR.json();
-        if (dataR && typeof dataR === 'object') {
-          const roomList = Object.values(dataR).filter(n => n && n.roomId && n.ownerUid !== myUid);
-          if (myType === 'student') {
-            let myReqR = null;
-            try {
-              const resAllR = await fetch(`${FB_DB_URL}/joinRequests.json?auth=${FB_API_KEY}`);
-              if (resAllR.ok) {
-                const allInstR = await resAllR.json();
-                if (allInstR) {
-                  for (const iUid of Object.keys(allInstR)) {
-                    const found = Object.values(allInstR[iUid] || {}).find(r =>
-                      r && r.status === 'accepted' && (r.uid === myUid || r.userId === myUid)
-                    );
-                    if (found) { myReqR = found; break; }
-                  }
-                }
-              }
-            } catch(e) {}
-            if (myReqR) {
-              const mySubs = (myReqR.subjects || []).map(s => (s.name || s).trim());
-              roomUnread = roomList.filter(n => {
-                if ((n.ts || 0) <= lastRead) return false;
-                const sameLevel = !n.levelId  || myReqR.levelId === n.levelId;
-                const sameSub   = !n.subject  || mySubs.includes((n.subject || '').trim());
-                const sameInst  = !n.institutionOnly ||
-                  (myReqR.institutionUid || myReqR.institutionId || '') === (n.institutionUid || '');
-                return sameLevel && sameSub && sameInst;
-              }).length;
-            }
-          } else if (myType !== 'teacher') {
-            roomUnread = roomList.filter(n =>
-              (n.ts || 0) > lastRead && (n.noTarget || n.institutionUid === myUid)
-            ).length;
-          }
-        }
+      const total = examUnread + interactionUnread + roomUnread;
+      if (total > 0) {
+        badgeEl.textContent = total > 99 ? '99+' : String(total);
+        badgeEl.style.display = '';
+      } else {
+        badgeEl.style.display = 'none';
       }
-    } catch(e) {}
-
-    const total = examUnread + interactionUnread + roomUnread;
-    if (total > 0) {
-      badgeEl.textContent = total > 99 ? '99+' : String(total);
-      badgeEl.style.display = '';
     } else {
       badgeEl.style.display = 'none';
     }
@@ -800,78 +956,78 @@ async function _fbGetLastReadThenCompute() {
   const uid = localStorage.getItem('yadwor-uid') || '';
   if (!uid) return;
   try {
-    const res = await fetch(`${FB_DB_URL}/userMeta/${uid}/notifLastRead.json?auth=${FB_API_KEY}`);
-    if (res.ok) {
-      const val = await res.json();
+    const db = _getDB();
+    if (db) {
+      const snap = await db.ref('userMeta/' + uid + '/notifLastRead').once('value');
+      const val = snap.val();
       if (val && typeof val === 'number') _bellLastReadTs = val;
+    } else {
+      const res = await fetch(`${FB_DB_URL}/userMeta/${uid}/notifLastRead.json`);
+      if (res.ok) {
+        const val = await res.json();
+        if (val && typeof val === 'number') _bellLastReadTs = val;
+      }
     }
   } catch(e) {}
   _computeAndUpdateBadge();
 }
 
-// الدالة الرئيسية — Realtime listener
+// الدالة الرئيسية — Realtime listener باستخدام onValue
 function updateBellBadgeFromFirebase() {
   const myUid = localStorage.getItem('yadwor-uid') || '';
   if (!myUid) return;
 
   _fbGetLastReadThenCompute();
 
-  function _startSSE(path) {
-    var url = FB_DB_URL + '/' + path + '.json?auth=' + FB_API_KEY;
-    try {
-      var src = new EventSource(url);
-      src.addEventListener('put',   function() { _computeAndUpdateBadge(); });
-      src.addEventListener('patch', function() { _computeAndUpdateBadge(); });
-      src.onerror = function() {
-        src.close();
-        setTimeout(function() { _startSSE(path); }, 10000);
-      };
-    } catch(e) {}
-  }
-
-  _startSSE('notificationsRoom');
-  _startSSE('notifications');
-  _startSSE('interactions/' + myUid);
-
-  // مراقبة تغيير notifLastRead من Firebase (عند فتح notifications.html من جهاز آخر)
-  var lrUrl = FB_DB_URL + '/userMeta/' + myUid + '/notifLastRead.json?auth=' + FB_API_KEY;
-  try {
-    var lrSrc = new EventSource(lrUrl);
-    lrSrc.addEventListener('put', function(e) {
-      try {
-        var p = JSON.parse(e.data);
-        if (p && p.data && typeof p.data === 'number') {
-          _bellLastReadTs = p.data;
-          _computeAndUpdateBadge();
-        }
-      } catch(x) {}
+  const db = _getDB();
+  if (db) {
+    // onValue realtime
+    db.ref('notificationsRoom').on('value', () => { _computeAndUpdateBadge(); });
+    db.ref('notifications').on('value', () => { _computeAndUpdateBadge(); });
+    db.ref('interactions/' + myUid).on('value', () => { _computeAndUpdateBadge(); });
+    db.ref('userMeta/' + myUid + '/notifLastRead').on('value', snap => {
+      const val = snap.val();
+      if (val && typeof val === 'number') {
+        _bellLastReadTs = val;
+        _computeAndUpdateBadge();
+      }
     });
-    lrSrc.onerror = function() { lrSrc.close(); };
-  } catch(e) {}
+  } else {
+    // fallback SSE
+    function _startSSE(path) {
+      var url = FB_DB_URL + '/' + path + '.json';
+      try {
+        var src = new EventSource(url);
+        src.addEventListener('put',   function() { _computeAndUpdateBadge(); });
+        src.addEventListener('patch', function() { _computeAndUpdateBadge(); });
+        src.onerror = function() {
+          src.close();
+          setTimeout(function() { _startSSE(path); }, 10000);
+        };
+      } catch(e) {}
+    }
+    _startSSE('notificationsRoom');
+    _startSSE('notifications');
+    _startSSE('interactions/' + myUid);
+  }
 }
 
 // ============================================================
 // PUSH NOTIFICATIONS
 // ============================================================
 
-// تسجيل SW وطلب إذن الإشعارات
 async function requestPushPermission() {
   if (!('serviceWorker' in navigator)) return;
   try {
-    // تسجيل sw.js
     await navigator.serviceWorker.register('sw.js', { scope: './' });
-    // انتظر حتى يصبح جاهزاً
     await navigator.serviceWorker.ready;
-    // طلب إذن الإشعارات
     if ('Notification' in window && Notification.permission === 'default') {
       await Notification.requestPermission();
     }
-    // أرسل بيانات المستخدم للـ SW
     _sendInitToSW();
   } catch(e) {}
 }
 
-// إرسال إشعار محلي عبر SW
 function sendBrowserNotification(title, body, url) {
   if (!('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;
@@ -894,16 +1050,20 @@ function sendBrowserNotification(title, body, url) {
   } catch(e) {}
 }
 
-// إخبار SW بأن المستخدم قرأ الإشعارات + حفظ في Firebase
 function markNotificationsRead(ts) {
   _bellLastReadTs = ts || Date.now();
   var uid = localStorage.getItem('yadwor-uid') || '';
   if (uid) {
-    fetch(FB_DB_URL + '/userMeta/' + uid + '/notifLastRead.json?auth=' + FB_API_KEY, {
-      method:  'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(_bellLastReadTs)
-    }).catch(function() {});
+    const db = _getDB();
+    if (db) {
+      db.ref('userMeta/' + uid + '/notifLastRead').set(_bellLastReadTs).catch(() => {});
+    } else {
+      fetch(FB_DB_URL + '/userMeta/' + uid + '/notifLastRead.json', {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(_bellLastReadTs)
+      }).catch(function() {});
+    }
   }
   if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
     navigator.serviceWorker.controller.postMessage({ type: 'MARK_READ', ts: _bellLastReadTs });
