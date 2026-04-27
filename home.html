@@ -8,6 +8,16 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+  if (!firebase.apps.length) {
+    firebase.initializeApp({
+      apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
+      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com"
+    });
+  }
+</script>
 <style>
   * { box-sizing: border-box; }
   body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
@@ -500,36 +510,28 @@ function doLogout() {
 <script>
 const PAGE = 'home';
 
-// ====================== تنظيف المنشورات الوهمية القديمة ======================
-(function cleanFakePosts() {
-  const FAKE_USERNAMES = ['riyada.school','sara.mehdi','youssef.amine','leila.bennani','yadwor.reels'];
-  state.posts = state.posts.filter(p => {
-    if (FAKE_USERNAMES.includes(p.username)) return false;
-    if (String(p.id).length < 10) return false;
-    return true;
-  });
-  state.posts = state.posts.map(p => { const c = Object.assign({}, p); delete c.owned; return c; });
-  localStorage.setItem('yadwor-posts', JSON.stringify(state.posts));
-})();// ====================== HOME RENDER ======================
-async function renderHome() {
+// ====================== HOME RENDER — onValue realtime ======================
+function renderHome() {
   const feed = document.getElementById('home-feed');
   feed.innerHTML = [1,2,3].map(() => shimmerPostCard()).join('');
 
-  // جلب كل المنشورات من Firebase (يشمل ريلز وصور جميع المستخدمين)
-  await syncPostsFromFirebase();
-
-  if (!state.posts || !state.posts.length) {
-    feed.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-center gap-4 px-6">
-      <div class="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100">
-        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M8 8h5"/></svg>
-      </div>
-      <p class="text-[15px] font-bold text-zinc-400">لا توجد منشورات بعد</p>
-      <p class="text-[13px] text-zinc-400">كن أول من ينشر شيئاً!</p>
-    </div>`;
-    return;
-  }
-  feed.innerHTML = state.posts.map(p => renderPostCard(p)).join('');
-  setupInfiniteScroll();
+  // استخدام getPosts() من shared.js مع onValue للتحديث الفوري
+  getPosts(function(posts) {
+    // مسح الحاوية أولاً لمنع التكرار
+    feed.innerHTML = '';
+    if (!posts || !posts.length) {
+      feed.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-center gap-4 px-6">
+        <div class="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100">
+          <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M8 8h5"/></svg>
+        </div>
+        <p class="text-[15px] font-bold text-zinc-400">لا توجد منشورات بعد</p>
+        <p class="text-[13px] text-zinc-400">كن أول من ينشر شيئاً!</p>
+      </div>`;
+      return;
+    }
+    feed.innerHTML = posts.map(p => renderPostCard(p)).join('');
+    setupInfiniteScroll();
+  });
 }
 
 // ====================== INFINITE SCROLL ======================
@@ -612,72 +614,10 @@ function handleDraftImages(input) {
   });
 }
 
-// ===== FIREBASE HELPERS =====
-const FB_URL = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
-const FB_KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+// ===== FIREBASE HELPERS — مُعرَّفة في shared.js =====
+// (لا تكرار هنا)
 
-async function savePostToFirebase(post) {
-  // المنشور يجب أن يحمل uid من Firebase Auth دائماً
-  const toSave = Object.assign({}, post, {
-    uid:         post.uid         || _myUid()      || '',
-    name:        post.name        || _myName()     || post.author || 'مستخدم',
-    author:      post.author      || _myName()     || 'مستخدم',
-    username:    post.username    || _myUsername() || '',
-    avatar:      post.avatar      || _myAvatar()   || '',
-    accountType: post.accountType || _myType()     || '',
-    publishedAt: post.publishedAt || post.timestamp || Date.now()
-  });
-  delete toSave.owned; // owned مصدر الخلط — محذوف دائماً
-  try {
-    const res = await fetch(`${FB_URL}/posts/${toSave.id}.json?auth=${FB_KEY}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(toSave)
-    });
-    if (!res.ok) throw new Error('Firebase error');
-    return true;
-  } catch(e) {
-    console.warn('Firebase save failed:', e);
-    return false;
-  }
-}
-
-async function uploadImageToCloudinary(file) {
-  const form = new FormData();
-  form.append('file', file);
-  form.append('upload_preset', 'my_app_upload');
-  const res = await fetch('https://api.cloudinary.com/v1_1/dlujoziwz/image/upload', { method: 'POST', body: form });
-  if (!res.ok) throw new Error('Image upload failed');
-  const data = await res.json();
-  return data.secure_url;
-}
-
-function handleDraftVideo(input) {
-  const file = input.files[0]; if(!file) return;
-  state.draftVideoFile = file;
-  state.draftVideo = URL.createObjectURL(file);
-  document.getElementById('draft-video-preview').innerHTML = `
-    <div class="relative overflow-hidden rounded-[12px] bg-black">
-      <video src="${state.draftVideo}" controls playsinline preload="metadata" class="max-h-[280px] w-full object-contain"></video>
-      <div class="mt-1 px-1 text-[11px] text-zinc-500">
-        <svg viewBox="0 0 24 24" class="inline h-3 w-3 mr-0.5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-        ${(file.size/1024/1024).toFixed(1)} MB — سيتم رفعه عند النشر
-      </div>
-    </div>`;
-}
-
-async function uploadVideoToCloudinary(file) {
-  const CLOUD_NAME = 'dlujoziwz';
-  const UPLOAD_PRESET = 'my_app_upload';
-  const form = new FormData();
-  form.append('file', file);
-  form.append('upload_preset', UPLOAD_PRESET);
-  form.append('resource_type', 'video');
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`, { method: 'POST', body: form });
-  if (!res.ok) throw new Error('Upload failed');
-  const data = await res.json();
-  return { url: data.secure_url, thumbnail: data.secure_url.replace(/\.[^/.]+$/, '.jpg') };
-}
+// handleDraftVideo و uploadVideoToCloudinary مُعرَّفتان في shared.js
 
 async function publishPost() {
   // دائماً اقرأ بيانات المستخدم الحقيقي من localStorage مباشرة
@@ -738,8 +678,7 @@ async function publishPost() {
       document.getElementById('draft-hashtags').value='';
       document.getElementById('draft-video-preview').innerHTML='';
       state.composerMode='post';
-      saveData();
-      savePostToFirebase(newReel);
+      createPost(newReel);
       window.location.href='reels.html';
     },400);
     return;
@@ -791,10 +730,8 @@ async function publishPost() {
   document.getElementById('draft-images-preview').innerHTML='';
   const imgInput=document.getElementById('draft-image-input'); if(imgInput)imgInput.value='';
   state.composerMode='post';
-  saveData();
-  savePostToFirebase(newPost);
+  createPost(newPost);
   uploadingToast.classList.remove('show');
-  renderHome();
   showToast('تم نشر المنشور بنجاح');
 }
 
