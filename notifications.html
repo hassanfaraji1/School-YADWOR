@@ -1,192 +1,262 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
 <title>YADWOR – الإشعارات</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-  * { box-sizing: border-box; }
-  body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
-  input:focus { outline: none; }
-  .shimmer { animation: shimmer 1.5s infinite; background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%); background-size: 200% 100%; }
-  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-  .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#18181b; color:white; padding:8px 18px; border-radius:999px; font-size:13px; font-weight:700; z-index:999; pointer-events:none; opacity:0; transition:opacity .2s; }
-  .toast.show { opacity:1; }
-  .notif-tab { transition: all .2s; border-bottom: 2px solid transparent; }
-  .notif-tab.active { color: #18181b; border-bottom-color: #0D47A1; font-weight: 800; }
-  .notif-tab:not(.active) { color: #71717a; font-weight: 700; }
+*{box-sizing:border-box}
+body{font-family:'Tajawal',sans-serif;background:#f5f6fa;color:#18181b;margin:0}
+:root{--blue:#0D47A1;--yellow:#FFAA00}
+input:focus{outline:none}
 
-  /* لوني المنصة */
-  :root {
-    --c-blue:   #0D47A1;
-    --c-yellow: #FFC107;
-  }
+/* shimmer */
+.shimmer{animation:shimmer 1.5s infinite;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200% 100%}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
-  /* بطاقة الإشعار */
-  .notif-card {
-    background: #ffffff;
-    border: 1.5px solid #e4e4e7;
-    border-radius: 6px;
-    padding: 14px;
-    margin-bottom: 10px;
-    transition: background .15s;
-  }
-  .notif-card.unread {
-    border-color: #0D47A1;
-    background: #f0f6ff;
-  }
+/* toast */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#18181b;color:#fff;padding:8px 18px;border-radius:999px;font-size:13px;font-weight:700;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s}
+.toast.show{opacity:1}
 
-  /* أيقونة الإشعار */
-  .notif-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    background: #e8f0fe;
-  }
+/* tabs */
+.n-tab{border-bottom:2px solid transparent;font-size:13px;font-weight:700;color:#71717a;padding:10px 14px;white-space:nowrap;transition:.2s;background:none;border-top:none;border-left:none;border-right:none;cursor:pointer}
+.n-tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:800}
 
-  /* badge صغير (المستوى / المادة / النوع) */
-  .notif-badge-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 10px;
-    font-weight: 800;
-    padding: 2px 8px;
-    border-radius: 6px;
-    border: 1px solid #0D47A1;
-    color: #0D47A1;
-    background: transparent;
-  }
-  .notif-badge-tag.yellow {
-    border-color: #FFC107;
-    color: #7a5800;
-    background: #fffde7;
-  }
+/* بطاقة إشعار */
+.ncard{background:#fff;border:1.5px solid #e8e8ec;border-radius:6px;padding:14px;margin-bottom:8px}
+.ncard.unread{border-color:var(--blue);background:#f0f6ff}
 
-  /* زر الدخول للغرفة */
-  .btn-join-room {
-    margin-top: 8px;
-    width: 100%;
-    padding: 9px 8px;
-    background: #0D47A1;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-family: 'Tajawal', sans-serif;
-    font-size: 12px;
-    font-weight: 800;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    white-space: nowrap;
-  }
-  .btn-join-room:active { opacity: .85; }
+/* نقطة مقروء/غير مقروء */
+.n-dot-unread{width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-top:4px}
+.n-dot-read  {width:8px;height:8px;border-radius:50%;background:#d4d4d8;flex-shrink:0;margin-top:4px}
 
-  /* نقطة الغير مقروء */
-  .unread-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: #0D47A1;
-    flex-shrink: 0;
-  }
-  .read-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: #d4d4d8;
-    flex-shrink: 0;
-  }
+/* أيقونة الإشعار */
+.n-icon{width:42px;height:42px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.n-icon.blue  {background:#ddeaff}
+.n-icon.yellow{background:#fff3cc}
+.n-icon.green {background:#e3f5e8}
+
+/* badge tag - بدون border مستدير */
+.n-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;padding:3px 7px;border-radius:4px}
+.n-tag.blue  {background:#ddeaff;color:var(--blue)}
+.n-tag.yellow{background:#fff3cc;color:#7a5000}
+
+/* زر دخول الغرفة */
+.btn-room{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;padding:9px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-family:'Tajawal',sans-serif;font-size:12px;font-weight:800;cursor:pointer}
+.btn-room:active{opacity:.85}
+
+/* نافذة الإعدادات */
+.settings-overlay{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Tajawal',sans-serif;direction:rtl}
+.settings-box{background:#fff;border-radius:12px;width:100%;max-width:340px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.22)}
+.settings-head{background:var(--blue);padding:16px 18px;display:flex;align-items:center;gap:10px}
+.settings-head svg{flex-shrink:0}
+.settings-head h3{color:#fff;font-size:15px;font-weight:800;margin:0}
+.settings-body{padding:18px}
+.phone-row{display:flex;gap:8px;margin-bottom:12px}
+.phone-prefix{display:flex;align-items:center;gap:6px;padding:10px 12px;background:#f0f6ff;border:1.5px solid #c7d9f8;border-radius:6px;font-size:13px;font-weight:800;color:var(--blue);white-space:nowrap}
+.phone-input{flex:1;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:6px;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:700;direction:ltr}
+.phone-input:focus{border-color:var(--blue)}
+.btn-save-phone{width:100%;padding:12px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:800;cursor:pointer}
+.btn-cancel-phone{width:100%;padding:10px;background:#f4f4f5;color:#333;border:none;border-radius:6px;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-top:6px}
+
+/* كلمة السر للغرفة */
+.pass-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Tajawal',sans-serif;direction:rtl}
+.pass-box{background:#fff;border-radius:12px;width:100%;max-width:310px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.pass-head{background:var(--blue);padding:14px 16px;display:flex;align-items:center;gap:8px}
+.pass-head svg{flex-shrink:0}
+.pass-head span{color:#fff;font-size:14px;font-weight:800}
+.pass-body{padding:16px}
+.pass-body input{width:100%;padding:11px 14px;border:1.5px solid #ddd;border-radius:6px;font-family:'Tajawal',sans-serif;font-size:15px;font-weight:700;direction:ltr;text-align:center;letter-spacing:3px}
+.pass-body input:focus{border-color:var(--blue)}
+.pass-err{color:#e53935;font-size:12px;font-weight:700;text-align:center;margin-top:6px;display:none}
+.pass-btns{display:flex;gap:8px;margin-top:12px}
+.pass-btn-ok {flex:1;padding:11px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-family:'Tajawal',sans-serif;font-size:14px;font-weight:800;cursor:pointer}
+.pass-btn-no {flex:1;padding:11px;background:#f1f3f5;color:#333;border:none;border-radius:6px;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
+
+/* LIVE badge (بدل النقطة الحمراء الإيموجي) */
+.live-badge{display:inline-flex;align-items:center;gap:4px;background:#ffebee;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:900;color:#c62828;letter-spacing:.5px}
+.live-dot{width:6px;height:6px;border-radius:50%;background:#e53935;animation:livePulse 1.2s infinite}
+@keyframes livePulse{0%,100%{opacity:1}50%{opacity:.3}}
 </style>
 </head>
 <body>
 <div id="toast" class="toast"></div>
 
-<!-- HEADER -->
-<header class="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/95 backdrop-blur-xl">
-  <div class="mx-auto flex h-11 max-w-[1100px] items-center justify-between px-3">
-    <div class="flex items-center gap-1.5">
-      <a href="home.html" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
-        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-      </a>
-    </div>
-    <h1 class="text-[15px] font-extrabold tracking-tight">الإشعارات</h1>
-    <div class="h-9 w-9"></div>
+<!-- ══ HEADER ══ -->
+<header style="position:sticky;top:0;z-index:40;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);border-bottom:1px solid #e8e8ec;">
+  <div style="max-width:760px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:46px;padding:0 12px;">
+    <a href="home.html" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:none;border:none;cursor:pointer;text-decoration:none;color:#18181b;">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    </a>
+    <h1 style="font-size:16px;font-weight:900;margin:0;">الإشعارات</h1>
+    <!-- زر الإعدادات (رقم الواتساب) -->
+    <button onclick="openPhoneSettings()" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:none;border:none;cursor:pointer;color:#0D47A1;" title="إعدادات الإشعارات">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
   </div>
 </header>
 
-<!-- TABS -->
-<div class="sticky top-11 z-30 bg-white border-b border-zinc-100 px-2">
-  <div class="mx-auto max-w-[760px] flex gap-0 overflow-x-auto scrollbar-hide">
-    <button onclick="setNotifTab('all')"      id="ntab-all"      class="notif-tab active px-4 py-3 text-[13px] shrink-0">الكل</button>
-    <button onclick="setNotifTab('exams')"    id="ntab-exams"    class="notif-tab px-4 py-3 text-[13px] shrink-0">تمارين</button>
-    <button onclick="setNotifTab('rooms')"    id="ntab-rooms"    class="notif-tab px-4 py-3 text-[13px] shrink-0">غرف البث</button>
-    <button onclick="setNotifTab('likes')"    id="ntab-likes"    class="notif-tab px-4 py-3 text-[13px] shrink-0">إعجابات</button>
-    <button onclick="setNotifTab('comments')" id="ntab-comments" class="notif-tab px-4 py-3 text-[13px] shrink-0">تعليقات</button>
+<!-- ══ TABS ══ -->
+<div style="position:sticky;top:46px;z-index:30;background:#fff;border-bottom:1px solid #eee;">
+  <div style="max-width:760px;margin:0 auto;display:flex;overflow-x:auto;" class="scrollbar-hide">
+    <button class="n-tab active" id="ntab-all"      onclick="setNotifTab('all')">الكل</button>
+    <button class="n-tab"        id="ntab-exams"    onclick="setNotifTab('exams')">تمارين</button>
+    <button class="n-tab"        id="ntab-rooms"    onclick="setNotifTab('rooms')">غرف البث</button>
+    <button class="n-tab"        id="ntab-likes"    onclick="setNotifTab('likes')">إعجابات</button>
+    <button class="n-tab"        id="ntab-comments" onclick="setNotifTab('comments')">تعليقات</button>
   </div>
 </div>
 
-<main id="notifications-list" class="mx-auto max-w-[760px] px-4 py-4 pb-24"></main>
+<!-- ══ LIST ══ -->
+<main id="notifications-list" style="max-width:760px;margin:0 auto;padding:14px 12px 100px;"></main>
 
-<!-- BOTTOM NAV -->
-<nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-[0_-6px_20px_rgba(0,0,0,0.04)]">
-  <div class="mx-auto grid max-w-[480px] grid-cols-5 px-2 py-2 gap-1">
-    <a href="profile.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
-      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>الملف
-    </a>
-    <a href="messages.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
-      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>الرسائل
-    </a>
-    <a href="roomhom.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
-      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>الغرف
-    </a>
-    <a href="search.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
-      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16"/></svg>البحث
-    </a>
-    <a href="home.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
-      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>الرئيسية
-    </a>
+<!-- ══ BOTTOM NAV ══ -->
+<nav style="position:fixed;bottom:0;left:0;right:0;z-index:40;background:#fff;border-top:1px solid #e8e8ec;box-shadow:0 -4px 16px rgba(0,0,0,.05);">
+  <div style="max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);padding:6px 8px;gap:4px;">
+    <a href="profile.html"  style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px;font-size:10px;font-weight:700;color:#71717a;text-decoration:none;">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>الملف</a>
+    <a href="messages.html" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px;font-size:10px;font-weight:700;color:#71717a;text-decoration:none;">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>الرسائل</a>
+    <a href="roomhom.html"  style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px;font-size:10px;font-weight:700;color:#71717a;text-decoration:none;">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>الغرف</a>
+    <a href="search.html"   style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px;font-size:10px;font-weight:700;color:#71717a;text-decoration:none;">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16"/></svg>البحث</a>
+    <a href="home.html"     style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px;font-size:10px;font-weight:700;color:#71717a;text-decoration:none;">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>الرئيسية</a>
   </div>
 </nav>
 
 <script src="shared.js"></script>
 <script>
-const FB_DB_URL_N  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
-const FB_API_KEY_N = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+// ══════════════════════════════════════════════════
+// ثوابت
+// ══════════════════════════════════════════════════
+var FB_N   = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
+var FB_KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
 
-let currentTab       = 'all';
-let allNotifications = [];
-let _lastReadTs      = 0;
+var currentTab       = 'all';
+var allNotifications = [];
+var _lastReadTs      = 0;
 
-// ─── تحميل آخر وقت قراءة من Firebase ───
-async function _loadLastRead() {
-  const uid = localStorage.getItem('yadwor-uid') || '';
-  if (!uid) return;
-  try {
-    const r = await fetch(FB_DB_URL_N + '/userMeta/' + uid + '/notifLastRead.json?auth=' + FB_API_KEY_N);
-    if (r.ok) {
-      const v = await r.json();
-      if (v && typeof v === 'number') _lastReadTs = v;
-    }
-  } catch(e) {}
+// ══════════════════════════════════════════════════
+// إعدادات الواتساب (رقم الهاتف)
+// ══════════════════════════════════════════════════
+function openPhoneSettings() {
+  var old = document.getElementById('_phoneSettingsOverlay');
+  if (old) old.remove();
+
+  // جلب الرقم المحفوظ من Firebase
+  var uid = localStorage.getItem('yadwor-uid') || '';
+  var savedPhone = '';
+  var savedPrefix = '+212';
+
+  // محاولة جلب من Firebase أولاً
+  if (uid) {
+    fetch(FB_N + '/userMeta/' + uid + '/whatsappPhone.json?auth=' + FB_KEY)
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(v){
+        if (v && typeof v === 'object') {
+          savedPhone  = v.number  || '';
+          savedPrefix = v.prefix  || '+212';
+        } else if (typeof v === 'string') {
+          savedPhone = v;
+        }
+        _buildPhoneModal(savedPhone, savedPrefix);
+      }).catch(function(){ _buildPhoneModal('', '+212'); });
+  } else {
+    _buildPhoneModal('', '+212');
+  }
 }
 
-// ─── تبويبات ───
+function _buildPhoneModal(savedPhone, savedPrefix) {
+  var overlay = document.createElement('div');
+  overlay.id = '_phoneSettingsOverlay';
+  overlay.className = 'settings-overlay';
+  overlay.innerHTML =
+    '<div class="settings-box">' +
+      '<div class="settings-head">' +
+        '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.42 2 2 0 0 1 3.6 1.25h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.95a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg>' +
+        '<h3>إشعارات الواتساب</h3>' +
+      '</div>' +
+      '<div class="settings-body">' +
+        '<p style="font-size:12px;color:#555;margin-bottom:12px;line-height:1.6;">أدخل رقم هاتفك لتلقّي الإشعارات عبر الواتساب</p>' +
+        '<div class="phone-row">' +
+          '<div class="phone-prefix">' +
+            '<select id="_phonePrefix" style="background:none;border:none;font-family:Tajawal,sans-serif;font-size:13px;font-weight:800;color:#0D47A1;cursor:pointer;padding:0;">' +
+              '<option value="+212"' + (savedPrefix==='+212'?' selected':'') + '>🇲🇦 +212</option>' +
+              '<option value="+213"' + (savedPrefix==='+213'?' selected':'') + '>🇩🇿 +213</option>' +
+              '<option value="+216"' + (savedPrefix==='+216'?' selected':'') + '>🇹🇳 +216</option>' +
+              '<option value="+218"' + (savedPrefix==='+218'?' selected':'') + '>🇱🇾 +218</option>' +
+              '<option value="+20" ' + (savedPrefix==='+20' ?' selected':'') + '>🇪🇬 +20</option>' +
+              '<option value="+966"' + (savedPrefix==='+966'?' selected':'') + '>🇸🇦 +966</option>' +
+              '<option value="+971"' + (savedPrefix==='+971'?' selected':'') + '>🇦🇪 +971</option>' +
+              '<option value="+33" ' + (savedPrefix==='+33' ?' selected':'') + '>🇫🇷 +33</option>' +
+            '</select>' +
+          '</div>' +
+          '<input id="_phoneNumber" class="phone-input" type="tel" placeholder="0612345678" value="' + savedPhone + '" maxlength="15" inputmode="numeric">' +
+        '</div>' +
+        '<div id="_phoneErr" style="display:none;color:#e53935;font-size:11px;font-weight:700;margin-bottom:8px;text-align:center;">أدخل رقماً صحيحاً (9 أرقام على الأقل)</div>' +
+        '<button class="btn-save-phone" onclick="_savePhoneNumber()">حفظ الرقم</button>' +
+        '<button class="btn-cancel-phone" onclick="document.getElementById(\'_phoneSettingsOverlay\').remove()">إلغاء</button>' +
+      '</div>' +
+    '</div>';
+  overlay.addEventListener('click', function(e){ if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+function _savePhoneNumber() {
+  var prefix = document.getElementById('_phonePrefix').value;
+  var number = (document.getElementById('_phoneNumber').value || '').trim().replace(/^0/, '');
+  var errEl  = document.getElementById('_phoneErr');
+
+  if (!number || number.length < 8 || !/^\d+$/.test(number)) {
+    if (errEl) errEl.style.display = 'block';
+    return;
+  }
+  if (errEl) errEl.style.display = 'none';
+
+  var uid = localStorage.getItem('yadwor-uid') || '';
+  var fullNumber = prefix + number;
+
+  if (uid) {
+    fetch(FB_N + '/userMeta/' + uid + '/whatsappPhone.json?auth=' + FB_KEY, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefix: prefix, number: number, full: fullNumber })
+    }).then(function(){
+      _showToast('تم حفظ رقم الواتساب بنجاح');
+      document.getElementById('_phoneSettingsOverlay').remove();
+    }).catch(function(){
+      _showToast('حدث خطأ، حاول مجدداً');
+    });
+  } else {
+    _showToast('سجّل دخولك أولاً');
+  }
+}
+
+function _showToast(msg) {
+  var el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(function(){ el.classList.remove('show'); }, 2500);
+}
+
+// ══════════════════════════════════════════════════
+// تبويبات
+// ══════════════════════════════════════════════════
 function setNotifTab(tab) {
   currentTab = tab;
   ['all','exams','rooms','likes','comments'].forEach(function(t) {
     var btn = document.getElementById('ntab-' + t);
-    if (btn) btn.className = 'notif-tab ' + (t === tab ? 'active' : '') + ' px-4 py-3 text-[13px] shrink-0';
+    if (btn) btn.className = 'n-tab' + (t === tab ? ' active' : '');
   });
   renderList();
 }
@@ -200,61 +270,48 @@ function getFilteredNotifs() {
   return allNotifications;
 }
 
-// ─── أيقونات SVG فقط ───
-function getNotifIcon(type) {
-  // غرفة البث
-  if (type === 'room') return (
-    '<svg viewBox="0 0 24 24" style="width:20px;height:20px;" fill="none" stroke="#0D47A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.87v6.26a1 1 0 0 1-1.447.9L15 14"/>' +
-      '<rect x="1" y="6" width="14" height="12" rx="2"/>' +
-    '</svg>'
-  );
-  // تمرين / اختبار
-  if (type === 'exam') return (
-    '<svg viewBox="0 0 24 24" style="width:20px;height:20px;" fill="none" stroke="#0D47A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>' +
-      '<rect x="9" y="3" width="6" height="4" rx="1"/>' +
-      '<path d="M9 12h6M9 16h4"/>' +
-    '</svg>'
-  );
-  // إعجاب
-  if (type === 'like') return (
-    '<svg viewBox="0 0 24 24" style="width:20px;height:20px;" fill="#FFC107" stroke="#FFC107" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>' +
-    '</svg>'
-  );
-  // تعليق
-  if (type === 'comment') return (
-    '<svg viewBox="0 0 24 24" style="width:20px;height:20px;" fill="none" stroke="#0D47A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' +
-    '</svg>'
-  );
-  // رد على تعليق
-  if (type === 'reply') return (
-    '<svg viewBox="0 0 24 24" style="width:20px;height:20px;" fill="none" stroke="#0D47A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-      '<polyline points="9 17 4 12 9 7"/>' +
-      '<path d="M20 18v-2a4 4 0 0 0-4-4H4"/>' +
-    '</svg>'
-  );
-  // افتراضي
-  return (
-    '<svg viewBox="0 0 24 24" style="width:20px;height:20px;" fill="none" stroke="#0D47A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/>' +
-      '<path d="M13.73 21a2 2 0 0 1-3.46 0"/>' +
-    '</svg>'
-  );
+// ══════════════════════════════════════════════════
+// أيقونات SVG
+// ══════════════════════════════════════════════════
+function _svgRoom() {
+  return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#0D47A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.87v6.26a1 1 0 0 1-1.447.9L15 14"/><rect x="1" y="6" width="14" height="12" rx="2"/></svg>';
+}
+function _svgExam() {
+  return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#0D47A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>';
+}
+function _svgLike() {
+  return '<svg viewBox="0 0 24 24" width="20" height="20" fill="#FFAA00" stroke="#FFAA00" stroke-width="1.5" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
+}
+function _svgComment() {
+  return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#0D47A1" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+}
+function _svgReply() {
+  return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#0D47A1" stroke-width="2" stroke-linecap="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>';
+}
+function _svgLive() {
+  // أيقونة بث مباشر بدل النقطة الحمراء الإيموجي
+  return '<span class="live-badge"><span class="live-dot"></span>LIVE</span>';
+}
+function _svgLock() {
+  return '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+}
+function _svgLevel() {
+  return '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>';
+}
+function _svgPen() {
+  return '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+}
+function _svgClock() {
+  return '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
 }
 
-// لون خلفية أيقونة بلون المنصة فقط
-function getIconBg(type) {
-  if (type === 'like') return 'background:#fffde7;';   // أصفر فاتح جداً
-  return 'background:#e8f0fe;';                        // أزرق فاتح جداً
-}
-
-function formatTimeAgoN(ts) {
+// ══════════════════════════════════════════════════
+// تنسيق الوقت
+// ══════════════════════════════════════════════════
+function _timeAgo(ts) {
   if (!ts) return 'الآن';
-  var diff = Date.now() - ts;
-  var m = Math.floor(diff / 60000);
+  var d = Date.now() - ts;
+  var m = Math.floor(d / 60000);
   if (m < 1)  return 'الآن';
   if (m < 60) return 'منذ ' + m + ' د';
   var h = Math.floor(m / 60);
@@ -262,240 +319,308 @@ function formatTimeAgoN(ts) {
   return 'منذ ' + Math.floor(h / 24) + ' يوم';
 }
 
-// ================================================================
-// نافذة كلمة السر للغرف الخاصة
-// ================================================================
-function _showPasswordModal(roomId, correctCode) {
-  var old = document.getElementById('_roomPassModal');
+function _formatDeadline(ts) {
+  if (!ts) return '';
+  var d  = new Date(ts);
+  var now = new Date();
+  var diff = ts - Date.now();
+  if (diff < 0) return 'انتهى';
+  var days = Math.floor(diff / 86400000);
+  var hrs  = Math.floor((diff % 86400000) / 3600000);
+  var mins = Math.floor((diff % 3600000) / 60000);
+
+  var dateStr = d.toLocaleDateString('ar-MA', { weekday:'short', day:'numeric', month:'short' });
+  var timeStr = d.toLocaleTimeString('ar-MA', { hour:'2-digit', minute:'2-digit' });
+
+  if (days > 0)  return 'ينتهي ' + dateStr + ' الساعة ' + timeStr;
+  if (hrs  > 0)  return 'ينتهي خلال ' + hrs + ' س و' + mins + ' د';
+  if (mins > 0)  return 'ينتهي خلال ' + mins + ' دقيقة';
+  return 'ينتهي الآن';
+}
+
+// ══════════════════════════════════════════════════
+// نافذة كلمة السر
+// ══════════════════════════════════════════════════
+function _showPassModal(roomId, code) {
+  var old = document.getElementById('_passModal');
   if (old) old.remove();
-  var modal = document.createElement('div');
-  modal.id = '_roomPassModal';
-  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px;font-family:Tajawal,sans-serif;direction:rtl;';
-  modal.innerHTML =
-    '<div style="background:#fff;border-radius:12px;padding:24px 20px;width:100%;max-width:320px;box-shadow:0 20px 60px rgba(0,0,0,0.25);">' +
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">' +
-        '<div style="background:#e8f0fe;border-radius:6px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-          '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:#0D47A1;stroke-width:2;stroke-linecap:round;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
-        '</div>' +
-        '<div>' +
-          '<div style="font-size:15px;font-weight:800;color:#111;">غرفة خاصة</div>' +
-          '<div style="font-size:12px;color:#888;margin-top:1px;">أدخل كلمة السر للدخول</div>' +
-        '</div>' +
+  var ov = document.createElement('div');
+  ov.id = '_passModal';
+  ov.className = 'pass-overlay';
+  ov.innerHTML =
+    '<div class="pass-box">' +
+      '<div class="pass-head">' +
+        _svgLock().replace('width="11" height="11"','width="18" height="18"').replace('currentColor','#fff') +
+        '<span style="margin-right:8px;">غرفة خاصة — أدخل كلمة السر</span>' +
       '</div>' +
-      '<input id="_roomPassInput" type="password" placeholder="كلمة السر..."' +
-        ' style="width:100%;padding:12px 14px;border:2px solid #e0e6ed;border-radius:6px;font-family:Tajawal,sans-serif;font-size:15px;font-weight:700;outline:none;margin-bottom:8px;direction:ltr;text-align:center;letter-spacing:2px;"' +
-        ' oninput="document.getElementById(\'_roomPassErr\').style.display=\'none\'">' +
-      '<div id="_roomPassErr" style="display:none;color:#e53935;font-size:12px;font-weight:700;text-align:center;margin-bottom:8px;">كلمة السر غير صحيحة</div>' +
-      '<div style="display:flex;gap:10px;margin-top:4px;">' +
-        '<button onclick="_confirmRoomPass(\'' + roomId + '\',\'' + correctCode + '\')"' +
-          ' style="flex:1;padding:12px;background:#0D47A1;color:#fff;border:none;border-radius:6px;font-family:Tajawal,sans-serif;font-size:14px;font-weight:800;cursor:pointer;">دخول</button>' +
-        '<button onclick="document.getElementById(\'_roomPassModal\').remove()"' +
-          ' style="flex:1;padding:12px;background:#f1f3f5;color:#333;border:none;border-radius:6px;font-family:Tajawal,sans-serif;font-size:14px;font-weight:700;cursor:pointer;">إلغاء</button>' +
+      '<div class="pass-body">' +
+        '<input id="_passInp" type="password" placeholder="••••••" autocomplete="off" oninput="document.getElementById(\'_passErr\').style.display=\'none\'">' +
+        '<div class="pass-err" id="_passErr">كلمة السر غير صحيحة</div>' +
+        '<div class="pass-btns">' +
+          '<button class="pass-btn-ok" onclick="_doPass(\'' + roomId + '\',\'' + code + '\')">دخول</button>' +
+          '<button class="pass-btn-no" onclick="document.getElementById(\'_passModal\').remove()">إلغاء</button>' +
+        '</div>' +
       '</div>' +
     '</div>';
-  document.body.appendChild(modal);
-  setTimeout(function() {
-    var inp = document.getElementById('_roomPassInput');
-    if (inp) {
-      inp.focus();
-      inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') _confirmRoomPass(roomId, correctCode); });
-    }
-  }, 100);
+  ov.addEventListener('click', function(e){ if (e.target===ov) ov.remove(); });
+  document.body.appendChild(ov);
+  setTimeout(function(){
+    var inp = document.getElementById('_passInp');
+    if (inp) { inp.focus(); inp.addEventListener('keydown', function(e){ if (e.key==='Enter') _doPass(roomId, code); }); }
+  }, 80);
 }
 
-function _confirmRoomPass(roomId, correctCode) {
-  var inp = document.getElementById('_roomPassInput');
-  var errEl = document.getElementById('_roomPassErr');
-  var entered = inp ? inp.value.trim() : '';
-  if (entered !== correctCode) {
-    if (errEl) errEl.style.display = 'block';
-    if (inp) { inp.style.borderColor = '#e53935'; setTimeout(function(){ inp.style.borderColor = '#e0e6ed'; }, 1500); }
+function _doPass(roomId, code) {
+  var inp = document.getElementById('_passInp');
+  var err = document.getElementById('_passErr');
+  if (!inp || inp.value.trim() !== code) {
+    if (err) err.style.display = 'block';
+    if (inp) { inp.style.borderColor = '#e53935'; setTimeout(function(){ inp.style.borderColor = '#ddd'; }, 1400); }
     return;
   }
-  document.getElementById('_roomPassModal').remove();
-  _doJoinRoom(roomId, 'private', correctCode);
+  document.getElementById('_passModal').remove();
+  _joinRoom(roomId, 'private', code);
 }
 
-function _doJoinRoom(roomId, roomType, roomCode) {
+function _joinRoom(roomId, roomType, roomCode) {
   var uid    = localStorage.getItem('yadwor-uid') || '';
   var name   = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'مستخدم';
   var avatar = localStorage.getItem('yadwor-avatar-preview') || '';
-  localStorage.setItem('yw_room_target',  JSON.stringify({roomId: roomId, roomType: roomType, roomCode: roomCode, roomName: ''}));
-  localStorage.setItem('yw_active_room',  JSON.stringify({roomId: roomId, isOwner: false, roomType: roomType, roomCode: roomCode, roomMode: 'video'}));
+  localStorage.setItem('yw_room_target',  JSON.stringify({roomId:roomId, roomType:roomType, roomCode:roomCode, roomName:''}));
+  localStorage.setItem('yw_active_room',  JSON.stringify({roomId:roomId, isOwner:false, roomType:roomType, roomCode:roomCode, roomMode:'video'}));
   localStorage.setItem('yw_room_mode',    'video');
-  localStorage.setItem('yw_current_user', JSON.stringify({uid: uid, name: name, avatar: avatar}));
+  localStorage.setItem('yw_current_user', JSON.stringify({uid:uid, name:name, avatar:avatar}));
   window.location.href = 'roomvideo.html';
 }
 
 function joinRoomFromNotif(roomId, roomType, roomCode) {
-  if (roomType === 'private') { _showPasswordModal(roomId, roomCode); }
-  else { _doJoinRoom(roomId, roomType, roomCode); }
+  if (roomType === 'private') _showPassModal(roomId, roomCode);
+  else _joinRoom(roomId, roomType, roomCode);
 }
 
-// ================================================================
+// ══════════════════════════════════════════════════
 // renderList
-// ================================================================
+// ══════════════════════════════════════════════════
 function renderList() {
-  var el = document.getElementById('notifications-list');
+  var el   = document.getElementById('notifications-list');
   var list = getFilteredNotifs();
 
   if (!list.length) {
     el.innerHTML =
-      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 0;text-align:center;gap:12px;">' +
-        '<div style="width:64px;height:64px;border-radius:6px;background:#f4f4f5;display:flex;align-items:center;justify-content:center;">' +
-          '<svg viewBox="0 0 24 24" style="width:32px;height:32px;" fill="none" stroke="#a1a1aa" stroke-width="1.6" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
+      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 0;gap:12px;">' +
+        '<div style="width:60px;height:60px;border-radius:6px;background:#f1f1f4;display:flex;align-items:center;justify-content:center;">' +
+          '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#aaa" stroke-width="1.6" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
         '</div>' +
-        '<p style="font-size:14px;font-weight:700;color:#a1a1aa;">لا توجد إشعارات في هذا القسم</p>' +
+        '<p style="font-size:14px;font-weight:700;color:#aaa;">لا توجد إشعارات في هذا القسم</p>' +
       '</div>';
     return;
   }
 
-  var html = '<div>';
+  var html = '';
   list.forEach(function(n) {
     var isRoom    = n.type === 'room';
+    var isExam    = n.type === 'exam';
     var isLike    = n.type === 'like';
     var isComment = n.type === 'comment';
     var isReply   = n.type === 'reply';
-    var isExam    = n.type === 'exam';
     var unread    = !!n.unread;
 
-    var clickAttr = (isExam && n.teacherUid)
-      ? ' onclick="window.location.href=\'profile.html?uid=' + n.teacherUid + '\'" style="cursor:pointer;"'
-      : '';
+    var cardClass = 'ncard' + (unread ? ' unread' : '');
 
-    // ── أيقونة / صورة ──
+    // ══ أيقونة ══
+    var iconClass = isLike ? 'n-icon yellow' : 'n-icon blue';
     var iconHtml;
     if (isRoom && n.ownerAvatar) {
-      iconHtml = '<img src="' + n.ownerAvatar + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px;" onerror="this.style.display=\'none\'">';
-    } else {
-      iconHtml = getNotifIcon(n.type);
-    }
+      iconHtml = '<img src="' + n.ownerAvatar + '" style="width:42px;height:42px;object-fit:cover;border-radius:6px;" onerror="this.style.display=\'none\'">';
+      iconClass = 'n-icon blue';
+    } else if (isRoom)    { iconHtml = _svgRoom(); }
+    else if (isExam)      { iconHtml = _svgExam(); }
+    else if (isLike)      { iconHtml = _svgLike(); }
+    else if (isComment)   { iconHtml = _svgComment(); }
+    else if (isReply)     { iconHtml = _svgReply(); }
+    else                  { iconHtml = _svgComment(); }
 
-    // ── نص رئيسي ──
-    var mainText = n.text || '';
-    if (!mainText) {
-      if (isRoom)    mainText = (n.ownerName || 'أستاذ') + ' بدأ بثاً مباشراً';
-      else if (isLike)    mainText = (n.fromName || 'شخص') + ' أعجب بمنشورك';
-      else if (isComment) mainText = (n.fromName || 'شخص') + ' علّق على منشورك';
-      else if (isReply)   mainText = (n.fromName || 'شخص') + ' ردّ على تعليقك';
-      else mainText = 'إشعار جديد';
-    }
+    var body = '';
 
-    // ── badges (المستوى / المادة / النوع) ─ لونا المنصة فقط ──
-    var badgesHtml = '';
+    // ══════════════════
+    // غرفة بث
+    // ══════════════════
     if (isRoom) {
-      var tags = [];
-      if (n.levelName) {
-        tags.push(
-          '<span class="notif-badge-tag">' +
-            '<svg viewBox="0 0 24 24" style="width:10px;height:10px;" fill="none" stroke="#0D47A1" stroke-width="2.5" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>' +
-            n.levelName +
-          '</span>'
-        );
-      }
-      if (n.subject) {
-        tags.push(
-          '<span class="notif-badge-tag yellow">' +
-            '<svg viewBox="0 0 24 24" style="width:10px;height:10px;" fill="none" stroke="#7a5800" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>' +
-            n.subject +
-          '</span>'
-        );
-      }
-      if (n.roomType === 'private') {
-        tags.push(
-          '<span class="notif-badge-tag">' +
-            '<svg viewBox="0 0 24 24" style="width:10px;height:10px;" fill="none" stroke="#0D47A1" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
-            'خاصة' +
-          '</span>'
-        );
-      } else {
-        tags.push(
-          '<span class="notif-badge-tag">' +
-            '<svg viewBox="0 0 24 24" style="width:10px;height:10px;" fill="none" stroke="#0D47A1" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>' +
-            'عامة' +
-          '</span>'
-        );
-      }
-      if (tags.length) badgesHtml = '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">' + tags.join('') + '</div>';
-    }
-
-    // ── كود الغرفة ──
-    var codeHtml = '';
-    if (isRoom && n.showCode && n.roomCode) {
-      codeHtml =
-        '<div style="margin-top:6px;background:#e8f0fe;border-radius:6px;padding:5px 10px;display:flex;align-items:center;gap:6px;">' +
-          '<svg viewBox="0 0 24 24" style="width:11px;height:11px;flex-shrink:0;fill:none;stroke:#0D47A1;stroke-width:2;stroke-linecap:round;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
-          '<span style="font-size:11px;font-weight:900;color:#0D47A1;font-family:Tajawal,sans-serif;">كلمة السر: <b style="letter-spacing:2px;">' + n.roomCode + '</b></span>' +
-        '</div>';
-    }
-
-    // ── زر الدخول ──
-    var btnHtml = '';
-    if (isRoom && n.roomId) {
+      var ownerName = n.ownerName || 'أستاذ';
+      var roomName  = n.roomName  || '';
       var isPrivate = n.roomType === 'private';
-      var lockIcon = isPrivate
-        ? '<svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
-        : '<svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;flex-shrink:0;"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>';
-      btnHtml =
-        '<button class="btn-join-room" onclick="joinRoomFromNotif(\'' + n.roomId + '\',\'' + (n.roomType||'public') + '\',\'' + (n.roomCode||'') + '\')">' +
-          lockIcon +
-          (isPrivate ? 'دخول الغرفة' : 'دخول الغرفة') +
-        '</button>';
+
+      // سطر اللايف + الاسم + العنوان
+      body +=
+        '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+          _svgLive() +
+          '<span style="font-size:14px;font-weight:800;color:#18181b;">' + ownerName + '</span>' +
+          (roomName ? '<span style="font-size:12px;color:#555;font-weight:600;">"' + roomName + '"</span>' : '') +
+        '</div>';
+
+      // tags — بدون border مستدير
+      var tags = '';
+      if (n.levelName) tags += '<span class="n-tag blue">' + _svgLevel() + ' ' + n.levelName + '</span>';
+      if (n.subject)   tags += '<span class="n-tag yellow">' + _svgPen() + ' ' + n.subject + '</span>';
+      if (isPrivate)   tags += '<span class="n-tag blue">' + _svgLock() + ' خاصة</span>';
+      else             tags += '<span class="n-tag blue">عامة</span>';
+      if (tags) body += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">' + tags + '</div>';
+
+      // كلمة السر
+      if (n.showCode && n.roomCode) {
+        body +=
+          '<div style="margin-top:7px;background:#ddeaff;border-radius:6px;padding:6px 10px;display:flex;align-items:center;gap:6px;">' +
+            _svgLock().replace('currentColor','#0D47A1') +
+            '<span style="font-size:12px;font-weight:900;color:#0D47A1;">كلمة السر: <b style="letter-spacing:2px;">' + n.roomCode + '</b></span>' +
+          '</div>';
+      }
+
+      // زر الدخول
+      if (n.roomId) {
+        body +=
+          '<button class="btn-room" onclick="joinRoomFromNotif(\'' + n.roomId + '\',\'' + (n.roomType||'public') + '\',\'' + (n.roomCode||'') + '\')">' +
+            (isPrivate ? _svgLock().replace('width="11" height="11"','width="12" height="12"').replace('currentColor','#fff') : '') +
+            'دخول الغرفة' +
+          '</button>';
+      }
+
+      // وقت
+      body += '<p style="margin:6px 0 0;font-size:11px;color:#aaa;">' + _timeAgo(n.ts || n.publishedAt) + '</p>';
     }
 
-    // ── معلومات إضافية للتمارين ──
-    var examMeta = '';
-    if (isExam) {
-      if (n.subject) examMeta += '<p style="margin:3px 0 0;font-size:11px;font-weight:700;color:#0D47A1;">' + (n.examType||'') + (n.examType && n.subject ? ' · ' : '') + n.subject + '</p>';
-      if (n.teacherName) examMeta += '<p style="margin:2px 0 0;font-size:11px;font-weight:700;color:#a1a1aa;">' + n.teacherName + '</p>';
+    // ══════════════════
+    // تمرين / اختبار
+    // ══════════════════
+    else if (isExam) {
+      var teacherName = n.teacherName || n.ownerName || '';
+      var examTitle   = n.examTitle   || n.title     || '';
+      var examType    = n.examType    || 'تمرين';
+      var subject     = n.subject     || '';
+      var deadline    = n.deadline    || n.endTime   || 0;
+
+      // السطر الأول: من نشر
+      body +=
+        '<p style="font-size:13px;font-weight:700;color:#555;margin:0 0 3px;">' +
+          'نشر <b style="color:#0D47A1;">' + teacherName + '</b> ' + examType +
+        '</p>';
+
+      // عنوان التمرين
+      if (examTitle) {
+        body +=
+          '<p style="font-size:14px;font-weight:800;color:#18181b;margin:0 0 4px;">' +
+            examTitle +
+          '</p>';
+      }
+
+      // المادة
+      if (subject) {
+        body +=
+          '<p style="font-size:12px;font-weight:700;color:#FFAA00;margin:0 0 6px;display:flex;align-items:center;gap:4px;">' +
+            _svgPen().replace('currentColor','#FFAA00') +
+            ' مادة: ' + subject +
+          '</p>';
+      }
+
+      // وقت الانتهاء
+      if (deadline) {
+        var deadlineStr = _formatDeadline(deadline);
+        var isExpired   = deadline < Date.now();
+        body +=
+          '<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;">' +
+            _svgClock().replace('currentColor', isExpired ? '#e53935' : '#0D47A1') +
+            '<span style="font-size:11px;font-weight:800;color:' + (isExpired ? '#e53935' : '#0D47A1') + ';">' + deadlineStr + '</span>' +
+          '</div>';
+      }
+
+      // وقت النشر
+      body += '<p style="margin:4px 0 0;font-size:11px;color:#aaa;">' + _timeAgo(n.publishedAt || n.ts) + '</p>';
+    }
+
+    // ══════════════════
+    // إعجاب
+    // ══════════════════
+    else if (isLike) {
+      body +=
+        '<p style="font-size:14px;font-weight:700;color:#18181b;margin:0 0 3px;">' +
+          '<b style="color:#FFAA00;">' + (n.fromName||'شخص') + '</b> أعجب بمنشورك' +
+        '</p>' +
+        '<p style="margin:4px 0 0;font-size:11px;color:#aaa;">' + _timeAgo(n.publishedAt||n.timestamp) + '</p>';
+    }
+
+    // ══════════════════
+    // تعليق
+    // ══════════════════
+    else if (isComment) {
+      body +=
+        '<p style="font-size:14px;font-weight:700;color:#18181b;margin:0 0 3px;">' +
+          '<b style="color:#0D47A1;">' + (n.fromName||'شخص') + '</b> علّق على منشورك' +
+        '</p>' +
+        (n.commentText ? '<p style="font-size:12px;color:#555;margin:3px 0;background:#f5f6fa;padding:5px 8px;border-radius:4px;">"' + n.commentText + '"</p>' : '') +
+        '<p style="margin:4px 0 0;font-size:11px;color:#aaa;">' + _timeAgo(n.publishedAt||n.timestamp) + '</p>';
+    }
+
+    // ══════════════════
+    // رد على تعليق
+    // ══════════════════
+    else if (isReply) {
+      body +=
+        '<p style="font-size:14px;font-weight:700;color:#18181b;margin:0 0 3px;">' +
+          '<b style="color:#0D47A1;">' + (n.fromName||'شخص') + '</b> ردّ على تعليقك' +
+        '</p>' +
+        (n.replyText ? '<p style="font-size:12px;color:#555;margin:3px 0;background:#f5f6fa;padding:5px 8px;border-radius:4px;">"' + n.replyText + '"</p>' : '') +
+        '<p style="margin:4px 0 0;font-size:11px;color:#aaa;">' + _timeAgo(n.publishedAt||n.timestamp) + '</p>';
     }
 
     html +=
-      '<div class="notif-card' + (unread ? ' unread' : '') + '"' + clickAttr + '>' +
-        '<div style="display:flex;align-items:flex-start;gap:12px;">' +
-          '<div class="notif-icon" style="' + getIconBg(n.type) + '">' + iconHtml + '</div>' +
-          '<div style="flex:1;min-width:0;">' +
-            '<p style="font-size:14px;font-weight:700;color:#18181b;line-height:1.4;margin:0;">' + mainText + '</p>' +
-            examMeta +
-            badgesHtml +
-            codeHtml +
-            btnHtml +
-            '<p style="margin:6px 0 0;font-size:11px;color:#a1a1aa;">' + formatTimeAgoN(n.publishedAt || n.ts || n.timestamp) + '</p>' +
-          '</div>' +
-          '<div style="margin-top:3px;flex-shrink:0;">' +
-            '<div class="' + (unread ? 'unread-dot' : 'read-dot') + '"></div>' +
-          '</div>' +
+      '<div class="' + cardClass + '">' +
+        '<div style="display:flex;align-items:flex-start;gap:11px;">' +
+          '<div class="' + iconClass + '">' + iconHtml + '</div>' +
+          '<div style="flex:1;min-width:0;">' + body + '</div>' +
+          '<div class="' + (unread ? 'n-dot-unread' : 'n-dot-read') + '"></div>' +
         '</div>' +
       '</div>';
   });
-  html += '</div>';
+
   el.innerHTML = html;
 }
 
-// ─── Shimmer ───
+// ══════════════════════════════════════════════════
+// Shimmer
+// ══════════════════════════════════════════════════
 function showShimmer() {
   var el = document.getElementById('notifications-list');
-  var rows = '';
+  var r  = '';
   for (var i = 0; i < 3; i++) {
-    rows +=
-      '<div class="notif-card">' +
-        '<div style="display:flex;align-items:flex-start;gap:12px;">' +
-          '<div class="shimmer" style="width:40px;height:40px;border-radius:6px;flex-shrink:0;"></div>' +
-          '<div style="flex:1;display:flex;flex-direction:column;gap:8px;">' +
-            '<div class="shimmer" style="height:14px;border-radius:4px;width:75%;"></div>' +
-            '<div class="shimmer" style="height:12px;border-radius:4px;width:40%;"></div>' +
-          '</div>' +
-          '<div class="shimmer" style="width:9px;height:9px;border-radius:50%;margin-top:3px;flex-shrink:0;"></div>' +
-        '</div>' +
-      '</div>';
+    r += '<div class="ncard" style="display:flex;align-items:flex-start;gap:11px;">' +
+           '<div class="shimmer" style="width:42px;height:42px;border-radius:6px;flex-shrink:0;"></div>' +
+           '<div style="flex:1;display:flex;flex-direction:column;gap:8px;">' +
+             '<div class="shimmer" style="height:13px;border-radius:4px;width:70%;"></div>' +
+             '<div class="shimmer" style="height:11px;border-radius:4px;width:45%;"></div>' +
+           '</div>' +
+           '<div class="shimmer" style="width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;"></div>' +
+         '</div>';
   }
-  el.innerHTML = rows;
+  el.innerHTML = r;
 }
 
-// ─── جلب إشعارات الغرف ───
+// ══════════════════════════════════════════════════
+// جلب lastRead
+// ══════════════════════════════════════════════════
+async function _loadLastRead() {
+  var uid = localStorage.getItem('yadwor-uid') || '';
+  if (!uid) return;
+  try {
+    var r = await fetch(FB_N + '/userMeta/' + uid + '/notifLastRead.json?auth=' + FB_KEY);
+    if (r.ok) { var v = await r.json(); if (v && typeof v === 'number') _lastReadTs = v; }
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════════
+// جلب إشعارات الغرف
+// ══════════════════════════════════════════════════
 async function fetchRoomNotifications(myUid, myType, myReq) {
   try {
-    var res = await fetch(FB_DB_URL_N + '/notificationsRoom.json?auth=' + FB_API_KEY_N);
+    var res  = await fetch(FB_N + '/notificationsRoom.json?auth=' + FB_KEY);
     if (!res.ok) return [];
     var data = await res.json();
     if (!data || typeof data !== 'object') return [];
@@ -505,24 +630,25 @@ async function fetchRoomNotifications(myUid, myType, myReq) {
       if (n.ownerUid === myUid) return false;
       if (myType === 'student') {
         if (!myReq) return false;
-        var myInstId = myReq.institutionUid || myReq.institutionId || '';
-        var sameInst  = !n.institutionOnly || myInstId === (n.institutionUid || '');
-        var sameLevel = !n.levelId || myReq.levelId === n.levelId;
-        var mySubs    = (myReq.subjects || []).map(function(s){ return (s.name || s).trim(); });
-        var sameSub   = !n.subject || mySubs.includes((n.subject||'').trim());
-        return sameInst && sameLevel && sameSub;
+        var myInst = myReq.institutionUid || myReq.institutionId || '';
+        var ok1 = !n.institutionOnly || myInst === (n.institutionUid || '');
+        var ok2 = !n.levelId || myReq.levelId === n.levelId;
+        var subs = (myReq.subjects || []).map(function(s){ return (s.name||s).trim(); });
+        var ok3 = !n.subject || subs.includes((n.subject||'').trim());
+        return ok1 && ok2 && ok3;
       }
       return n.noTarget && n.roomType === 'public';
-    }).map(function(n) {
-      return Object.assign({}, n, { type: 'room', unread: (n.ts || 0) > _lastReadTs });
-    }).sort(function(a, b) { return (b.ts||0) - (a.ts||0); });
+    }).map(function(n){ return Object.assign({}, n, {type:'room', unread:(n.ts||0)>_lastReadTs}); })
+      .sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
   } catch(e) { return []; }
 }
 
-// ─── جلب إشعارات التمارين ───
+// ══════════════════════════════════════════════════
+// جلب إشعارات التمارين
+// ══════════════════════════════════════════════════
 async function fetchExamNotifications(myUid, myType, myReq) {
   try {
-    var res = await fetch(FB_DB_URL_N + '/notifications.json?auth=' + FB_API_KEY_N);
+    var res  = await fetch(FB_N + '/notifications.json?auth=' + FB_KEY);
     if (!res.ok) return [];
     var data = await res.json();
     if (!data || typeof data !== 'object') return [];
@@ -533,55 +659,55 @@ async function fetchExamNotifications(myUid, myType, myReq) {
       if (myType === 'teacher') return false;
       if (myType === 'student') {
         if (!myReq) return false;
-        var sameInst  = (myReq.institutionUid || myReq.institutionId || '') === (n.institutionUid || '');
-        var sameLevel = myReq.levelId === n.levelId;
-        var mySubs    = (myReq.subjects || []).map(function(s){ return (s.name||s).trim(); });
-        var sameSub   = mySubs.includes((n.subject||'').trim());
-        return sameInst && sameLevel && sameSub;
+        var si = (myReq.institutionUid||myReq.institutionId||'') === (n.institutionUid||'');
+        var sl = myReq.levelId === n.levelId;
+        var ss = (myReq.subjects||[]).map(function(s){ return (s.name||s).trim(); }).includes((n.subject||'').trim());
+        return si && sl && ss;
       }
-      if (myType === 'institution') return (n.institutionUid || '') === myUid;
+      if (myType === 'institution') return (n.institutionUid||'') === myUid;
       return false;
-    }).map(function(n) {
-      return Object.assign({}, n, { unread: (n.publishedAt||0) > _lastReadTs });
-    }).sort(function(a, b) { return (b.publishedAt||0) - (a.publishedAt||0); });
+    }).map(function(n){ return Object.assign({}, n, {unread:(n.publishedAt||0)>_lastReadTs}); })
+      .sort(function(a,b){ return (b.publishedAt||0)-(a.publishedAt||0); });
   } catch(e) { return []; }
 }
 
-// ─── جلب إشعارات التفاعلات (لايك / تعليق / رد) ───
+// ══════════════════════════════════════════════════
+// جلب التفاعلات (لايك / تعليق / رد)
+// ══════════════════════════════════════════════════
 async function fetchInteractionNotifications(myUid) {
   try {
-    var res = await fetch(FB_DB_URL_N + '/interactions/' + myUid + '.json?auth=' + FB_API_KEY_N);
+    var res  = await fetch(FB_N + '/interactions/' + myUid + '.json?auth=' + FB_KEY);
     if (!res.ok) return [];
     var data = await res.json();
     if (!data || typeof data !== 'object') return [];
     return Object.values(data)
-      .filter(function(n){ return n && (n.type === 'like' || n.type === 'comment' || n.type === 'reply'); })
-      .map(function(n){ return Object.assign({}, n, { unread: (n.publishedAt||n.timestamp||0) > _lastReadTs }); })
-      .sort(function(a, b){ return (b.publishedAt||b.timestamp||0) - (a.publishedAt||a.timestamp||0); });
+      .filter(function(n){ return n && (n.type==='like'||n.type==='comment'||n.type==='reply'); })
+      .map(function(n){ return Object.assign({}, n, {unread:(n.publishedAt||n.timestamp||0)>_lastReadTs}); })
+      .sort(function(a,b){ return (b.publishedAt||b.timestamp||0)-(a.publishedAt||a.timestamp||0); });
   } catch(e) { return []; }
 }
 
-// ─── التحميل الرئيسي ───
+// ══════════════════════════════════════════════════
+// التحميل الرئيسي
+// ══════════════════════════════════════════════════
 async function loadNotifications() {
   showShimmer();
-
-  // جلب آخر وقت قراءة من Firebase أولاً
   await _loadLastRead();
 
   var myUid  = localStorage.getItem('yadwor-uid') || '';
   var myType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || '';
+  var myReq  = null;
 
-  var myReq = null;
   if (myUid) {
     try {
-      var r = await fetch(FB_DB_URL_N + '/joinRequests.json?auth=' + FB_API_KEY_N);
+      var r = await fetch(FB_N + '/joinRequests.json?auth=' + FB_KEY);
       if (r.ok) {
         var all = await r.json();
         if (all && typeof all === 'object') {
-          var instKeys = Object.keys(all);
-          for (var i = 0; i < instKeys.length; i++) {
-            var instVals = Object.values(all[instKeys[i]] || {});
-            var found = instVals.find(function(req){ return req && req.status === 'accepted' && (req.uid === myUid || req.userId === myUid); });
+          var keys = Object.keys(all);
+          for (var i = 0; i < keys.length; i++) {
+            var vals = Object.values(all[keys[i]] || {});
+            var found = vals.find(function(req){ return req && req.status==='accepted' && (req.uid===myUid||req.userId===myUid); });
             if (found) { myReq = found; break; }
           }
         }
@@ -596,39 +722,34 @@ async function loadNotifications() {
   ]);
 
   allNotifications = [].concat(results[0], results[1], results[2])
-    .sort(function(a, b){ return (b.publishedAt||b.ts||b.timestamp||0) - (a.publishedAt||a.ts||a.timestamp||0); });
+    .sort(function(a,b){ return (b.publishedAt||b.ts||b.timestamp||0)-(a.publishedAt||a.ts||a.timestamp||0); });
 
   renderList();
 
-  // تمييز كمقروء بعد 2 ثانية
+  // تمييز كمقروء بعد 2 ث
   setTimeout(function() {
     _lastReadTs = Date.now();
     allNotifications.forEach(function(n){ n.unread = false; });
-    if (typeof markNotificationsRead === 'function') {
-      markNotificationsRead(_lastReadTs);
-    }
+    if (typeof markNotificationsRead === 'function') markNotificationsRead(_lastReadTs);
     renderList();
   }, 2000);
 }
 
-// ─── Firebase Realtime Listener (SSE) ───
-(function startRealtimeListener() {
+// ══════════════════════════════════════════════════
+// SSE Realtime listener
+// ══════════════════════════════════════════════════
+(function startSSE() {
   var myUid = localStorage.getItem('yadwor-uid') || '';
   if (!myUid) return;
-
-  function listenPath(path) {
-    var url = FB_DB_URL_N + '/' + path + '.json?auth=' + FB_API_KEY_N;
-    try {
-      var src = new EventSource(url);
-      src.addEventListener('put',   function(e){ try { var p = JSON.parse(e.data); if (p && p.data) loadNotifications(); } catch(x){} });
-      src.addEventListener('patch', function(e){ try { var p = JSON.parse(e.data); if (p && p.data) loadNotifications(); } catch(x){} });
-      src.onerror = function(){ src.close(); setTimeout(function(){ listenPath(path); }, 8000); };
-    } catch(e) {}
+  function listen(path) {
+    var s = new EventSource(FB_N + '/' + path + '.json?auth=' + FB_KEY);
+    s.addEventListener('put',   function(e){ try{ if (JSON.parse(e.data).data) loadNotifications(); }catch(x){} });
+    s.addEventListener('patch', function(e){ try{ if (JSON.parse(e.data).data) loadNotifications(); }catch(x){} });
+    s.onerror = function(){ s.close(); setTimeout(function(){ listen(path); }, 8000); };
   }
-
-  listenPath('notificationsRoom');
-  listenPath('notifications');
-  listenPath('interactions/' + myUid);
+  listen('notificationsRoom');
+  listen('notifications');
+  listen('interactions/' + myUid);
 })();
 
 loadNotifications();
