@@ -232,6 +232,16 @@
   .fade-in { animation: fadeIn .3s ease; }
   @keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
 </style>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+  if (!firebase.apps.length) {
+    firebase.initializeApp({
+      apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
+      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com"
+    });
+  }
+</script>
 </head>
 <body>
 
@@ -320,7 +330,8 @@
 
 <script>
 const FB_Q  = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
-const KEY_Q = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
+// SDK helper
+function _qDb() { return firebase.database(); }
 
 const urlParams  = new URLSearchParams(window.location.search);
 const examId     = parseInt(urlParams.get('exam'));
@@ -371,11 +382,9 @@ async function checkAlreadyCompleted(eId) {
   const myUid = localStorage.getItem('yadwor-uid') || '';
   if (!myUid || !eId) return null;
   try {
-    const res = await fetch(`${FB_Q}/results/${eId}/${myUid}.json?auth=${KEY_Q}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.score !== undefined) return data;
-    }
+    const snap = await _qDb().ref('results/' + eId + '/' + myUid).once('value');
+    const data = snap.val();
+    if (data && data.score !== undefined) return data;
   } catch(e) {}
   return null;
 }
@@ -397,19 +406,18 @@ async function checkAlreadyCompleted(eId) {
 
   // 1) جلب من /exams/{id}
   try {
-    const r = await fetch(`${FB_Q}/exams/${examId}.json?auth=${KEY_Q}`);
-    if (r.ok) { const d = await r.json(); if (d && d.id) exam = d; }
+    const snap1 = await _qDb().ref('exams/' + examId).once('value');
+    const d = snap1.val();
+    if (d && d.id) exam = d;
   } catch(e) {}
 
   // 2) fallback: بحث في كل التمارين
   if (!exam) {
     try {
-      const r2 = await fetch(`${FB_Q}/exams.json?auth=${KEY_Q}`);
-      if (r2.ok) {
-        const all = await r2.json();
-        if (all && typeof all === 'object') {
-          exam = Object.values(all).find(e => e && e.id === examId) || null;
-        }
+      const snap2 = await _qDb().ref('exams').once('value');
+      const all = snap2.val();
+      if (all && typeof all === 'object') {
+        exam = Object.values(all).find(e => e && e.id === examId) || null;
       }
     } catch(e) {}
   }
@@ -652,10 +660,7 @@ function showResults() {
     teacherUid: exam.teacherUid || ''
   };
   // مسار: /results/{examId}/{studentUid}
-  fetch(`${FB_Q}/results/${exam.id}/${myUid}.json?auth=${KEY_Q}`, {
-    method: 'PUT', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify(result)
-  }).catch(()=>{});
+  _qDb().ref('results/' + exam.id + '/' + myUid).set(result).catch(() => {});
 }
 
 function checkAnswer(q, ans) {
