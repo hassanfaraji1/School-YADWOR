@@ -8,6 +8,16 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+  if (!firebase.apps.length) {
+    firebase.initializeApp({
+      apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
+      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com"
+    });
+  }
+</script>
 <style>
 * { box-sizing: border-box; }
 body { font-family:'Tajawal',system-ui,sans-serif; background:#f0f4f8; color:#18181b; min-height:100vh; }
@@ -620,7 +630,7 @@ async function _pushCatalogToFirebase(catV3, enabled, customSubs, customLvls) {
     updatedAt: Date.now()
   };
   try {
-    await fetch(`https://a-comment-5a3e5-default-rtdb.firebaseio.com/institutionCatalogs/${uid}.json?auth=AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA`, {
+    await fetch(`https://a-comment-5a3e5-default-rtdb.firebaseio.com/institutionCatalogs/${uid}.json-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA`, {
       method: 'PUT',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(payload)
