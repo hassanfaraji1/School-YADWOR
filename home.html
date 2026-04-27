@@ -619,10 +619,13 @@ const FB_KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
 async function savePostToFirebase(post) {
   // المنشور يجب أن يحمل uid من Firebase Auth دائماً
   const toSave = Object.assign({}, post, {
-    uid:      post.uid      || _myUid()      || '',
-    username: post.username || _myUsername() || '',
-    avatar:   post.avatar   || _myAvatar()   || '',
-    author:   post.author   || _myName()     || 'مستخدم'
+    uid:         post.uid         || _myUid()      || '',
+    name:        post.name        || _myName()     || post.author || 'مستخدم',
+    author:      post.author      || _myName()     || 'مستخدم',
+    username:    post.username    || _myUsername() || '',
+    avatar:      post.avatar      || _myAvatar()   || '',
+    accountType: post.accountType || _myType()     || '',
+    publishedAt: post.publishedAt || post.timestamp || Date.now()
   });
   delete toSave.owned; // owned مصدر الخلط — محذوف دائماً
   try {
@@ -709,17 +712,22 @@ async function publishPost() {
     const newReel = {
       id:          Date.now(),
       uid:         realUid,
+      name:        realName,
       author:      realName,
       username:    realUsername,
       avatar:      realAvatar,
       accountType: realType,
       role:        realRole,
+      publishedAt: Date.now(),
       time:        "الآن",
       timestamp:   Date.now(),
+      text:        reelText,
       content:     reelText,
       type:        "video",
-      images:      [videoUrl],
+      video:       videoUrl,
+      images:      videoUrl ? [videoUrl] : [],
       thumbnail:   thumbUrl,
+      likedBy: {}, savedBy: {}, commentCount: 0, viewCount: 0,
       likes: 0, comments: 0, shares: 0, editCount: 0
     };
     setTimeout(()=>{
@@ -758,18 +766,22 @@ async function publishPost() {
 
   // المنشور يحمل بيانات صاحبه مدمجة — uid هو المرجع الوحيد
   const newPost = {
-    id: Date.now(),
+    id:          Date.now(),
     uid:         realUid,
+    name:        realName,
     author:      realName,
     username:    realUsername,
     avatar:      realAvatar,
     accountType: realType,
     role:        realRole,
+    publishedAt: Date.now(),
     time:        "الآن",
     timestamp:   Date.now(),
+    text:        text || '',
     content:     text || 'منشور جديد',
     type:        finalImages.length ? 'gallery' : 'text',
     images:      finalImages,
+    likedBy: {}, savedBy: {}, commentCount: 0, viewCount: 0,
     likes: 0, comments: 0, shares: 0, editCount: 0
   };
 
