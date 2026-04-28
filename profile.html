@@ -662,7 +662,7 @@ function _renderVisitorProfile(vp, vPosts) {
 
     document.getElementById('profile-content').innerHTML = `
     <div>
-      <div class="relative h-44 sm:h-52">
+      <div class="relative w-full" style="aspect-ratio:1/1;max-height:420px;overflow:hidden;">
         <div class="shimmer absolute inset-0"></div>
         <img src="${vCover}" class="h-full w-full object-cover relative z-[1]" onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
         <div class="absolute bottom-0 left-0 right-0 h-24 z-[2]" style="background:linear-gradient(to bottom,transparent 0%,rgba(255,255,255,0.7) 50%,#fff 100%)"></div>
@@ -875,10 +875,10 @@ function _doRenderMyProfile(myPosts) {
 
   document.getElementById('profile-content').innerHTML = `
     <div>
-      <!-- Cover photo -->
-      <div class="relative h-44 sm:h-52">
+      <!-- Cover photo — مربع 1:1 -->
+      <div class="relative w-full" style="aspect-ratio:1/1;max-height:420px;overflow:hidden;">
         <div class="shimmer absolute inset-0"></div>
-        <img src="${prof.cover}" class="h-full w-full object-cover relative z-[1]"
+        <img src="${prof.cover}" class="w-full h-full object-cover relative z-[1]"
           onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
         <div class="absolute bottom-0 left-0 right-0 h-24 z-[2]"
           style="background: linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.7) 50%, #fff 100%)"></div>
