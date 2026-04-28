@@ -21,7 +21,7 @@
 <style>
 *{box-sizing:border-box}
 body{font-family:'Tajawal',sans-serif;background:#f5f6fa;color:#18181b;margin:0}
-:root{--blue:#0D47A1;--yellow:#FFAA00}
+:root{--blue:#0D47A1;--yellow:#333}
 input:focus{outline:none}
 
 /* shimmer */
@@ -315,7 +315,7 @@ function _svgExam() {
   return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#0D47A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>';
 }
 function _svgLike() {
-  return '<svg viewBox="0 0 24 24" width="20" height="20" fill="#FFAA00" stroke="#FFAA00" stroke-width="1.5" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
+  return '<svg viewBox="0 0 24 24" width="20" height="20" fill="#555" stroke="#555" stroke-width="1.5" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
 }
 function _svgComment() {
   return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#0D47A1" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
@@ -419,13 +419,41 @@ function _doPass(roomId, code) {
 
 function _joinRoom(roomId, roomType, roomCode) {
   var uid    = localStorage.getItem('yadwor-uid') || '';
-  var name   = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'مستخدم';
+  var name   = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || '';
   var avatar = localStorage.getItem('yadwor-avatar-preview') || '';
-  localStorage.setItem('yw_room_target',  JSON.stringify({roomId:roomId, roomType:roomType, roomCode:roomCode, roomName:''}));
-  localStorage.setItem('yw_active_room',  JSON.stringify({roomId:roomId, isOwner:false, roomType:roomType, roomCode:roomCode, roomMode:'video'}));
-  localStorage.setItem('yw_room_mode',    'video');
-  localStorage.setItem('yw_current_user', JSON.stringify({uid:uid, name:name, avatar:avatar}));
-  window.location.href = 'roomvideo.html';
+  // التحقق من وجود الغرفة في Firebase أولاً قبل الانضمام
+  firebase.database().ref('rooms/' + roomId).once('value').then(function(snap) {
+    var room = snap.val();
+    if (!room) {
+      alert('الغرفة لم تعد متاحة');
+      return;
+    }
+    // حفظ بيانات الغرفة للانتقال إليها
+    localStorage.setItem('yw_room_target',  JSON.stringify({
+      roomId:   roomId,
+      roomType: room.type || roomType,
+      roomCode: room.code || roomCode,
+      roomName: room.name || '',
+      ownerUid: room.ownerUid || ''
+    }));
+    localStorage.setItem('yw_active_room',  JSON.stringify({
+      roomId:   roomId,
+      isOwner:  false,
+      roomType: room.type || roomType,
+      roomCode: room.code || roomCode,
+      roomMode: 'video'
+    }));
+    localStorage.setItem('yw_room_mode',    'video');
+    localStorage.setItem('yw_current_user', JSON.stringify({uid:uid, name:name, avatar:avatar}));
+    window.location.href = 'roomvideo.html';
+  }).catch(function() {
+    // fallback - try to join anyway
+    localStorage.setItem('yw_room_target',  JSON.stringify({roomId:roomId, roomType:roomType, roomCode:roomCode, roomName:''}));
+    localStorage.setItem('yw_active_room',  JSON.stringify({roomId:roomId, isOwner:false, roomType:roomType, roomCode:roomCode, roomMode:'video'}));
+    localStorage.setItem('yw_room_mode',    'video');
+    localStorage.setItem('yw_current_user', JSON.stringify({uid:uid, name:name, avatar:avatar}));
+    window.location.href = 'roomvideo.html';
+  });
 }
 
 function joinRoomFromNotif(roomId, roomType, roomCode) {
@@ -496,7 +524,7 @@ function renderList() {
       // tags — بدون border مستدير
       var tags = '';
       if (n.levelName) tags += '<span class="n-tag blue">' + _svgLevel() + ' ' + n.levelName + '</span>';
-      if (n.subject)   tags += '<span class="n-tag yellow">' + _svgPen() + ' ' + n.subject + '</span>';
+      if (n.subject)   tags += '<span class="n-tag">' + _svgPen() + ' ' + n.subject + '</span>';
       if (isPrivate)   tags += '<span class="n-tag blue">' + _svgLock() + ' خاصة</span>';
       else             tags += '<span class="n-tag blue">عامة</span>';
       if (tags) body += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">' + tags + '</div>';
@@ -550,8 +578,8 @@ function renderList() {
       // المادة
       if (subject) {
         body +=
-          '<p style="font-size:12px;font-weight:700;color:#FFAA00;margin:0 0 6px;display:flex;align-items:center;gap:4px;">' +
-            _svgPen().replace('currentColor','#FFAA00') +
+          '<p style="font-size:12px;font-weight:700;color:#1a1a1a;margin:0 0 6px;display:flex;align-items:center;gap:4px;">' +
+            _svgPen().replace('currentColor','#555') +
             ' مادة: ' + subject +
           '</p>';
       }
@@ -577,7 +605,7 @@ function renderList() {
     else if (isLike) {
       body +=
         '<p style="font-size:14px;font-weight:700;color:#18181b;margin:0 0 3px;">' +
-          '<b style="color:#FFAA00;">' + (n.fromName||'شخص') + '</b> أعجب بمنشورك' +
+          '<b style="color:#1a1a1a;">' + (n.fromName||'شخص') + '</b> أعجب بمنشورك' +
         '</p>' +
         '<p style="margin:4px 0 0;font-size:11px;color:#aaa;">' + _timeAgo(n.publishedAt||n.timestamp) + '</p>';
     }
@@ -624,18 +652,21 @@ function renderList() {
 // ══════════════════════════════════════════════════
 function showShimmer() {
   var el = document.getElementById('notifications-list');
-  var r  = '';
-  for (var i = 0; i < 3; i++) {
-    r += '<div class="ncard" style="display:flex;align-items:flex-start;gap:11px;">' +
-           '<div class="shimmer" style="width:42px;height:42px;border-radius:6px;flex-shrink:0;"></div>' +
-           '<div style="flex:1;display:flex;flex-direction:column;gap:8px;">' +
-             '<div class="shimmer" style="height:13px;border-radius:4px;width:70%;"></div>' +
-             '<div class="shimmer" style="height:11px;border-radius:4px;width:45%;"></div>' +
-           '</div>' +
-           '<div class="shimmer" style="width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;"></div>' +
-         '</div>';
-  }
-  el.innerHTML = r;
+  var card = function() {
+    return '<div class="ncard" style="display:flex;align-items:flex-start;gap:12px;">' +
+             '<div class="shimmer" style="width:42px;height:42px;border-radius:10px;flex-shrink:0;"></div>' +
+             '<div style="flex:1;display:flex;flex-direction:column;gap:9px;padding-top:2px;">' +
+               '<div class="shimmer" style="height:12px;border-radius:6px;width:65%;"></div>' +
+               '<div class="shimmer" style="height:10px;border-radius:6px;width:80%;"></div>' +
+               '<div style="display:flex;gap:6px;">' +
+                 '<div class="shimmer" style="height:20px;border-radius:6px;width:60px;"></div>' +
+                 '<div class="shimmer" style="height:20px;border-radius:6px;width:70px;"></div>' +
+               '</div>' +
+               '<div class="shimmer" style="height:9px;border-radius:6px;width:30%;"></div>' +
+             '</div>' +
+           '</div>';
+  };
+  el.innerHTML = card() + card() + card() + card();
 }
 
 // ══════════════════════════════════════════════════
