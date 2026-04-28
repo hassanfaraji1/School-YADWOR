@@ -746,9 +746,6 @@ function _renderVisitorProfile(vp, vPosts) {
     return;
   }
 
-  // ── ملف المستخدم الحالي — يُستدعى من renderProfile بعد تحميل المنشورات ──
-}
-
 function _renderMyProfile(myPosts) {
   // مزامنة منشوراتي في state
   const myUid = localStorage.getItem('yadwor-uid') || '';
@@ -2286,13 +2283,9 @@ async function submitJoinRequest() {
   try { localStorage.setItem('yadwor-join-requests', JSON.stringify(state.joinRequests)); } catch(e) {}
 
   try {
-    // الحفظ تحت مسار المؤسسة المعينة فقط — لا علاقة للمؤسسات الأخرى
+    // الحفظ تحت مسار المؤسسة المعينة فقط
     const instUid3 = req.institutionUid || req.institutionId || 'unknown';
-    await _pDb().ref('joinRequests/' + instUid3 + '/' + req.id).remove();
-      method: 'PUT',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(req)
-    });
+    await _pDb().ref('joinRequests/' + instUid3 + '/' + req.id).set(req);
   } catch(e) { console.warn('Firebase join request save failed:', e); }
 
   // إظهار نافذة النجاح
@@ -2702,7 +2695,7 @@ async function syncJoinRequestsFromFirebase() {
       let institutionUidToFetch = _visitorUid;
       let directFetchData = null;
       try {
-        const directRes = { ok: true, json: async () => { const _s = await _pDb().ref('joinRequests/' + _visitorUid').once('value'); return _s.val(); } };
+        const directRes = { ok: true, json: async () => { const _s = await _pDb().ref('joinRequests/' + _visitorUid).once('value'); return _s.val(); } };
         if (directRes.ok) {
           const d = await directRes.json();
           // إذا أرجع بيانات (المسار صحيح → هو uid مؤسسة)
@@ -2750,7 +2743,7 @@ async function syncJoinRequestsFromFirebase() {
         if (visitorInstUid) {
           // جلب كل طلبات مؤسسة الشخص المُزار
           try {
-            const instRes = { ok: true, json: async () => { const _s = await _pDb().ref('joinRequests/' + visitorInstUid').once('value'); return _s.val(); } };
+            const instRes = { ok: true, json: async () => { const _s = await _pDb().ref('joinRequests/' + visitorInstUid).once('value'); return _s.val(); } };
             if (instRes.ok) {
               const instData = await instRes.json();
               if (instData) {
