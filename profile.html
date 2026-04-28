@@ -2684,6 +2684,33 @@ async function loadVisitorProfile(username, uid) {
 // هذه الدالة تجلب طلبات الانضمام بطريقة صحيحة:
 // - إذا كنا نعرض ملف مؤسسة (isVisitor): نجلب طلبات تلك المؤسسة من /joinRequests/{institutionUid}
 // - إذا كنا في ملفنا الشخصي: نجلب طلبات المستخدم الحالي من جميع المؤسسات
+// ============================================================
+// syncAccountTypeFromFirebase — مزامنة نوع الحساب من Firebase
+// ============================================================
+async function syncAccountTypeFromFirebase() {
+  const uid = localStorage.getItem('yadwor-uid') || '';
+  if (!uid) return;
+  try {
+    const snap = await _pDb().ref('users/' + uid).once('value');
+    const data = snap.val();
+    if (data) {
+      const accountType = data.accountType || data.profileType || '';
+      if (accountType) {
+        localStorage.setItem('yadwor-account-type', accountType);
+        localStorage.setItem('yadwor-profile-type', accountType);
+        state.profileType = accountType;
+        state.settingsAccountType = accountType;
+      }
+      if (data.name && !localStorage.getItem('yadwor-settings-name'))
+        localStorage.setItem('yadwor-settings-name', data.name);
+      if (data.avatar && !localStorage.getItem('yadwor-avatar-preview'))
+        localStorage.setItem('yadwor-avatar-preview', data.avatar);
+      if (data.username && !localStorage.getItem('yadwor-username'))
+        localStorage.setItem('yadwor-username', data.username);
+    }
+  } catch(e) {}
+}
+
 async function syncJoinRequestsFromFirebase() {
   const myUid = localStorage.getItem('yadwor-uid') || '';
   const rejectedIds = (() => { try { return JSON.parse(localStorage.getItem('yadwor-rejected-request-ids') || '[]'); } catch(e) { return []; } })();
@@ -2875,7 +2902,6 @@ async function syncJoinRequestsFromFirebase() {
     // ملف شخص آخر — حفظ uid للفلترة الدقيقة
     state._viewingUid      = _visitorUid;
     state._viewingUsername = _visitorUsername || _visitorUid;
-    await syncPostsFromFirebase();
     await syncJoinRequestsFromFirebase();
     _visitorProfile = await loadVisitorProfile(_visitorUsername, _visitorUid);
   } else {
