@@ -798,9 +798,14 @@ async function loadCurrentUser() {
 
     _currentUser = {
         uid,
-        name:           (uData && (uData.name || uData.displayName)) || 'مستخدم',
-        avatar:         (uData && (uData.avatar || uData.avatarUrl || uData.photoURL)) || '',
-        type,
+        name:           (uData && (uData.name || uData.displayName)) ||
+                        localStorage.getItem('yadwor-settings-name') ||
+                        localStorage.getItem('yadwor-user-name') || '',
+        avatar:         (uData && (uData.avatar || uData.avatarUrl || uData.photoURL)) ||
+                        localStorage.getItem('yadwor-avatar-preview') || '',
+        type:           (uData && (uData.accountType || uData.profileType)) ||
+                        localStorage.getItem('yadwor-account-type') ||
+                        localStorage.getItem('yadwor-profile-type') || 'user',
         typeLabel:      typeLabels[type] || 'مستخدم',
         institutionUid,
         institutionName,
