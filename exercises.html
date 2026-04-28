@@ -1052,22 +1052,51 @@ function viewResults(id) {
   window.location.href = `results.html?exam=${id}`;
 }
 
+// ---- Facebook-style Shimmer Cards ----
+function _showPageShimmer() {
+  const el = document.getElementById('main-content');
+  if (!el) return;
+  el.innerHTML = [1,2,3].map(() => `
+    <div class="rounded-[18px] bg-white border border-zinc-100 shadow-sm p-4 mb-3 overflow-hidden relative">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="shimmer h-10 w-10 rounded-full shrink-0"></div>
+        <div class="flex-1 space-y-2">
+          <div class="shimmer h-3.5 w-1/3 rounded-full"></div>
+          <div class="shimmer h-3 w-1/4 rounded-full"></div>
+        </div>
+      </div>
+      <div class="shimmer h-5 w-2/3 rounded-full mb-2"></div>
+      <div class="shimmer h-3 w-1/2 rounded-full mb-4"></div>
+      <div class="shimmer h-10 w-full rounded-[12px]"></div>
+    </div>`).join('');
+}
+
 // ---- Init ----
 updatePendingBadge();
-// تحميل الاختبارات من Firebase عند البدء، ثم عرض المحتوى
+// عرض shimmer فوراً ثم تحميل البيانات من Firebase
+_showPageShimmer();
 (async () => {
   try {
     const fbExams = await fetchExamsFromFirebase();
     if (fbExams !== null) {
-      const localExams = (() => { try { return JSON.parse(localStorage.getItem('yadwor-exams') || '[]'); } catch(e) { return []; } })();
-      const fbIds = new Set(fbExams.map(e => String(e.id)));
-      const localPending = localExams.filter(e => !fbIds.has(String(e.id)));
-      saveExams([...fbExams, ...localPending]);
+      saveExams(fbExams);
     }
   } catch(e) {}
   renderMainContent();
-  // تحديث badge الإشعارات من Firebase
   updateBellBadgeFromFirebase();
+
+  // onValue — تحديث فوري عند تغيير الاختبارات في Firebase
+  try {
+    if (window.firebase && firebase.database) {
+      firebase.database().ref('exams').on('value', function(snap) {
+        const data = snap.val();
+        if (data && typeof data === 'object') {
+          saveExams(Object.values(data).filter(e => e && e.id));
+          renderMainContent();
+        }
+      });
+    }
+  } catch(e) {}
 })();
 </script>
 </body>
