@@ -614,13 +614,27 @@ function handleDraftImages(input) {
   });
 }
 
-// ===== FIREBASE HELPERS — مُعرَّفة في shared.js =====
-// (لا تكرار هنا)
+// ===== مساعدات بيانات المستخدم الحالي =====
+function _myUid()      { return localStorage.getItem('yadwor-uid') || ''; }
+function _myName()     { return localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || ''; }
+function _myUsername() { return localStorage.getItem('yadwor-username') || ''; }
+function _myAvatar()   { return localStorage.getItem('yadwor-avatar-preview') || ''; }
+function _myType()     { return localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || 'influencer'; }
+function currentProfile() {
+  try { return JSON.parse(localStorage.getItem('yadwor-user-data') || '{}'); } catch(e) { return {}; }
+}
+function _syncStateFromStorage() {
+  state.myUid    = _myUid();
+  state.myName   = _myName();
+  state.myAvatar = _myAvatar();
+  state.myType   = _myType();
+}
 
 // handleDraftVideo و uploadVideoToCloudinary مُعرَّفتان في shared.js
 
 async function publishPost() {
   // دائماً اقرأ بيانات المستخدم الحقيقي من localStorage مباشرة
+  _syncStateFromStorage();
   const realUid      = _myUid();
   const realUsername = _myUsername();
   const realAvatar   = _myAvatar() || currentProfile().avatar || '';
@@ -650,7 +664,7 @@ async function publishPost() {
 
     // الريلز يحمل بيانات صاحبه مدمجة — uid هو المرجع الوحيد
     const newReel = {
-      id:          Date.now(),
+      id:          'post_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
       uid:         realUid,
       name:        realName,
       author:      realName,
@@ -663,9 +677,9 @@ async function publishPost() {
       timestamp:   Date.now(),
       text:        reelText,
       content:     reelText,
-      type:        "video",
+      type:        "reel",
       video:       videoUrl,
-      images:      videoUrl ? [videoUrl] : [],
+      images:      [],
       thumbnail:   thumbUrl,
       likedBy: {}, savedBy: {}, commentCount: 0, viewCount: 0,
       likes: 0, comments: 0, shares: 0, editCount: 0
@@ -705,7 +719,7 @@ async function publishPost() {
 
   // المنشور يحمل بيانات صاحبه مدمجة — uid هو المرجع الوحيد
   const newPost = {
-    id:          Date.now(),
+    id:          'post_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
     uid:         realUid,
     name:        realName,
     author:      realName,
