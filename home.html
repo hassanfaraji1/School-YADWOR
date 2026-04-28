@@ -66,7 +66,7 @@
       </button>
     </div>
   </header>
-  <main id="home-feed" class="mx-auto max-w-[760px] pt-3"></main>
+  <main id="home-feed" class="mx-auto max-w-[760px] pt-3" style="padding-left:5px;padding-right:5px;"></main>
   <!-- Loading dots for infinite scroll -->
   <div id="load-more-indicator" class="loading-dots hidden">
     <span></span><span></span><span></span>
@@ -351,7 +351,7 @@
     <div class="fixed bottom-0 left-0 right-0 border-t border-zinc-200 bg-white p-3 md:max-w-[580px] md:mx-auto">
       <div class="flex items-center gap-2 rounded-[14px] bg-zinc-100 p-2">
         <input id="comment-input" placeholder="اكتب تعليقك..." class="w-full bg-transparent px-2 text-[14px]" onkeydown="if(event.key==='Enter')submitComment()" />
-        <button onclick="submitComment()" class="rounded-[12px] bg-zinc-900 px-4 py-2 text-[13px] font-bold text-white">إرسال</button>
+        <button id="comment-submit-btn" onclick="submitComment()" class="rounded-[12px] bg-zinc-900 px-4 py-2 text-[13px] font-bold text-white whitespace-nowrap">إرسال</button>
       </div>
     </div>
   </div>
@@ -515,22 +515,34 @@ function renderHome() {
   const feed = document.getElementById('home-feed');
   feed.innerHTML = [1,2,3].map(() => shimmerPostCard()).join('');
 
-  // استخدام getPosts() من shared.js مع onValue للتحديث الفوري
   getPosts(function(posts) {
-    // مسح الحاوية أولاً لمنع التكرار
     feed.innerHTML = '';
-    if (!posts || !posts.length) {
+    // فلترة: الرئيسية تعرض المنشورات فقط، الريلز في صفحتها
+    const regularPosts = posts.filter(p => p.type !== 'reel');
+
+    if (!regularPosts.length) {
+      // هل يوجد ريلز فقط؟
+      const hasReels = posts.some(p => p.type === 'reel');
       feed.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-center gap-4 px-6">
         <div class="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100">
           <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M8 8h5"/></svg>
         </div>
         <p class="text-[15px] font-bold text-zinc-400">لا توجد منشورات بعد</p>
-        <p class="text-[13px] text-zinc-400">كن أول من ينشر شيئاً!</p>
+        ${hasReels ? '<button onclick="window.location.href=\'reels.html\'" class="mt-2 rounded-full bg-zinc-900 px-5 py-2 text-[13px] font-bold text-white">مشاهدة الريلز</button>' : '<p class="text-[13px] text-zinc-400">كن أول من ينشر شيئاً!</p>'}
       </div>`;
       return;
     }
-    feed.innerHTML = posts.map(p => renderPostCard(p)).join('');
+
+    feed.innerHTML = regularPosts.map(p => {
+      const card = renderPostCard(p);
+      if (!card) return '';
+      // أضف data-post-id للمشاهدات
+      return card.replace(`id="post-${p.id}"`, `id="post-${p.id}" data-post-id="${p.id}"`);
+    }).join('');
+
     setupInfiniteScroll();
+    // تشغيل تتبع المشاهدات بعد عرض البطاقات
+    setTimeout(setupPostViewTracking, 300);
   });
 }
 
