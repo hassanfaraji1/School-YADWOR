@@ -750,9 +750,17 @@ let _currentUser = null;
 
 // ----------------------------------------------------------------
 // جلب بيانات المستخدم من Firebase (users + joinRequests)
-// يستخدم fetchMyUserDataFromFirebase و fetchMyAcceptedJoinRequestFromFirebase
-// المعرَّفتان في shared.js
 // ----------------------------------------------------------------
+// دالة متزامنة تقرأ من الكاش أو من localStorage مباشرة
+function getCurrentUser() {
+    if (_currentUser) return _currentUser;
+    const uid    = localStorage.getItem('yadwor-uid') || '';
+    const name   = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || '';
+    const avatar = localStorage.getItem('yadwor-avatar-preview') || '';
+    const type   = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || 'user';
+    return { uid, name, avatar, type, typeLabel: type, institutionUid:'', institutionName:'', levelId:'', levelName:'', subjects:[] };
+}
+
 async function loadCurrentUser() {
     if (_currentUser) return _currentUser;
 
