@@ -58,18 +58,33 @@ input:focus{outline:none}
 
 /* أيقونة الإشعار */
 .n-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#f4f4f6}
-.n-icon.blue  {background:#eef2ff}
-.n-icon.yellow{background:#fffbeb}
+.n-icon.blue  {background:#f0f4ff}
+.n-icon.yellow{background:#f4f4f6}
 .n-icon.green {background:#f0fdf4}
 
-/* badge tag */
-.n-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px}
-.n-tag.blue  {background:#eef2ff;color:#3b5bdb}
-.n-tag.yellow{background:#fffbeb;color:#92400e}
+/* tag موحد — بدون ألوان مزعجة */
+.n-tag{
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+  font-size:10px;
+  font-weight:700;
+  padding:3px 8px;
+  border-radius:6px;
+  background:#f0f0f4;
+  color:#444;
+  border:1px solid #e8e8ec;
+}
+.n-tag.blue  {background:#f0f4ff;color:#3b5bdb;border-color:#d0deff}
+.n-tag.yellow{background:#f0f0f4;color:#555;border-color:#e4e4e7}
 
 /* زر دخول الغرفة */
 .btn-room{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:#1e40af;color:#fff;border:none;border-radius:8px;font-family:'Tajawal',sans-serif;font-size:12px;font-weight:800;cursor:pointer;letter-spacing:.2px}
 .btn-room:active{opacity:.85}
+
+/* كلمة السر */
+.room-pass-box{background:#f7f9ff;border:1px solid #dde8ff;border-radius:8px;padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.room-pass-box span{font-size:12px;font-weight:900;color:#1e3a8a;letter-spacing:1px}
 
 /* نافذة الإعدادات */
 .settings-overlay{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Tajawal',sans-serif;direction:rtl}
@@ -489,9 +504,9 @@ function renderList() {
       // كلمة السر
       if (n.showCode && n.roomCode) {
         body +=
-          '<div style="margin-top:7px;background:#ddeaff;border-radius:6px;padding:6px 10px;display:flex;align-items:center;gap:6px;">' +
-            _svgLock().replace('currentColor','#0D47A1') +
-            '<span style="font-size:12px;font-weight:900;color:#0D47A1;">كلمة السر: <b style="letter-spacing:2px;">' + n.roomCode + '</b></span>' +
+          '<div class="room-pass-box">' +
+            _svgLock().replace('currentColor','#1e3a8a') +
+            '<span>كلمة السر: ' + n.roomCode + '</span>' +
           '</div>';
       }
 
