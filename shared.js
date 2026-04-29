@@ -667,8 +667,13 @@ function nextImage() { _ivIdx = (_ivIdx + 1) % _ivImages.length; _updateViewer()
 // Comments modal
 // ============================================================
 let _openPostId = null;
+let _replyToCommentId = null;
+let _replyToCommentName = null;
+
 async function openComments(postId) {
   _openPostId = postId;
+  _replyToCommentId = null;
+  _replyToCommentName = null;
   const modal = document.getElementById('comments-modal');
   const authorEl = document.getElementById('comments-post-author');
   const listEl = document.getElementById('comments-list');
@@ -677,43 +682,180 @@ async function openComments(postId) {
   if (authorEl) authorEl.textContent = 'منشور ' + (post?.name || '');
   if (listEl) listEl.innerHTML = '<div class="shimmer h-10 w-full rounded-[10px]"></div>';
   modal.classList.remove('hidden');
-  // تحديث عداد المشاهدات
-  if (post) {
-    post.viewCount = (post.viewCount || 0) + 1;
-    updatePostInFirebase(postId, { viewCount: post.viewCount });
-  }
-  const comments = await fetchCommentsFromFirebase(postId);
+  // لا نزيد المشاهدات هنا — المشاهدات تُحسب فقط عند ظهور المنشور في الشاشة
+  _renderComments(postId);
+}
+
+async function _renderComments(postId) {
+  const listEl = document.getElementById('comments-list');
   if (!listEl) return;
-  if (!comments.length) { listEl.innerHTML = '<p class="text-center text-zinc-400 text-[13px] py-8">لا توجد تعليقات بعد</p>'; return; }
-  listEl.innerHTML = comments.map(c => `
-    <div class="flex items-start gap-2.5 py-2">
+  const myUid = state.myUid || localStorage.getItem('yadwor-uid') || '';
+  const comments = await fetchCommentsFromFirebase(postId);
+  if (!comments.length) {
+    listEl.innerHTML = '<p class="text-center text-zinc-400 text-[13px] py-8">لا توجد تعليقات بعد</p>';
+    return;
+  }
+  listEl.innerHTML = comments.map(c => {
+    const likedByMe = (c.likedBy || {})[myUid];
+    const likeCount = Object.keys(c.likedBy || {}).length;
+    const replies = (c.replies || []);
+    const repliesHtml = replies.map(r => {
+      const rLikedByMe = (r.likedBy || {})[myUid];
+      const rLikeCount = Object.keys(r.likedBy || {}).length;
+      return `<div class="flex items-start gap-2 mt-2 pr-4 border-r-2 border-zinc-200">
+        <div class="h-7 w-7 shrink-0 rounded-full overflow-hidden bg-zinc-200">
+          ${r.avatar ? `<img src="${r.avatar}" class="h-7 w-7 object-cover" loading="lazy"/>` : '<div class="h-7 w-7 flex items-center justify-center text-zinc-400 text-xs">👤</div>'}
+        </div>
+        <div class="flex-1 rounded-[12px] bg-white border border-zinc-100 px-3 py-2">
+          <p class="text-[12px] font-bold text-zinc-900">${r.name || 'مجهول'}</p>
+          <p class="text-[12px] text-zinc-700 mt-0.5">${r.text || ''}</p>
+          <div class="flex items-center gap-3 mt-1.5">
+            <span class="text-[10px] text-zinc-400">${formatTimeAgo(r.ts)}</span>
+            <button onclick="toggleCommentLike('${c.id}','${r.id}',true)" class="flex items-center gap-1 text-[11px] font-bold ${rLikedByMe ? 'text-rose-500' : 'text-zinc-400'} hover:text-rose-400">
+              <svg viewBox="0 0 24 24" class="h-3 w-3" fill="${rLikedByMe ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              ${rLikeCount || ''}
+            </button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div class="flex items-start gap-2.5 py-2" id="comment-${c.id}">
       <div class="h-8 w-8 shrink-0 rounded-full overflow-hidden bg-zinc-200">
         ${c.avatar ? `<img src="${c.avatar}" class="h-8 w-8 object-cover" loading="lazy"/>` : '<div class="h-8 w-8 flex items-center justify-center text-zinc-400 text-xs">👤</div>'}
       </div>
-      <div class="flex-1 rounded-[14px] bg-white border border-zinc-100 px-3 py-2">
-        <p class="text-[13px] font-bold text-zinc-900">${c.name || 'مجهول'}</p>
-        <p class="text-[13px] text-zinc-700 mt-0.5">${c.text || ''}</p>
-        <p class="text-[11px] text-zinc-400 mt-1">${formatTimeAgo(c.ts)}</p>
+      <div class="flex-1">
+        <div class="rounded-[14px] bg-white border border-zinc-100 px-3 py-2">
+          <p class="text-[13px] font-bold text-zinc-900">${c.name || 'مجهول'}</p>
+          <p class="text-[13px] text-zinc-700 mt-0.5">${c.text || ''}</p>
+        </div>
+        <div class="flex items-center gap-3 mt-1.5 px-1">
+          <span class="text-[11px] text-zinc-400">${formatTimeAgo(c.ts)}</span>
+          <button onclick="toggleCommentLike('${c.id}',null,false)" class="flex items-center gap-1 text-[12px] font-bold ${likedByMe ? 'text-rose-500' : 'text-zinc-400'} hover:text-rose-400">
+            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="${likedByMe ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            ${likeCount || ''}
+          </button>
+          <button onclick="startReply('${c.id}','${(c.name||'').replace(/'/g,"\\'")}') " class="text-[12px] font-bold text-zinc-400 hover:text-zinc-600">رد</button>
+        </div>
+        ${repliesHtml}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
-function closeCommentsModal() { document.getElementById('comments-modal')?.classList.add('hidden'); _openPostId = null; }
+function closeCommentsModal() {
+  document.getElementById('comments-modal')?.classList.add('hidden');
+  _openPostId = null;
+  _replyToCommentId = null;
+  _replyToCommentName = null;
+  // إعادة placeholder حقل الإدخال
+  const inp = document.getElementById('comment-input');
+  if (inp) inp.placeholder = 'اكتب تعليقك...';
+  const replyIndicator = document.getElementById('reply-indicator');
+  if (replyIndicator) replyIndicator.remove();
+}
+
+function startReply(commentId, commentName) {
+  _replyToCommentId = commentId;
+  _replyToCommentName = commentName;
+  const inp = document.getElementById('comment-input');
+  if (inp) {
+    inp.placeholder = `الرد على ${commentName}...`;
+    inp.focus();
+  }
+  // إظهار مؤشر الرد
+  let indicator = document.getElementById('reply-indicator');
+  if (!indicator) {
+    indicator = document.createElement('div');
+    indicator.id = 'reply-indicator';
+    indicator.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:6px 12px;background:#f4f4f5;border-radius:10px;margin-bottom:6px;font-size:12px;font-weight:700;color:#52525b;';
+    const commentInputContainer = document.querySelector('#comments-modal .fixed.bottom-0 .flex');
+    if (commentInputContainer) commentInputContainer.insertAdjacentElement('beforebegin', indicator);
+  }
+  indicator.innerHTML = `<span>رد على: ${commentName}</span><button onclick="cancelReply()" style="background:none;border:none;cursor:pointer;font-size:14px;color:#71717a;">✕</button>`;
+}
+
+function cancelReply() {
+  _replyToCommentId = null;
+  _replyToCommentName = null;
+  const inp = document.getElementById('comment-input');
+  if (inp) { inp.placeholder = 'اكتب تعليقك...'; inp.focus(); }
+  const indicator = document.getElementById('reply-indicator');
+  if (indicator) indicator.remove();
+}
+
+async function toggleCommentLike(commentId, replyId, isReply) {
+  const myUid = state.myUid || localStorage.getItem('yadwor-uid') || '';
+  if (!myUid) { showToast('سجّل دخولك أولاً'); return; }
+  if (!_openPostId) return;
+  try {
+    const db = _getDB();
+    if (db) {
+      if (isReply && replyId) {
+        const path = `comments/${_openPostId}/${commentId}/replies`;
+        const snap = await db.ref(path).once('value');
+        const replies = snap.val() || [];
+        const idx = replies.findIndex(r => r && r.id === replyId);
+        if (idx === -1) return;
+        if (!replies[idx].likedBy) replies[idx].likedBy = {};
+        if (replies[idx].likedBy[myUid]) delete replies[idx].likedBy[myUid];
+        else replies[idx].likedBy[myUid] = true;
+        await db.ref(path).set(replies);
+      } else {
+        const likedPath = `comments/${_openPostId}/${commentId}/likedBy/${myUid}`;
+        const snap = await db.ref(likedPath).once('value');
+        if (snap.val()) await db.ref(likedPath).remove();
+        else await db.ref(likedPath).set(true);
+      }
+    }
+  } catch(e) {}
+  _renderComments(_openPostId);
+}
 
 async function submitComment() {
-  const myUid = state.myUid;
+  const myUid = state.myUid || localStorage.getItem('yadwor-uid') || '';
   if (!myUid) { showToast('سجّل دخولك أولاً'); return; }
   const inp = document.getElementById('comment-input');
   const text = inp?.value.trim();
   if (!text || !_openPostId) return;
   inp.value = '';
+
+  // رد على تعليق
+  if (_replyToCommentId) {
+    const replyObj = {
+      id:     'r_' + Date.now(),
+      uid:    myUid,
+      name:   state.myName || localStorage.getItem('yadwor-settings-name') || 'مجهول',
+      avatar: state.myAvatar || localStorage.getItem('yadwor-avatar-preview') || '',
+      text:   text,
+      ts:     Date.now(),
+      likedBy: {}
+    };
+    try {
+      const db = _getDB();
+      if (db) {
+        const repliesPath = `comments/${_openPostId}/${_replyToCommentId}/replies`;
+        const snap = await db.ref(repliesPath).once('value');
+        const existing = snap.val() || [];
+        existing.push(replyObj);
+        await db.ref(repliesPath).set(existing);
+      }
+    } catch(e) {}
+    cancelReply();
+    _renderComments(_openPostId);
+    return;
+  }
+
+  // تعليق جديد
   const comment = {
     id:        'c_' + Date.now(),
     uid:       myUid,
-    name:      state.myName || 'مجهول',
-    avatar:    state.myAvatar || '',
+    name:      state.myName || localStorage.getItem('yadwor-settings-name') || 'مجهول',
+    avatar:    state.myAvatar || localStorage.getItem('yadwor-avatar-preview') || '',
     text:      text,
-    ts:        Date.now()
+    ts:        Date.now(),
+    likedBy:   {},
+    replies:   []
   };
   await saveCommentToFirebase(_openPostId, comment);
   // تحديث عداد التعليقات
@@ -724,7 +866,7 @@ async function submitComment() {
   }
   // إشعار صاحب المنشور
   if (post && post.uid && post.uid !== myUid) {
-    const myName = state.myName || 'شخص';
+    const myName = state.myName || localStorage.getItem('yadwor-settings-name') || 'شخص';
     await saveInteractionNotif(post.uid, {
       type:     'comment',
       fromUid:  myUid,
@@ -733,7 +875,7 @@ async function submitComment() {
       text:     myName + ' علّق على منشورك'
     });
   }
-  openComments(_openPostId);
+  _renderComments(_openPostId);
 }
 
 // ============================================================
@@ -1070,4 +1212,75 @@ function markNotificationsRead(ts) {
   }
   var badgeEl = document.getElementById('notif-badge');
   if (badgeEl) badgeEl.style.display = 'none';
+}
+
+// ============================================================
+// تتبع مشاهدات المنشورات — تُحسب مرة واحدة فقط لكل مستخدم
+// ============================================================
+function setupPostViewTracking() {
+  const myUid = localStorage.getItem('yadwor-uid') || 'guest_' + (localStorage.getItem('yadwor-view-guest-id') || (() => {
+    const gid = 'g_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    localStorage.setItem('yadwor-view-guest-id', gid);
+    return gid;
+  })());
+
+  // مفتاح تتبع المنشورات المشاهدة في هذه الجلسة
+  let viewedSet;
+  try { viewedSet = new Set(JSON.parse(sessionStorage.getItem('yadwor-viewed-posts') || '[]')); }
+  catch(e) { viewedSet = new Set(); }
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const postId = entry.target.dataset.postId;
+      if (!postId) return;
+      if (viewedSet.has(postId)) return; // لا تحسب مرتين في نفس الجلسة
+
+      // تحقق من Firebase إذا شاهده من قبل
+      const db = _getDB();
+      if (db) {
+        db.ref('posts/' + postId + '/viewedBy/' + myUid).once('value').then(snap => {
+          if (snap.val()) return; // شاهده من قبل — لا تزد
+          // أول مشاهدة — سجّل وزد العداد
+          viewedSet.add(postId);
+          try { sessionStorage.setItem('yadwor-viewed-posts', JSON.stringify([...viewedSet])); } catch(e) {}
+          db.ref('posts/' + postId + '/viewedBy/' + myUid).set(true).catch(() => {});
+          db.ref('posts/' + postId + '/viewCount').transaction(cur => (cur || 0) + 1).catch(() => {});
+          // تحديث state محلياً
+          const post = state.posts.find(p => p.id === postId);
+          if (post) post.viewCount = (post.viewCount || 0) + 1;
+          // تحديث العداد في DOM مباشرة
+          const postEl = document.getElementById('post-' + postId);
+          if (postEl) {
+            const viewSpans = postEl.querySelectorAll('.flex.items-center.gap-1\\.5.text-\\[13px\\].font-bold.text-zinc-400');
+            viewSpans.forEach(span => {
+              const svg = span.querySelector('svg');
+              if (svg && svg.innerHTML.includes('circle')) {
+                span.lastChild.textContent = ' ' + ((post?.viewCount) || 1);
+              }
+            });
+          }
+        }).catch(() => {});
+      } else {
+        // Fallback بدون Firebase — تحقق من localStorage
+        const viewKey = 'yadwor-viewed-' + postId;
+        if (localStorage.getItem(viewKey) === myUid) return;
+        localStorage.setItem(viewKey, myUid);
+        viewedSet.add(postId);
+        try { sessionStorage.setItem('yadwor-viewed-posts', JSON.stringify([...viewedSet])); } catch(e) {}
+        fetch(`${FB_DB_URL}/posts/${postId}/viewCount.json`, {
+          method: 'GET'
+        }).then(r => r.json()).then(cur => {
+          return fetch(`${FB_DB_URL}/posts/${postId}/viewCount.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify((cur || 0) + 1)
+          });
+        }).catch(() => {});
+      }
+    });
+  }, { threshold: 0.6, rootMargin: '0px' }); // يُحسب بعد ظهور 60% من البطاقة
+
+  // مراقبة كل بطاقة منشور
+  document.querySelectorAll('[data-post-id]').forEach(el => observer.observe(el));
 }
