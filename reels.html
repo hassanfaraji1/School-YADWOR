@@ -151,23 +151,27 @@ function renderReels() {
   }
   
   container.innerHTML = reelPosts.map(post => {
-    const isLiked = state.likedPosts.includes(post.id);
-    const commentsCount = (state.postComments[post.id] || []).length;
+    const myUid = localStorage.getItem('yadwor-uid') || '';
+    const isLiked = !!(post.likedBy || {})[myUid];
+    const likesCount = Object.keys(post.likedBy || {}).length;
+    const commentsCount = post.commentCount || 0;
+    const viewCount = post.viewCount || 0;
     const avShId = 'avsh_r_' + post.id;
-    // صورة صاحب الريلز — لا نضع صورة المستخدم الحالي
     const postAvatar = post.avatar
-      || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(post.author || 'U') + '&background=444&color=fff&size=100';
+      || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(post.author || post.name || 'U') + '&background=444&color=fff&size=100';
+    const postAuthor = post.author || post.name || 'مستخدم';
+    const postUsername = post.username || '';
+    const postContent = post.text || post.content || '';
     return `<div class="reel-item" id="reel-${post.id}">
       <div id="reel-sh-${post.id}" class="shimmer absolute inset-0"></div>
-      ${post.images[0] && (post.images[0].startsWith('http://') || post.images[0].startsWith('https://')) ? `
-      <video id="reel-vid-${post.id}" src="${post.images[0]}" loop muted playsinline preload="auto"
+      ${post.video && (post.video.startsWith('http://') || post.video.startsWith('https://')) ? `
+      <video id="reel-vid-${post.id}" src="${post.video}" ${post.thumbnail ? `poster="${post.thumbnail}"` : ''} loop muted playsinline preload="auto"
         class="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-500"
-        oncanplay="onReelCanPlay(${post.id})"
-        ontimeupdate="updateProgress(${post.id})"
-        onclick="toggleReelPlay(${post.id})">
+        oncanplay="onReelCanPlay('${post.id}')"
+        ontimeupdate="updateProgress('${post.id}')"
+        onclick="toggleReelPlay('${post.id}')">
       </video>
-      <!-- Sound toggle button -->
-      <button id="reel-sound-btn-${post.id}" onclick="toggleReelSound(${post.id})" 
+      <button id="reel-sound-btn-${post.id}" onclick="toggleReelSound('${post.id}')" 
         class="absolute top-4 left-4 z-[20] flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
         style="touch-action:manipulation">
         <svg id="reel-sound-icon-${post.id}" viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round">
@@ -182,9 +186,8 @@ function renderReels() {
             <path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
           </svg>
         </div>
-        <p class="mt-3 text-[12px] text-white/30 font-bold">الفيديو غير متاح محلياً</p>
+        <p class="mt-3 text-[12px] text-white/30 font-bold">الفيديو غير متاح</p>
       </div>`}
-      <!-- Play/Pause icon overlay -->
       <div id="reel-play-icon-${post.id}" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200">
         <div class="flex h-16 w-16 items-center justify-center rounded-full bg-black/50">
           <svg id="reel-play-svg-${post.id}" viewBox="0 0 24 24" class="h-8 w-8 fill-white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
@@ -195,33 +198,32 @@ function renderReels() {
       <!-- Bottom info -->
       <div class="absolute bottom-0 left-0 right-0 px-4 pt-3" style="padding-bottom: max(20px, env(safe-area-inset-bottom, 20px)); z-index:20; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);">
         <div class="mb-3 flex items-start gap-3">
-          <div class="relative h-10 w-10 shrink-0 rounded-full overflow-hidden">
+          <div class="relative h-10 w-10 shrink-0 rounded-full overflow-hidden cursor-pointer" onclick="window.location.href='profile.html?uid=${post.uid}'">
             <div id="${avShId}" class="shimmer absolute inset-0 rounded-full"></div>
             <img src="${postAvatar}" class="h-10 w-10 rounded-full object-cover z-[1] relative"
               onload="(function(){var el=document.getElementById('${avShId}');if(el)el.remove();})()"
               onerror="(function(){var el=document.getElementById('${avShId}');if(el)el.style.background='#333';})()" />
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-[14px] font-extrabold">${post.author}</p>
-            <p class="text-[11px] text-zinc-300">@${post.username}</p>
-            <p class="mt-1 text-[13px] leading-5 text-zinc-100 line-clamp-2">${post.content}</p>
+            <p class="text-[14px] font-extrabold cursor-pointer" onclick="window.location.href='profile.html?uid=${post.uid}'">${postAuthor}</p>
+            <p class="text-[11px] text-zinc-300">@${postUsername}</p>
+            <p class="mt-1 text-[13px] leading-5 text-zinc-100 line-clamp-2">${postContent}</p>
           </div>
         </div>
         <div class="mb-3">
           <input type="range" id="reel-progress-${post.id}" class="video-progress" min="0" max="100" value="0"
-            oninput="seekVideo(${post.id}, this.value)"
+            oninput="seekVideo('${post.id}', this.value)"
             style="background: linear-gradient(to left, rgba(255,255,255,0.3) 0%, white 0%)">
         </div>
-        <!-- شريط أزرار التفاعل — يتكيف مع كل الشاشات -->
         <div style="display:flex;align-items:center;justify-content:space-around;width:100%;margin-top:10px;">
           <!-- لايك -->
-          <button onclick="reelLike(${post.id})" id="reel-like-btn-${post.id}"
+          <button onclick="reelLike('${post.id}')" id="reel-like-btn-${post.id}"
             style="display:flex;flex-direction:column;align-items:center;gap:3px;color:${isLiked?'#f43f5e':'white'};background:none;border:none;cursor:pointer;min-width:44px;padding:6px;">
             <svg viewBox="0 0 24 24" style="width:26px;height:26px;" fill="${isLiked?'currentColor':'none'}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" id="reel-like-svg-${post.id}"><path d="M12 21s-7-4.35-9-8.68C1.38 8.92 3.44 5 7.5 5c2.04 0 3.11 1.03 4.5 2.5C13.39 6.03 14.46 5 16.5 5 20.56 5 22.62 8.92 21 12.32 19 16.65 12 21 12 21"/></svg>
-            <span id="reel-likes-${post.id}" style="font-size:12px;font-weight:800;">${post.likes||0}</span>
+            <span id="reel-likes-${post.id}" style="font-size:12px;font-weight:800;">${likesCount}</span>
           </button>
           <!-- تعليق -->
-          <button onclick="openReelComments(${post.id})"
+          <button onclick="openReelComments('${post.id}')"
             style="display:flex;flex-direction:column;align-items:center;gap:3px;color:white;background:none;border:none;cursor:pointer;min-width:44px;padding:6px;">
             <svg viewBox="0 0 24 24" style="width:24px;height:24px;" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             <span id="reel-comments-count-${post.id}" style="font-size:12px;font-weight:800;">${commentsCount}</span>
@@ -229,16 +231,16 @@ function renderReels() {
           <!-- مشاهدات -->
           <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:white;min-width:44px;padding:6px;">
             <svg viewBox="0 0 24 24" style="width:24px;height:24px;" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            <span style="font-size:12px;font-weight:800;">${formatNumber(post.shares||0)}</span>
+            <span style="font-size:12px;font-weight:800;">${viewCount}</span>
           </div>
           <!-- مشاركة -->
-          <button onclick="sharePost(${post.id})"
+          <button onclick="sharePost('${post.id}')"
             style="display:flex;flex-direction:column;align-items:center;gap:3px;color:white;background:none;border:none;cursor:pointer;min-width:44px;padding:6px;">
             <svg viewBox="0 0 24 24" style="width:24px;height:24px;" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 16V4M8 8l4-4 4 4"/></svg>
             <span style="font-size:12px;font-weight:800;">مشاركة</span>
           </button>
           <!-- حفظ -->
-          <button onclick="toggleReelSave(${post.id})" id="reel-save-btn-${post.id}"
+          <button onclick="toggleReelSave('${post.id}')" id="reel-save-btn-${post.id}"
             style="display:flex;flex-direction:column;align-items:center;gap:3px;color:white;background:none;border:none;cursor:pointer;min-width:44px;padding:6px;">
             <svg viewBox="0 0 24 24" style="width:24px;height:24px;" id="reel-save-svg-${post.id}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
             <span style="font-size:12px;font-weight:800;">حفظ</span>
@@ -334,19 +336,35 @@ function seekVideo(id, value) {
 }
 
 function reelLike(id) {
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  if (!myUid) { showToast('سجّل دخولك أولاً'); return; }
   const post = state.posts.find(p => p.id === id);
   if (!post) return;
-  const idx = state.likedPosts.indexOf(id);
-  if (idx > -1) { state.likedPosts.splice(idx, 1); post.likes = Math.max(0, post.likes - 1); }
-  else { state.likedPosts.push(id); post.likes++; }
-  saveData();
-  const btn = document.getElementById('reel-like-btn-'+id);
-  const svg = document.getElementById('reel-like-svg-'+id);
-  const span = document.getElementById('reel-likes-'+id);
-  const isLiked = state.likedPosts.includes(id);
-  if(btn) btn.className = `flex items-center gap-1.5 ${isLiked?'text-rose-500':'text-white'}`;
-  if(svg) svg.setAttribute('fill', isLiked?'currentColor':'none');
-  if(span) span.textContent = post.likes;
+  if (!post.likedBy) post.likedBy = {};
+  const wasLiked = !!post.likedBy[myUid];
+  if (wasLiked) { delete post.likedBy[myUid]; }
+  else { post.likedBy[myUid] = true; }
+  const likesCount = Object.keys(post.likedBy).length;
+  // تحديث DOM مباشرة
+  const btn = document.getElementById('reel-like-btn-' + id);
+  const svg = document.getElementById('reel-like-svg-' + id);
+  const span = document.getElementById('reel-likes-' + id);
+  const isLiked = !wasLiked;
+  if (btn) btn.style.color = isLiked ? '#f43f5e' : 'white';
+  if (svg) svg.setAttribute('fill', isLiked ? 'currentColor' : 'none');
+  if (span) span.textContent = likesCount;
+  // حفظ Firebase
+  const db = firebase.database();
+  if (wasLiked) {
+    db.ref('posts/' + id + '/likedBy/' + myUid).remove().catch(() => {});
+  } else {
+    db.ref('posts/' + id + '/likedBy/' + myUid).set(true).catch(() => {});
+    // إشعار صاحب المنشور
+    if (post.uid && post.uid !== myUid) {
+      const myName = localStorage.getItem('yadwor-settings-name') || 'شخص';
+      saveInteractionNotif(post.uid, { type: 'like', fromUid: myUid, fromName: myName, postId: id, text: myName + ' أعجب بريلزك' });
+    }
+  }
 }
 
 function sharePost(id) { showToast('تم نسخ رابط المشاركة'); }
@@ -354,86 +372,117 @@ function sharePost(id) { showToast('تم نسخ رابط المشاركة'); }
 // ---- Comments ----
 function openReelComments(postId) {
   currentReelCommentPostId = postId;
-  renderReelComments(postId);
   document.getElementById('reel-comments-modal').classList.remove('hidden');
+  const list = document.getElementById('reel-comments-list');
+  list.innerHTML = '<div style="display:flex;justify-content:center;padding:20px;"><div style="width:32px;height:32px;border-radius:50%;border:3px solid rgba(255,255,255,0.2);border-top-color:white;animation:spin .8s linear infinite;"></div></div>';
+  // إضافة CSS للـ spinner
+  if (!document.getElementById('reel-spin-style')) {
+    const s = document.createElement('style');
+    s.id = 'reel-spin-style';
+    s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(s);
+  }
+  _renderReelComments(postId);
 }
+
 function closeReelComments() {
   document.getElementById('reel-comments-modal').classList.add('hidden');
   currentReelCommentPostId = null;
   cancelReelReply();
 }
 
-function renderReelComments(postId) {
-  const comments = state.postComments[postId] || [];
+async function _renderReelComments(postId) {
   const list = document.getElementById('reel-comments-list');
+  if (!list) return;
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  const comments = await fetchCommentsFromFirebase(postId);
   if (!comments.length) {
-    list.innerHTML = `<p class="text-center text-[13px] text-white/50 py-4">لا توجد تعليقات بعد. كن أول من يعلق!</p>`;
+    list.innerHTML = '<p style="text-align:center;font-size:13px;color:rgba(255,255,255,0.5);padding:16px;">لا توجد تعليقات بعد. كن أول من يعلق!</p>';
     return;
   }
   list.innerHTML = comments.map(c => {
-    const cKey = `${postId}_${c.id}`;
-    const liked = reelLikedComments.includes(cKey);
-    const replies = (c.replies||[]).map((r, ri) => {
-      const rKey = `${postId}_${c.id}_${ri}`;
-      const rLiked = reelLikedComments.includes(rKey);
-      return `<div class="rounded-[12px] bg-white/5 border border-white/10 px-3 py-2 mt-2">
-        <div class="flex items-center justify-between mb-1">
-          <div>
-            <span class="text-[12px] font-extrabold text-white">${r.author}</span>
-            <span class="text-[10px] text-white/40 mr-2">رد · ${r.time}</span>
-          </div>
-          <button onclick="likeReelReply(${postId},${c.id},${ri})" class="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${rLiked?'bg-rose-500/30 text-rose-400':'bg-white/10 text-white/60'}">
-            <svg viewBox="0 0 24 24" class="h-3 w-3" fill="${rLiked?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-4.35-9-8.68C1.38 8.92 3.44 5 7.5 5c2.04 0 3.11 1.03 4.5 2.5C13.39 6.03 14.46 5 16.5 5 20.56 5 22.62 8.92 21 12.32 19 16.65 12 21 12 21"/></svg>
-            ${r.likes}
-          </button>
+    const likedByMe = !!(c.likedBy || {})[myUid];
+    const likeCount = Object.keys(c.likedBy || {}).length;
+    const replies = (c.replies || []);
+    const repliesHtml = replies.map((r, ri) => {
+      const rLikedByMe = !!(r.likedBy || {})[myUid];
+      const rLikeCount = Object.keys(r.likedBy || {}).length;
+      return `<div style="display:flex;gap:8px;margin-top:8px;padding-right:12px;border-right:2px solid rgba(255,255,255,0.15);">
+        <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;background:#333;flex-shrink:0;">
+          ${r.avatar ? `<img src="${r.avatar}" style="width:100%;height:100%;object-fit:cover;">` : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.4);font-size:10px;">👤</div>'}
         </div>
-        <p class="text-[12px] text-white/75 leading-5">${r.text}</p>
+        <div style="flex:1;background:rgba(255,255,255,0.07);border-radius:12px;padding:8px 10px;">
+          <p style="font-size:12px;font-weight:700;color:white;">${r.name || 'مجهول'}</p>
+          <p style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:2px;">${r.text || ''}</p>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+            <span style="font-size:10px;color:rgba(255,255,255,0.4);">${formatTimeAgo(r.ts)}</span>
+            <button onclick="likeReelReplyFb('${c.id}','${r.id}','${postId}')" style="display:flex;align-items:center;gap:3px;background:${rLikedByMe?'rgba(244,63,94,0.25)':'rgba(255,255,255,0.1)'};border:none;border-radius:20px;padding:2px 8px;cursor:pointer;color:${rLikedByMe?'#f43f5e':'rgba(255,255,255,0.6)'};font-size:11px;font-weight:700;">
+              ♥ ${rLikeCount || ''}
+            </button>
+          </div>
+        </div>
       </div>`;
     }).join('');
-    return `<div class="rounded-[14px] bg-white/10 px-4 py-3">
-      <div class="flex items-start justify-between gap-2 mb-1.5">
-        <div class="flex-1 min-w-0">
-          <span class="text-[13px] font-extrabold text-white">${c.author}</span>
-          <span class="text-[11px] text-white/50 mr-2">${c.time}</span>
-        </div>
-        <div class="flex items-center gap-1.5 shrink-0">
-          <button onclick="likeReelComment(${postId},${c.id})" class="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${liked?'bg-rose-500/30 text-rose-400':'bg-white/10 text-white/60'}">
-            <svg viewBox="0 0 24 24" class="h-3 w-3" fill="${liked?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-4.35-9-8.68C1.38 8.92 3.44 5 7.5 5c2.04 0 3.11 1.03 4.5 2.5C13.39 6.03 14.46 5 16.5 5 20.56 5 22.62 8.92 21 12.32 19 16.65 12 21 12 21"/></svg>
-            ${c.likes}
-          </button>
-          <button onclick="setReelReply(${postId},${c.id},'${c.author.replace(/'/g,"\\'")}' )" class="rounded-full bg-white/10 text-white/70 px-2 py-0.5 text-[11px] font-bold hover:bg-white/20">رد</button>
+
+    return `<div style="background:rgba(255,255,255,0.08);border-radius:14px;padding:12px 14px;margin-bottom:8px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+        <div style="display:flex;gap:8px;flex:1;min-width:0;">
+          <div style="width:32px;height:32px;border-radius:50%;overflow:hidden;background:#333;flex-shrink:0;">
+            ${c.avatar ? `<img src="${c.avatar}" style="width:100%;height:100%;object-fit:cover;">` : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.4);font-size:11px;">👤</div>'}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <p style="font-size:13px;font-weight:700;color:white;">${c.name || 'مجهول'}</p>
+            <p style="font-size:12px;color:rgba(255,255,255,0.45);margin-top:1px;">${formatTimeAgo(c.ts)}</p>
+          </div>
         </div>
       </div>
-      <p class="text-[13px] text-white/80 leading-5">${c.text}</p>
-      ${replies ? `<div class="mt-2 border-r-2 border-white/10 pr-2">${replies}</div>` : ''}
+      <p style="font-size:13px;color:rgba(255,255,255,0.8);margin-top:6px;line-height:1.5;">${c.text || ''}</p>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+        <button onclick="likeReelCommentFb('${c.id}','${postId}')" style="display:flex;align-items:center;gap:4px;background:${likedByMe?'rgba(244,63,94,0.25)':'rgba(255,255,255,0.1)'};border:none;border-radius:20px;padding:4px 10px;cursor:pointer;color:${likedByMe?'#f43f5e':'rgba(255,255,255,0.6)'};font-size:12px;font-weight:700;">
+          ♥ ${likeCount || ''}
+        </button>
+        <button onclick="setReelReply('${postId}','${c.id}','${(c.name||'').replace(/'/g,"\\'")}' )" style="background:rgba(255,255,255,0.1);border:none;border-radius:20px;padding:4px 10px;cursor:pointer;color:rgba(255,255,255,0.6);font-size:12px;font-weight:700;">رد</button>
+      </div>
+      ${repliesHtml ? `<div style="margin-top:8px;">${repliesHtml}</div>` : ''}
     </div>`;
   }).join('');
 }
 
-function likeReelComment(postId, commentId) {
-  const key = `${postId}_${commentId}`;
-  const idx = reelLikedComments.indexOf(key);
-  const comment = (state.postComments[postId]||[]).find(c=>c.id===commentId);
-  if (!comment) return;
-  if (idx > -1) { reelLikedComments.splice(idx,1); comment.likes = Math.max(0, comment.likes-1); }
-  else { reelLikedComments.push(key); comment.likes++; }
-  localStorage.setItem('yadwor-reel-liked-comments', JSON.stringify(reelLikedComments));
-  saveData();
-  renderReelComments(postId);
+async function likeReelCommentFb(commentId, postId) {
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  if (!myUid) { showToast('سجّل دخولك أولاً'); return; }
+  try {
+    const db = firebase.database();
+    const likedPath = `comments/${postId}/${commentId}/likedBy/${myUid}`;
+    const snap = await db.ref(likedPath).once('value');
+    if (snap.val()) await db.ref(likedPath).remove();
+    else await db.ref(likedPath).set(true);
+  } catch(e) {}
+  _renderReelComments(postId);
 }
 
-function likeReelReply(postId, commentId, replyIndex) {
-  const key = `${postId}_${commentId}_${replyIndex}`;
-  const idx = reelLikedComments.indexOf(key);
-  const comment = (state.postComments[postId]||[]).find(c=>c.id===commentId);
-  if (!comment || !comment.replies || !comment.replies[replyIndex]) return;
-  const reply = comment.replies[replyIndex];
-  if (idx > -1) { reelLikedComments.splice(idx,1); reply.likes = Math.max(0, reply.likes-1); }
-  else { reelLikedComments.push(key); reply.likes++; }
-  localStorage.setItem('yadwor-reel-liked-comments', JSON.stringify(reelLikedComments));
-  saveData();
-  renderReelComments(postId);
+async function likeReelReplyFb(commentId, replyId, postId) {
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  if (!myUid) { showToast('سجّل دخولك أولاً'); return; }
+  try {
+    const db = firebase.database();
+    const path = `comments/${postId}/${commentId}/replies`;
+    const snap = await db.ref(path).once('value');
+    const replies = snap.val() || [];
+    const idx = replies.findIndex(r => r && r.id === replyId);
+    if (idx === -1) return;
+    if (!replies[idx].likedBy) replies[idx].likedBy = {};
+    if (replies[idx].likedBy[myUid]) delete replies[idx].likedBy[myUid];
+    else replies[idx].likedBy[myUid] = true;
+    await db.ref(path).set(replies);
+  } catch(e) {}
+  _renderReelComments(postId);
 }
+
+// الدوال القديمة محتفظ بها للتوافق مع الكود القديم
+function renderReelComments(postId) { _renderReelComments(postId); }
+function likeReelComment(postId, commentId) { likeReelCommentFb(commentId, postId); }
+function likeReelReply(postId, commentId, replyIndex) {}
 
 function setReelReply(postId, commentId, author) {
   reelReplyTarget = { postId, commentId, author };
@@ -453,33 +502,67 @@ function cancelReelReply() {
   if (input) input.placeholder = 'أضف تعليقاً...';
 }
 
-function submitReelComment() {
+async function submitReelComment() {
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  if (!myUid) { showToast('سجّل دخولك أولاً'); return; }
   const input = document.getElementById('reel-comment-input');
-  const text = input.value.trim();
+  const text = input?.value.trim();
   if (!text || !currentReelCommentPostId) return;
+  input.value = '';
   const id = currentReelCommentPostId;
-  
+
   if (reelReplyTarget && reelReplyTarget.postId === id) {
-    const comment = (state.postComments[id]||[]).find(c=>c.id===reelReplyTarget.commentId);
-    if (comment) {
-      comment.replies = comment.replies||[];
-      comment.replies.push({ id: Date.now(), author: state.settingsName, time: 'الآن', text, likes: 0 });
-    }
+    // رد على تعليق
+    const replyObj = {
+      id:      'r_' + Date.now(),
+      uid:     myUid,
+      name:    localStorage.getItem('yadwor-settings-name') || 'مجهول',
+      avatar:  localStorage.getItem('yadwor-avatar-preview') || '',
+      text:    text,
+      ts:      Date.now(),
+      likedBy: {}
+    };
+    try {
+      const db = firebase.database();
+      const repliesPath = `comments/${id}/${reelReplyTarget.commentId}/replies`;
+      const snap = await db.ref(repliesPath).once('value');
+      const existing = snap.val() || [];
+      existing.push(replyObj);
+      await db.ref(repliesPath).set(existing);
+    } catch(e) {}
     cancelReelReply();
     showToast('تم إرسال الرد');
-  } else {
-    if (!state.postComments[id]) state.postComments[id] = [];
-    state.postComments[id].push({ id: Date.now(), author: state.settingsName, time: 'الآن', text, likes: 0, replies: [] });
-    const post = state.posts.find(p => p.id === id);
-    if (post) post.comments++;
-    showToast('تمت إضافة تعليقك');
+    _renderReelComments(id);
+    return;
   }
-  
-  input.value = '';
-  saveData();
-  renderReelComments(id);
-  const countEl = document.getElementById('reel-comments-count-' + id);
-  if (countEl) countEl.textContent = (state.postComments[id] || []).length;
+
+  // تعليق جديد
+  const comment = {
+    id:      'c_' + Date.now(),
+    uid:     myUid,
+    name:    localStorage.getItem('yadwor-settings-name') || 'مجهول',
+    avatar:  localStorage.getItem('yadwor-avatar-preview') || '',
+    text:    text,
+    ts:      Date.now(),
+    likedBy: {},
+    replies: []
+  };
+  await saveCommentToFirebase(id, comment);
+  // تحديث عداد التعليقات
+  const post = state.posts.find(p => p.id === id);
+  if (post) {
+    post.commentCount = (post.commentCount || 0) + 1;
+    updatePostInFirebase(id, { commentCount: post.commentCount });
+    const countEl = document.getElementById('reel-comments-count-' + id);
+    if (countEl) countEl.textContent = post.commentCount;
+  }
+  // إشعار صاحب المنشور
+  if (post && post.uid && post.uid !== myUid) {
+    const myName = localStorage.getItem('yadwor-settings-name') || 'شخص';
+    await saveInteractionNotif(post.uid, { type: 'comment', fromUid: myUid, fromName: myName, postId: id, text: myName + ' علّق على ريلزك' });
+  }
+  showToast('تمت إضافة تعليقك');
+  _renderReelComments(id);
 }
 
 document.addEventListener('keydown', (e) => {
