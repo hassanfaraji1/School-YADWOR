@@ -64,8 +64,8 @@ input:focus{outline:none}
 .n-icon-default {background:linear-gradient(135deg,#74b9ff,#0984e3)}
 
 /* اسم الشخص */
-.n-who{font-size:14px;font-weight:800;color:#18181b;line-height:1.3}
-.n-who span{color:#3b6eff}
+.n-who{font-size:13px;font-weight:600;color:#18181b;line-height:1.4}
+.n-who span{color:#2563eb;font-weight:700}
 
 /* النص الفرعي */
 .n-sub{font-size:12px;color:#6b7280;margin-top:2px;line-height:1.4}
@@ -75,7 +75,7 @@ input:focus{outline:none}
 
 /* tags — بدون خلفيه — نص فقط مع أيقونة صغيرة */
 .n-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px}
-.n-meta-item{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:#374151}
+.n-meta-item{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:500;color:#4b5563}
 .n-meta-sep{color:#d1d5db;font-size:11px}
 
 /* LIVE badge */
@@ -84,7 +84,7 @@ input:focus{outline:none}
 @keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
 
 /* كلمة السر - سطر واحد بسيط */
-.room-pass-inline{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;color:#1e3a8a;margin-right:4px}
+.room-pass-inline{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:500;color:#374151;margin-right:4px}
 
 /* زر دخول الغرفة */
 .btn-room{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:10px;padding:10px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border:none;border-radius:10px;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:800;cursor:pointer;letter-spacing:.3px;box-shadow:0 2px 8px rgba(37,99,235,.3)}
@@ -478,16 +478,179 @@ function renderList() {
   if (!list.length) {
     el.innerHTML =
       '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 0;gap:12px;">' +
-        '<div style="width:60px;height:60px;border-radius:6px;background:#f1f1f4;display:flex;align-items:center;justify-content:center;">' +
-          '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#aaa" stroke-width="1.6" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
+        '<div style="width:56px;height:56px;border-radius:50%;background:#f4f4f6;display:flex;align-items:center;justify-content:center;">' +
+          '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#bbb" stroke-width="1.8" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
         '</div>' +
-        '<p style="font-size:14px;font-weight:700;color:#aaa;">لا توجد إشعارات في هذا القسم</p>' +
+        '<p style="font-size:13px;font-weight:500;color:#9ca3af;">لا توجد إشعارات</p>' +
       '</div>';
     return;
   }
 
   var html = '';
   list.forEach(function(n) {
+    var isRoom    = n.type === 'room';
+    var isExam    = n.type === 'exam';
+    var isLike    = n.type === 'like';
+    var isComment = n.type === 'comment';
+    var isReply   = n.type === 'reply';
+    var isFollow  = n.type === 'follow';
+    var unread    = !!n.unread;
+    var cardClass = 'ncard' + (unread ? ' unread' : '');
+
+    // ── أيقونة ──
+    var iconBg, iconSvg;
+    if (isRoom) {
+      iconBg = 'n-icon-room';
+      if (n.ownerAvatar) {
+        // صورة الأستاذ مع LIVE badge تحتها فقط
+        html +=
+          '<div class="' + cardClass + '">' +
+            '<div style="display:flex;align-items:flex-start;gap:11px;">' +
+              '<div style="position:relative;flex-shrink:0;margin-top:2px;">' +
+                '<img src="' + n.ownerAvatar + '" style="width:44px;height:44px;object-fit:cover;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.1);" onerror="this.style.display=\'none\'">' +
+                '<div class="live-badge" style="position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:9px;padding:1px 5px;">' +
+                  '<span class="live-dot"></span>LIVE' +
+                '</div>' +
+              '</div>' +
+              '<div style="flex:1;min-width:0;padding-top:2px;">' + _buildRoomBody(n) + '</div>' +
+              '<div class="' + (unread ? 'n-dot-unread' : 'n-dot-read') + '"></div>' +
+            '</div>' +
+          '</div>';
+        return;
+      }
+      iconSvg = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+    } else if (isExam) {
+      iconBg = 'n-icon-exam';
+      iconSvg = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9l2 2 4-4"/></svg>';
+    } else if (isLike) {
+      iconBg = 'n-icon-like';
+      iconSvg = '<svg viewBox="0 0 24 24" width="19" height="19" fill="#fff" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
+    } else if (isComment) {
+      iconBg = 'n-icon-comment';
+      iconSvg = '<svg viewBox="0 0 24 24" width="19" height="19" fill="#fff" stroke="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+    } else if (isReply) {
+      iconBg = 'n-icon-reply';
+      iconSvg = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>';
+    } else if (isFollow) {
+      iconBg = 'n-icon-follow';
+      iconSvg = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>';
+    } else {
+      iconBg = 'n-icon-default';
+      iconSvg = '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
+    }
+
+    var body = '';
+
+    if (isRoom) {
+      body = _buildRoomBody(n);
+    }
+    else if (isExam) {
+      var teacher = n.teacherName || '';
+      var title   = n.examTitle || n.title || '';
+      var subject = n.subject || '';
+      var level   = n.levelName || n.levelId || '';
+      var expiry  = n.deadline || n.endTime || 0;
+      var tUid    = n.teacherUid || '';
+      var profileLink = tUid ? 'profile.html?uid=' + tUid : '#';
+
+      // اسم الأستاذ — رابط لملفه الشخصي
+      body += '<div class="n-who" style="margin-bottom:3px;">نشر <a href="' + profileLink + '" style="color:#2563eb;font-weight:700;text-decoration:none;">' + teacher + '</a> ' + (n.examType || 'تمرين') + '</div>';
+      if (title) body += '<div style="font-size:13px;font-weight:700;color:#18181b;margin-bottom:4px;">' + title + '</div>';
+
+      // المستوى والمادة — نص عادي بدون أيقونات
+      var info = [];
+      if (level) info.push(level);
+      if (subject) info.push(subject);
+      if (info.length) body += '<div style="font-size:11.5px;color:#6b7280;margin-bottom:4px;">' + info.join(' · ') + '</div>';
+
+      if (expiry) {
+        var exp = expiry < Date.now();
+        body += '<div style="font-size:11px;color:' + (exp ? '#ef4444' : '#3b82f6') + ';margin-bottom:2px;">' + _formatDeadline(expiry) + '</div>';
+      }
+
+      // زر الانتقال لملف الأستاذ لتقديم التمرين
+      if (tUid) {
+        body += '<a href="' + profileLink + '" style="display:inline-flex;align-items:center;gap:5px;margin-top:7px;padding:7px 14px;background:#2563eb;color:#fff;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;">' +
+          '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>' +
+          'عرض التمرين' +
+        '</a>';
+      }
+
+      body += '<div class="n-time">' + _timeAgo(n.publishedAt || n.ts) + '</div>';
+    }
+    else if (isLike) {
+      var fromLink = n.fromUid ? 'profile.html?uid=' + n.fromUid : '#';
+      body += '<div class="n-who"><a href="' + fromLink + '" style="color:#2563eb;font-weight:700;text-decoration:none;">' + (n.fromName || '') + '</a> أعجب بمنشورك</div>';
+      body += '<div class="n-time">' + _timeAgo(n.publishedAt || n.timestamp) + '</div>';
+    }
+    else if (isComment) {
+      var fromLink2 = n.fromUid ? 'profile.html?uid=' + n.fromUid : '#';
+      body += '<div class="n-who"><a href="' + fromLink2 + '" style="color:#2563eb;font-weight:700;text-decoration:none;">' + (n.fromName || '') + '</a> علّق على منشورك</div>';
+      if (n.commentText) body += '<div class="n-quote">' + n.commentText + '</div>';
+      body += '<div class="n-time">' + _timeAgo(n.publishedAt || n.timestamp) + '</div>';
+    }
+    else if (isReply) {
+      var fromLink3 = n.fromUid ? 'profile.html?uid=' + n.fromUid : '#';
+      body += '<div class="n-who"><a href="' + fromLink3 + '" style="color:#2563eb;font-weight:700;text-decoration:none;">' + (n.fromName || '') + '</a> ردّ على تعليقك</div>';
+      if (n.replyText) body += '<div class="n-quote">' + n.replyText + '</div>';
+      body += '<div class="n-time">' + _timeAgo(n.publishedAt || n.timestamp) + '</div>';
+    }
+    else if (isFollow) {
+      var fromLink4 = n.fromUid ? 'profile.html?uid=' + n.fromUid : '#';
+      body += '<div class="n-who"><a href="' + fromLink4 + '" style="color:#2563eb;font-weight:700;text-decoration:none;">' + (n.fromName || '') + '</a> بدأ متابعتك</div>';
+      body += '<div class="n-time">' + _timeAgo(n.publishedAt || n.timestamp) + '</div>';
+    }
+
+    html +=
+      '<div class="' + cardClass + '">' +
+        '<div style="display:flex;align-items:flex-start;gap:11px;">' +
+          '<div class="n-icon ' + iconBg + '">' + iconSvg + '</div>' +
+          '<div style="flex:1;min-width:0;padding-top:2px;">' + body + '</div>' +
+          '<div class="' + (unread ? 'n-dot-unread' : 'n-dot-read') + '"></div>' +
+        '</div>' +
+      '</div>';
+  });
+
+  el.innerHTML = html;
+}
+
+// ── بطاقة غرفة البث ──
+function _buildRoomBody(n) {
+  var ownerName = n.ownerName || '';
+  var roomName  = n.roomName  || '';
+  var isPrivate = n.roomType === 'private';
+  var body = '';
+
+  // اسم الأستاذ — بدون LIVE هنا (موجود تحت الصورة)
+  body += '<div class="n-who" style="margin-bottom:4px;">' + ownerName;
+  if (roomName) body += ' <span style="font-weight:500;color:#6b7280;">"' + roomName + '"</span>';
+  body += '</div>';
+
+  // المستوى والمادة — نص بسيط بدون أيقونات
+  var info = [];
+  if (n.levelName) info.push(n.levelName);
+  if (n.subject)   info.push(n.subject);
+  // غرفة خاصة: كلمة السر في نفس السطر
+  if (isPrivate) {
+    var passText = n.showCode && n.roomCode ? ('خاصة  ·  ' + n.roomCode) : 'خاصة';
+    info.push(passText);
+  }
+  if (info.length) {
+    body += '<div style="font-size:11.5px;color:#4b5563;line-height:1.7;margin-bottom:6px;">' + info.join('  ·  ') + '</div>';
+  }
+
+  // زر الدخول
+  if (n.roomId) {
+    body +=
+      '<button class="btn-room" onclick="joinRoomFromNotif(\'' + n.roomId + '\',\'' + (n.roomType || 'public') + '\',\'' + (n.roomCode || '') + '\')">' +
+        '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>' +
+        'دخول الغرفة' +
+      '</button>';
+  }
+
+  body += '<div class="n-time">' + _timeAgo(n.ts || n.publishedAt) + '</div>';
+  return body;
+}
     var isRoom    = n.type === 'room';
     var isExam    = n.type === 'exam';
     var isLike    = n.type === 'like';
@@ -559,100 +722,20 @@ function renderList() {
       if (title) body += '<div style="font-size:14px;font-weight:800;color:#18181b;margin-top:2px;">' + title + '</div>';
       if (subject || expiry) {
         body += '<div class="n-meta">';
-        if (subject) body += '<span class="n-meta-item"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>' + subject + '</span>';
+        if (subject) body += '<span class="n-meta-item">' + subject + '</span>';
         if (subject && expiry) body += '<span class="n-meta-sep">·</span>';
         if (expiry) {
           var exp = expiry < Date.now();
           body += '<span class="n-meta-item" style="color:' + (exp ? '#dc2626' : '#2563eb') + ';">' +
-                  '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+                  ''
                   _formatDeadline(expiry) + '</span>';
         }
         body += '</div>';
       }
       body += '<div class="n-time">' + _timeAgo(n.publishedAt || n.ts) + '</div>';
     }
-    // ══ إعجاب ══
-    else if (isLike) {
-      body += '<div class="n-who"><span>' + (n.fromName||'شخص') + '</span> أعجب بمنشورك ❤️</div>';
-      body += '<div class="n-time">' + _timeAgo(n.publishedAt||n.timestamp) + '</div>';
-    }
-    // ══ تعليق ══
-    else if (isComment) {
-      body += '<div class="n-who"><span>' + (n.fromName||'شخص') + '</span> علّق على منشورك 💬</div>';
-      if (n.commentText) body += '<div class="n-quote">' + n.commentText + '</div>';
-      body += '<div class="n-time">' + _timeAgo(n.publishedAt||n.timestamp) + '</div>';
-    }
-    // ══ رد ══
-    else if (isReply) {
-      body += '<div class="n-who"><span>' + (n.fromName||'شخص') + '</span> ردّ على تعليقك ↩️</div>';
-      if (n.replyText) body += '<div class="n-quote">' + n.replyText + '</div>';
-      body += '<div class="n-time">' + _timeAgo(n.publishedAt||n.timestamp) + '</div>';
-    }
-    // ══ متابعة ══
-    else if (isFollow) {
-      body += '<div class="n-who"><span>' + (n.fromName||'شخص') + '</span> بدأ متابعتك 🎉</div>';
-      body += '<div class="n-time">' + _timeAgo(n.publishedAt||n.timestamp) + '</div>';
-    }
 
-    html +=
-      '<div class="' + cardClass + '">' +
-        '<div style="display:flex;align-items:flex-start;gap:12px;">' +
-          '<div class="n-icon ' + iconBg + '">' + iconSvg + '</div>' +
-          '<div style="flex:1;min-width:0;">' + body + '</div>' +
-          '<div class="' + (unread ? 'n-dot-unread' : 'n-dot-read') + '"></div>' +
-        '</div>' +
-      '</div>';
-  });
 
-  el.innerHTML = html;
-}
-
-// ── بناء محتوى بطاقة الغرفة ──
-function _buildRoomBody(n) {
-  var ownerName = n.ownerName || 'أستاذ';
-  var roomName  = n.roomName  || '';
-  var isPrivate = n.roomType === 'private';
-  var body = '';
-
-  // اسم + بدون LIVE badge هنا (موجود تحت الصورة)
-  body +=
-    '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;">' +
-      '<span class="n-who" style="margin:0;">' + ownerName + '</span>' +
-      (roomName ? '<span style="font-size:12px;color:#6b7280;font-weight:600;">"' + roomName + '"</span>' : '') +
-    '</div>';
-
-  // معلومات — بدون خلفيات
-  var metaItems = [];
-  if (n.levelName) metaItems.push(
-    '<span class="n-meta-item"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M3 7l9-4 9 4M4 7v14M20 7v14"/></svg>' + n.levelName + '</span>'
-  );
-  if (n.subject) metaItems.push(
-    '<span class="n-meta-item"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#374151" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>' + n.subject + '</span>'
-  );
-  // خاص + كلمة السر في سطر واحد
-  if (isPrivate) {
-    var passLine = '<span class="n-meta-item" style="color:#dc2626;"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#dc2626" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>خاصة</span>';
-    if (n.showCode && n.roomCode) {
-      passLine += '<span class="n-meta-sep">·</span><span class="room-pass-inline"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#1e3a8a" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>كلمة السر: ' + n.roomCode + '</span>';
-    }
-    metaItems.push(passLine);
-  }
-  if (metaItems.length) {
-    body += '<div class="n-meta">' + metaItems.join('<span class="n-meta-sep">·</span>') + '</div>';
-  }
-
-  // زر دخول
-  if (n.roomId) {
-    body +=
-      '<button class="btn-room" onclick="joinRoomFromNotif(\'' + n.roomId + '\',\'' + (n.roomType||'public') + '\',\'' + (n.roomCode||'') + '\')">' +
-        '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>' +
-        'دخول الغرفة' +
-      '</button>';
-  }
-
-  body += '<div class="n-time">' + _timeAgo(n.ts || n.publishedAt) + '</div>';
-  return body;
-}
 
 // ══════════════════════════════════════════════════
 // Shimmer
