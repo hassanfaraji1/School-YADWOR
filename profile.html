@@ -2649,7 +2649,7 @@ async function loadVisitorProfile(username, uid) {
   if (uid) {
     try {
       const userSnap = await _pDb().ref('users/' + uid).once('value'); const userData = userSnap.val();
-      if (userData) { const d = {}; if (d && (d.name || d.avatar)) return d; }
+      if (userData && (userData.name || userData.avatar)) return userData;
     } catch(e) {}
   }
   // 2) بحث بالـ username في Firebase
