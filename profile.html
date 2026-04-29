@@ -1068,7 +1068,7 @@ function renderProfileTabContent() {
   // ── الدوال isStudentMatchingTeacher و canStudentSeeExercise معرَّفتان في shared.js ──
   // ── دالة مساعدة: بطاقة شخص قابلة للنقر ──
   function personCard(r) {
-    const uid = r.uid || '';
+    const uid = r.uid || r.userId || '';
     const username = r.username || '';
     const href = uid ? `profile.html?uid=${uid}` : (username ? `profile.html?username=${username}` : '#');
     // جلب الصورة: من الطلب مباشرة، أو من المنشورات، أو ui-avatars كـ fallback
@@ -2425,8 +2425,8 @@ function renderVisitorTabContent(tabId, vPosts) {
       const accepted = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted'&&(r.institutionId===vId||r.institutionUid===vId));
       if(!accepted.length) return emptyState('لم ينضم أي أستاذ بعد');
       return `<div class="grid gap-2">${accepted.map((r)=>{
-        const tUid = r.uid || '';
-        const tUsername = r.username || '';
+        const tUid = r.uid || r.userId || '';
+        const tUsername = r.username || r.fullName || '';
         const profileLink = tUid ? `profile.html?uid=${tUid}` : (tUsername ? `profile.html?username=${tUsername}` : '#');
         const fromPost = tUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(tUid)) : state.posts.find(p=>p.username===tUsername);
         const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
@@ -2505,8 +2505,8 @@ function renderVisitorTabContent(tabId, vPosts) {
         return;
       }
       containerVT.innerHTML = matchedVT.map((r) => {
-        const tUid = r.uid || '';
-        const tUsername = r.username || '';
+        const tUid = r.uid || r.userId || '';
+        const tUsername = r.username || r.fullName || '';
         const profileLink = tUid ? `profile.html?uid=${tUid}` : (tUsername ? `profile.html?username=${tUsername}` : '#');
         const fromPost = tUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(tUid)) : state.posts.find(p=>p.username===tUsername);
         const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
@@ -2597,8 +2597,8 @@ function renderVisitorTabContent(tabId, vPosts) {
         return;
       }
       containerVS.innerHTML = matchedVS.map((r) => {
-        const sUid = r.uid || '';
-        const sUsername = r.username || '';
+        const sUid = r.uid || r.userId || '';
+        const sUsername = r.username || r.fullName || '';
         const profileLink = sUid ? `profile.html?uid=${sUid}` : (sUsername ? `profile.html?username=${sUsername}` : '#');
         const fromPost = sUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(sUid)) : state.posts.find(p=>p.username===sUsername);
         const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
