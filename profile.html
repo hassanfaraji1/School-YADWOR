@@ -23,9 +23,9 @@
   body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
   input:focus, select:focus, textarea:focus { outline: none; }
   .shimmer { animation: shimmer 1.5s infinite; background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%); background-size: 200% 100%; }
-  :root { --cover-height: 190px; }
+  :root { --cover-height: 150px; }
   .profile-cover-wrap { position:relative; width:100%; height:var(--cover-height); overflow:hidden; transition: height 0.2s ease; }
-  .cover-size-bar { display:flex; align-items:center; gap:10px; padding:8px 14px 4px 14px; background:#fff; direction:rtl; }
+  .cover-size-bar { display:flex; align-items:center; gap:10px; padding:6px 14px 3px 14px; background:#fff; direction:rtl; }
   .cover-size-bar input[type=range] { flex:1; accent-color:#6366f1; height:4px; cursor:pointer; }
   .cover-size-bar span { font-size:11px; font-weight:700; color:#71717a; min-width:36px; text-align:center; }
   @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
@@ -415,7 +415,7 @@ function doLogout() {
 // ====================== COVER SIZE CONTROL ======================
 function initCoverSizeControl() {
   // استعادة الحجم المحفوظ
-  const saved = parseInt(localStorage.getItem('yadwor-cover-height') || '190');
+  const saved = parseInt(localStorage.getItem('yadwor-cover-height') || '150');
   document.documentElement.style.setProperty('--cover-height', saved + 'px');
   // تحديث كل sliders موجودة
   document.querySelectorAll('.cover-size-input').forEach(inp => {
@@ -907,7 +907,7 @@ function _doRenderMyProfile(myPosts) {
         <svg viewBox="0 0 24 24" style="width:14px;height:14px;flex-shrink:0;" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         <span style="font-size:11px;font-weight:700;color:#a1a1aa;white-space:nowrap;">حجم الغلاف</span>
         <input type="range" class="cover-size-input" min="100" max="380" step="5"
-          value="${parseInt(typeof localStorage!=='undefined'?localStorage.getItem('yadwor-cover-height')||'190':'190')}"
+          value="${parseInt(typeof localStorage!=='undefined'?localStorage.getItem('yadwor-cover-height')||'150':'150')}"
           oninput="onCoverSizeChange(this.value); this.nextElementSibling.textContent=this.value+'px'" />
         <span style="font-size:11px;font-weight:700;color:#6366f1;min-width:40px;text-align:center;">190px</span>
       </div>
@@ -1101,10 +1101,10 @@ function renderProfileTabContent() {
     const uid = r.uid || r.userId || '';
     const username = r.username || '';
     const myUid = localStorage.getItem('yadwor-uid') || '';
-    // بناء رابط التوجيه — إذا uid = myUid نفتح ملفي بدون params
+    // بناء رابط التوجيه — دائماً استخدم ?uid= للتوافق مع _goToProfile
     let navUrl = 'profile.html';
     if (uid && uid !== myUid) navUrl = 'profile.html?uid=' + encodeURIComponent(uid);
-    else if (!uid && username) navUrl = 'profile.html?username=' + encodeURIComponent(username);
+    else if (!uid && username) navUrl = 'profile.html?uid=' + encodeURIComponent(username);
     // جلب الصورة: من الطلب مباشرة، أو من المنشورات، أو ui-avatars كـ fallback
     const fromPost = uid
       ? state.posts.find(p => p.uid && String(p.uid) === String(uid))
@@ -2461,7 +2461,7 @@ function renderVisitorTabContent(tabId, vPosts) {
         const tUid = r.uid || r.userId || '';
         const tUsername = r.username || r.fullName || '';
         const myUidV = localStorage.getItem('yadwor-uid') || '';
-        const profileLink = (tUid && tUid !== myUidV) ? `profile.html?uid=${tUid}` : (!tUid && tUsername ? `profile.html?username=${tUsername}` : (tUid === myUidV ? 'profile.html' : '#'));
+        const profileLink = (tUid && tUid !== myUidV) ? `profile.html?uid=${tUid}` : (!tUid && tUsername ? `profile.html?uid=${tUsername}` : (tUid === myUidV ? 'profile.html' : '#'));
         const fromPost = tUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(tUid)) : state.posts.find(p=>p.username===tUsername);
         const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
         const avatarEl = avatarSrc
@@ -2544,7 +2544,7 @@ function renderVisitorTabContent(tabId, vPosts) {
         const tUid = r.uid || r.userId || '';
         const tUsername = r.username || r.fullName || '';
         const myUidV = localStorage.getItem('yadwor-uid') || '';
-        const profileLink = (tUid && tUid !== myUidV) ? `profile.html?uid=${tUid}` : (!tUid && tUsername ? `profile.html?username=${tUsername}` : (tUid === myUidV ? 'profile.html' : '#'));
+        const profileLink = (tUid && tUid !== myUidV) ? `profile.html?uid=${tUid}` : (!tUid && tUsername ? `profile.html?uid=${tUid || tUsername}` : (tUid === myUidV ? 'profile.html' : '#'));
         const fromPost = tUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(tUid)) : state.posts.find(p=>p.username===tUsername);
         const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
         const avatarEl = avatarSrc
@@ -2639,7 +2639,7 @@ function renderVisitorTabContent(tabId, vPosts) {
         const sUid = r.uid || r.userId || '';
         const sUsername = r.username || r.fullName || '';
         const myUidVS = localStorage.getItem('yadwor-uid') || '';
-        const profileLink = (sUid && sUid !== myUidVS) ? `profile.html?uid=${sUid}` : (!sUid && sUsername ? `profile.html?username=${sUsername}` : (sUid === myUidVS ? 'profile.html' : '#'));
+        const profileLink = (sUid && sUid !== myUidVS) ? `profile.html?uid=${sUid}` : (!sUid && sUsername ? `profile.html?uid=${sUid || sUsername}` : (sUid === myUidVS ? 'profile.html' : '#'));
         const fromPost = sUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(sUid)) : state.posts.find(p=>p.username===sUsername);
         const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
         const avatarEl = avatarSrc
@@ -2681,6 +2681,7 @@ function renderVisitorTabContent(tabId, vPosts) {
 // ====================== VISITOR PROFILE FROM URL ======================
 const _urlParams = new URLSearchParams(window.location.search);
 const _visitorUsername = _urlParams.get('username') || '';
+// uid param يُستخدم دائماً للتوجيه — يمكن أن يكون uid أو username
 const _visitorUid      = _urlParams.get('uid')      || '';
 let _visitorProfile = null;
 
