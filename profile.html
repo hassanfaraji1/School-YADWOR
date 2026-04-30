@@ -1070,16 +1070,19 @@ function renderProfileTabContent() {
   function personCard(r) {
     const uid = r.uid || r.userId || '';
     const username = r.username || '';
-    const href = uid ? `profile.html?uid=${uid}` : (username ? `profile.html?username=${username}` : '#');
+    const myUid = localStorage.getItem('yadwor-uid') || '';
+    // بناء رابط التوجيه — إذا uid = myUid نفتح ملفي بدون params
+    let navUrl = 'profile.html';
+    if (uid && uid !== myUid) navUrl = 'profile.html?uid=' + encodeURIComponent(uid);
+    else if (!uid && username) navUrl = 'profile.html?username=' + encodeURIComponent(username);
     // جلب الصورة: من الطلب مباشرة، أو من المنشورات، أو ui-avatars كـ fallback
     const fromPost = uid
       ? state.posts.find(p => p.uid && String(p.uid) === String(uid))
       : state.posts.find(p => p.username && p.username === username);
     const avatarSrc = r.avatarUrl || r.avatar || (fromPost && fromPost.avatar) || '';
-    const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(r.fullName||'U')}&background=6366f1&color=fff&size=200`;
     const name = r.fullName || 'مستخدم';
     const sub  = r.role === 'teacher' ? (r.subjects?.map(s=>s.name||s).join('، ')||'') : (r.levelName||'');
-    return `<a href="${href}" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition">
+    return `<div onclick="window.location.href='${navUrl}'" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition cursor-pointer">
       <div class="relative h-11 w-11 shrink-0 rounded-full overflow-hidden bg-indigo-100">
         ${avatarSrc
           ? `<img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover absolute inset-0 w-full h-full"
@@ -1095,7 +1098,7 @@ function renderProfileTabContent() {
       <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-50 border border-zinc-200">
         <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-500" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
       </div>
-    </a>`;
+    </div>`;
   }
 
   // ── حالة فارغة ──
@@ -2427,7 +2430,8 @@ function renderVisitorTabContent(tabId, vPosts) {
       return `<div class="grid gap-2">${accepted.map((r)=>{
         const tUid = r.uid || r.userId || '';
         const tUsername = r.username || r.fullName || '';
-        const profileLink = tUid ? `profile.html?uid=${tUid}` : (tUsername ? `profile.html?username=${tUsername}` : '#');
+        const myUidV = localStorage.getItem('yadwor-uid') || '';
+        const profileLink = (tUid && tUid !== myUidV) ? `profile.html?uid=${tUid}` : (!tUid && tUsername ? `profile.html?username=${tUsername}` : (tUid === myUidV ? 'profile.html' : '#'));
         const fromPost = tUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(tUid)) : state.posts.find(p=>p.username===tUsername);
         const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
         const avatarEl = avatarSrc
@@ -2435,7 +2439,7 @@ function renderVisitorTabContent(tabId, vPosts) {
               onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
              <div class="h-11 w-11 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 items-center justify-center text-white font-extrabold text-[15px] hidden">${(r.fullName||'A').charAt(0).toUpperCase()}</div>`
           : `<div class="h-11 w-11 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white font-extrabold text-[15px]">${(r.fullName||'A').charAt(0).toUpperCase()}</div>`;
-        return `<a href="${profileLink}" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition">
+        return `<div onclick="window.location.href='${profileLink}'" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition cursor-pointer">
           <div class="h-11 w-11 shrink-0 rounded-full overflow-hidden bg-zinc-100 flex items-center justify-center">${avatarEl}</div>
           <div class="flex-1 min-w-0">
             <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${r.fullName||'أستاذ'}</h3>
@@ -2444,7 +2448,7 @@ function renderVisitorTabContent(tabId, vPosts) {
           <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-50 border border-zinc-100">
             <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-400" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
           </div>
-        </a>`;
+        </div>`;
       }).join('')}</div>`;
     }
     // إذا كان الملف المُزار تلميذاً: نعرض أساتذته المطابقين
@@ -2507,7 +2511,8 @@ function renderVisitorTabContent(tabId, vPosts) {
       containerVT.innerHTML = matchedVT.map((r) => {
         const tUid = r.uid || r.userId || '';
         const tUsername = r.username || r.fullName || '';
-        const profileLink = tUid ? `profile.html?uid=${tUid}` : (tUsername ? `profile.html?username=${tUsername}` : '#');
+        const myUidV = localStorage.getItem('yadwor-uid') || '';
+        const profileLink = (tUid && tUid !== myUidV) ? `profile.html?uid=${tUid}` : (!tUid && tUsername ? `profile.html?username=${tUsername}` : (tUid === myUidV ? 'profile.html' : '#'));
         const fromPost = tUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(tUid)) : state.posts.find(p=>p.username===tUsername);
         const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
         const avatarEl = avatarSrc
@@ -2515,7 +2520,7 @@ function renderVisitorTabContent(tabId, vPosts) {
               onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
              <div class="h-11 w-11 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 items-center justify-center text-white font-extrabold text-[15px] hidden">${(r.fullName||'A').charAt(0).toUpperCase()}</div>`
           : `<div class="h-11 w-11 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white font-extrabold text-[15px]">${(r.fullName||'A').charAt(0).toUpperCase()}</div>`;
-        return `<a href="${profileLink}" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition">
+        return `<div onclick="window.location.href='${profileLink}'" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition cursor-pointer">
           <div class="h-11 w-11 shrink-0 rounded-full overflow-hidden bg-zinc-100 flex items-center justify-center">${avatarEl}</div>
           <div class="flex-1 min-w-0">
             <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${r.fullName||'أستاذ'}</h3>
@@ -2524,7 +2529,7 @@ function renderVisitorTabContent(tabId, vPosts) {
           <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-50 border border-zinc-100">
             <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-400" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
           </div>
-        </a>`;
+        </div>`;
       }).join('');
     }, 0);
     return `<div id="${gridIdVT}" class="grid gap-2">${[1,2,3].map(()=>`
@@ -2599,7 +2604,8 @@ function renderVisitorTabContent(tabId, vPosts) {
       containerVS.innerHTML = matchedVS.map((r) => {
         const sUid = r.uid || r.userId || '';
         const sUsername = r.username || r.fullName || '';
-        const profileLink = sUid ? `profile.html?uid=${sUid}` : (sUsername ? `profile.html?username=${sUsername}` : '#');
+        const myUidVS = localStorage.getItem('yadwor-uid') || '';
+        const profileLink = (sUid && sUid !== myUidVS) ? `profile.html?uid=${sUid}` : (!sUid && sUsername ? `profile.html?username=${sUsername}` : (sUid === myUidVS ? 'profile.html' : '#'));
         const fromPost = sUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(sUid)) : state.posts.find(p=>p.username===sUsername);
         const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
         const avatarEl = avatarSrc
@@ -2607,7 +2613,7 @@ function renderVisitorTabContent(tabId, vPosts) {
               onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
              <div class="h-11 w-11 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 items-center justify-center text-white font-extrabold text-[15px] hidden">${(r.fullName||'T').charAt(0).toUpperCase()}</div>`
           : `<div class="h-11 w-11 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center text-white font-extrabold text-[15px]">${(r.fullName||'T').charAt(0).toUpperCase()}</div>`;
-        return `<a href="${profileLink}" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition">
+        return `<div onclick="window.location.href='${profileLink}'" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition cursor-pointer">
           <div class="h-11 w-11 shrink-0 rounded-full overflow-hidden bg-zinc-100 flex items-center justify-center">${avatarEl}</div>
           <div class="flex-1 min-w-0">
             <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${r.fullName||'تلميذ'}</h3>
