@@ -413,10 +413,22 @@ async function saveInteractionNotif(targetUid, notifObj) {
 // ============================================================
 // renderPostCard — بطاقة المنشور الرئيسية
 // ============================================================
+function _goToProfile(uid, username) {
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  const myUsername = localStorage.getItem('yadwor-username') || '';
+  // إذا كان نفس الشخص — اذهب لملفي بدون params
+  if (uid && uid === myUid) { window.location.href = 'profile.html'; return; }
+  if (!uid && username && username === myUsername) { window.location.href = 'profile.html'; return; }
+  // شخص آخر — أرسل uid دائماً
+  if (uid) { window.location.href = 'profile.html?uid=' + encodeURIComponent(uid); return; }
+  if (username) { window.location.href = 'profile.html?username=' + encodeURIComponent(username); return; }
+  window.location.href = 'profile.html';
+}
+
 function renderPostCard(p) {
   if (!p) return '';
-  const myUid    = state.myUid;
-  const isOwner  = p.uid === myUid;
+  const myUid    = state.myUid || localStorage.getItem('yadwor-uid') || '';
+  const isOwner  = p.uid && myUid && p.uid === myUid;
   const liked    = (p.likedBy || {})[myUid];
   const saved    = (p.savedBy || {})[myUid];
   const likesArr = Object.keys(p.likedBy || {});
@@ -428,13 +440,74 @@ function renderPostCard(p) {
                   : p.accountType === 'student'     ? 'تلميذ'
                   : '';
 
+  // الريلز — يظهر كبطاقة صغيرة قابلة للنقر تفتح صفحة الريلز
+  if (p.type === 'reel') {
+    const thumb = p.thumbnail || '';
+    const reelText = (p.text || p.content || '').slice(0, 80);
+    return `
+    <div class="mb-4 rounded-[20px] border border-zinc-200 bg-white shadow-sm overflow-hidden" id="post-${p.id}" data-post-id="${p.id}">
+      <div class="p-3">
+        <div class="flex items-center gap-2.5 cursor-pointer" onclick="_goToProfile('${p.uid || ''}','${(p.username||'').replace(/'/g,"\\'")}')">
+          <div class="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-zinc-200">
+            ${p.avatar ? `<img src="${p.avatar}" class="h-9 w-9 object-cover" loading="lazy" onerror="this.style.display='none'"/>` : `<div class="h-9 w-9 flex items-center justify-center text-zinc-400"><svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg></div>`}
+          </div>
+          <div>
+            <p class="text-[13px] font-extrabold text-zinc-900">${p.name || p.author || 'مجهول'}</p>
+            <p class="text-[10px] text-zinc-400">${typeLabel ? typeLabel + ' · ' : ''}${formatTimeAgo(p.publishedAt)}</p>
+          </div>
+        </div>
+      </div>
+      <!-- بطاقة الريل — صغيرة وقابلة للنقر -->
+      <div class="mx-3 mb-3 cursor-pointer rounded-[14px] overflow-hidden relative bg-black"
+           style="aspect-ratio:1/1; max-height:220px;"
+           onclick="localStorage.setItem('yadwor-goto-reel','${p.id}'); window.location.href='reels.html';">
+        ${thumb
+          ? `<img src="${thumb}" class="w-full h-full object-cover" style="max-height:220px;" loading="lazy"/>`
+          : `<div class="w-full h-full flex items-center justify-center bg-zinc-900" style="min-height:160px;">
+               <svg viewBox="0 0 24 24" class="h-10 w-10 fill-none stroke-white/40" stroke-width="1.4" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+             </div>`
+        }
+        <!-- أيقونة تشغيل في المنتصف -->
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div class="flex h-12 w-12 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm">
+            <svg viewBox="0 0 24 24" class="h-6 w-6 fill-white"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+        </div>
+        <!-- شارة ريلز -->
+        <div class="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 backdrop-blur-sm">
+          <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-white" stroke-width="2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          <span class="text-[10px] font-extrabold text-white">ريلز</span>
+        </div>
+        ${reelText ? `<div class="absolute bottom-0 left-0 right-0 px-3 py-2 bg-gradient-to-t from-black/80 to-transparent">
+          <p class="text-[11px] text-white/90 font-medium line-clamp-1">${reelText}</p>
+        </div>` : ''}
+      </div>
+      <!-- شريط التفاعل -->
+      <div class="flex items-center justify-between border-t border-zinc-100 px-4 py-2">
+        <div class="flex items-center gap-3">
+          <button onclick="toggleLike('${p.id}')" class="flex items-center gap-1.5 text-[13px] font-bold ${liked ? 'text-rose-500' : 'text-zinc-500'} hover:text-rose-400">
+            <svg viewBox="0 0 24 24" class="h-[17px] w-[17px]" fill="${liked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            ${likesArr.length || 0}
+          </button>
+          <button onclick="openComments('${p.id}')" class="flex items-center gap-1.5 text-[13px] font-bold text-zinc-500 hover:text-zinc-700">
+            <svg viewBox="0 0 24 24" class="h-[17px] w-[17px] fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            ${commCount}
+          </button>
+          <span class="flex items-center gap-1.5 text-[13px] font-bold text-zinc-400">
+            <svg viewBox="0 0 24 24" class="h-[17px] w-[17px] fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            ${viewCount}
+          </span>
+        </div>
+        <button onclick="toggleSave('${p.id}')" class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-zinc-100 ${saved ? 'text-zinc-900' : 'text-zinc-400'}">
+          <svg viewBox="0 0 24 24" class="h-[17px] w-[17px]" fill="${saved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }
+
   // صور متعددة
   let mediaHtml = '';
-  if (p.type === 'reel' && p.video) {
-    mediaHtml = `<div class="relative mt-3 overflow-hidden rounded-[16px] bg-black" style="max-height:480px;">
-      <video src="${p.video}" ${p.thumbnail ? `poster="${p.thumbnail}"` : ''} controls playsinline preload="metadata" class="w-full object-contain" style="max-height:480px;"></video>
-    </div>`;
-  } else if (p.images && p.images.length) {
+  if (p.images && p.images.length) {
     if (p.images.length === 1) {
       mediaHtml = `<div class="mt-3 overflow-hidden rounded-[16px] cursor-pointer" onclick="openImageViewer(${JSON.stringify(p.images)},0)">
         <img src="${p.images[0]}" class="w-full object-cover rounded-[16px]" style="max-height:420px;" loading="lazy" />
@@ -452,10 +525,10 @@ function renderPostCard(p) {
   }
 
   return `
-  <div class="mb-4 rounded-[20px] border border-zinc-200 bg-white shadow-sm overflow-hidden" id="post-${p.id}">
+  <div class="mb-4 rounded-[20px] border border-zinc-200 bg-white shadow-sm overflow-hidden" id="post-${p.id}" data-post-id="${p.id}">
     <div class="p-4">
       <div class="flex items-start justify-between gap-2">
-        <div class="flex items-center gap-2.5 cursor-pointer" onclick="window.location.href='profile.html?uid=${p.uid}'">
+        <div class="flex items-center gap-2.5 cursor-pointer" onclick="_goToProfile('${p.uid || ''}','${(p.username||'').replace(/'/g,"\\'")}')">
           <div class="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-zinc-200">
             ${p.avatar ? `<img src="${p.avatar}" class="h-10 w-10 object-cover" loading="lazy" onerror="this.style.display='none'"/>` : `<div class="h-10 w-10 flex items-center justify-center text-zinc-400"><svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg></div>`}
           </div>
