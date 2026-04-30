@@ -85,20 +85,24 @@ let reelSoundEnabled = false;
     <p class="text-[15px] font-bold opacity-50">جاري تحميل الريلز...</p>
   </div>`;
 
+  // إذا قادم من منشور محدد — نحفظ قبل الجلب
+  const gotoReel = localStorage.getItem('yadwor-goto-reel');
+  if (gotoReel) localStorage.removeItem('yadwor-goto-reel');
+
   // جلب الريلز من Firebase (onValue realtime)
   getPosts(function(posts) {
     renderReels();
+    // بعد الرندر مباشرة — انتقل للريل المطلوب
+    if (gotoReel) {
+      let tries = 0;
+      const tryScroll = () => {
+        const el = document.getElementById('reel-' + gotoReel);
+        if (el) { el.scrollIntoView({ behavior: 'instant' }); }
+        else if (tries++ < 10) setTimeout(tryScroll, 150);
+      };
+      setTimeout(tryScroll, 100);
+    }
   });
-
-  // إذا قادم من منشور محدد
-  const gotoReel = localStorage.getItem('yadwor-goto-reel');
-  if (gotoReel) {
-    localStorage.removeItem('yadwor-goto-reel');
-    setTimeout(() => {
-      const el = document.getElementById('reel-' + gotoReel);
-      if (el) el.scrollIntoView({ behavior: 'instant' });
-    }, 300);
-  }
 })();
 
 function toggleReelSound(id) {
