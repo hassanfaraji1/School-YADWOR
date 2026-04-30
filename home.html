@@ -26,6 +26,8 @@
   @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
   .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
   .truncate { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .scrollbar-hide { -ms-overflow-style:none; scrollbar-width:none; }
+  .scrollbar-hide::-webkit-scrollbar { display:none; }
   .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#18181b; color:white; padding:8px 18px; border-radius:999px; font-size:13px; font-weight:700; z-index:999; pointer-events:none; opacity:0; transition:opacity .2s; }
   .toast.show { opacity:1; }
   details summary::-webkit-details-marker { display:none; }
@@ -517,31 +519,86 @@ function renderHome() {
 
   getPosts(function(posts) {
     feed.innerHTML = '';
-    // فلترة: الرئيسية تعرض المنشورات فقط، الريلز في صفحتها
+
+    // ── شريط الريلز في أعلى الفيد ──
+    const reelPosts = posts.filter(p => p.type === 'reel');
+    let reelsStripHtml = '';
+    if (reelPosts.length > 0) {
+      const reelItems = reelPosts.slice(0, 10).map(p => {
+        const thumb = p.thumbnail || '';
+        const name  = (p.name || p.author || 'ريلز').slice(0, 12);
+        return `
+        <div class="shrink-0 cursor-pointer flex flex-col items-center gap-1.5"
+             style="width:72px;"
+             onclick="localStorage.setItem('yadwor-goto-reel','${p.id}'); window.location.href='reels.html';">
+          <div class="relative overflow-hidden rounded-[14px] bg-zinc-900 ring-2 ring-violet-500/70"
+               style="width:72px; height:72px;">
+            ${thumb
+              ? `<img src="${thumb}" class="w-full h-full object-cover" loading="lazy" />`
+              : `<div class="w-full h-full flex items-center justify-center">
+                   <svg viewBox="0 0 24 24" class="h-6 w-6 fill-none stroke-white/40" stroke-width="1.5" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                 </div>`
+            }
+            <div class="absolute inset-0 flex items-center justify-center bg-black/20">
+              <div class="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
+                <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-white ml-0.5"><path d="M8 5v14l11-7z"/></svg>
+              </div>
+            </div>
+          </div>
+          <p class="text-[10px] font-bold text-zinc-600 truncate w-full text-center">${name}</p>
+        </div>`;
+      }).join('');
+
+      reelsStripHtml = `
+      <div class="mb-3 rounded-[18px] border border-zinc-200 bg-white shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between px-4 pt-3 pb-2">
+          <a href="reels.html" class="text-[11px] font-bold text-violet-600 hover:underline">عرض الكل</a>
+          <div class="flex items-center gap-1.5">
+            <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-zinc-700" stroke-width="2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            <span class="text-[13px] font-extrabold text-zinc-800">الريلز</span>
+          </div>
+        </div>
+        <div class="flex gap-3 overflow-x-auto px-4 pb-3 scrollbar-hide" style="scrollbar-width:none;">
+          ${reelItems}
+        </div>
+      </div>`;
+    }
+
+    // فلترة: الرئيسية تعرض المنشورات العادية فقط (الريلز تظهر في الشريط أعلاه فقط)
     const regularPosts = posts.filter(p => p.type !== 'reel');
 
-    if (!regularPosts.length) {
-      // هل يوجد ريلز فقط؟
-      const hasReels = posts.some(p => p.type === 'reel');
+    if (!regularPosts.length && !reelPosts.length) {
       feed.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-center gap-4 px-6">
         <div class="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100">
           <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M8 8h5"/></svg>
         </div>
         <p class="text-[15px] font-bold text-zinc-400">لا توجد منشورات بعد</p>
-        ${hasReels ? '<button onclick="window.location.href=\'reels.html\'" class="mt-2 rounded-full bg-zinc-900 px-5 py-2 text-[13px] font-bold text-white">مشاهدة الريلز</button>' : '<p class="text-[13px] text-zinc-400">كن أول من ينشر شيئاً!</p>'}
+        <p class="text-[13px] text-zinc-400">كن أول من ينشر شيئاً!</p>
       </div>`;
       return;
     }
 
-    feed.innerHTML = regularPosts.map(p => {
-      const card = renderPostCard(p);
-      if (!card) return '';
-      // أضف data-post-id للمشاهدات
-      return card.replace(`id="post-${p.id}"`, `id="post-${p.id}" data-post-id="${p.id}"`);
-    }).join('');
+    // بناء الفيد: شريط الريلز + المنشورات العادية
+    let feedHtml = reelsStripHtml;
+    if (regularPosts.length) {
+      feedHtml += regularPosts.map(p => {
+        const card = renderPostCard(p);
+        if (!card) return '';
+        return card.replace(`id="post-${p.id}"`, `id="post-${p.id}" data-post-id="${p.id}"`);
+      }).join('');
+    } else {
+      feedHtml += `<div class="flex flex-col items-center justify-center py-16 text-center gap-4 px-6">
+        <div class="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100">
+          <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M8 8h5"/></svg>
+        </div>
+        <p class="text-[15px] font-bold text-zinc-400">لا توجد منشورات بعد</p>
+        <button onclick="window.location.href='reels.html'" class="mt-1 rounded-full bg-violet-600 px-5 py-2 text-[13px] font-bold text-white">مشاهدة الريلز</button>
+      </div>`;
+    }
+
+    feed.innerHTML = feedHtml;
 
     setupInfiniteScroll();
-    // تشغيل تتبع المشاهدات بعد عرض البطاقات
     setTimeout(setupPostViewTracking, 300);
   });
 }
