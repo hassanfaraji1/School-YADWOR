@@ -114,6 +114,71 @@ async function fetchMyAcceptedJoinRequestFromFirebase() {
   } catch(e) { return null; }
 }
 
+
+// ============================================================
+// كاش بيانات المستخدمين — لتجنب طلبات Firebase المتكررة
+// ============================================================
+const _userCache = {};
+
+async function fetchUserFromFirebase(uid) {
+  if (!uid) return null;
+  if (_userCache[uid]) return _userCache[uid];
+  try {
+    const db = _getDB();
+    if (db) {
+      const snap = await db.ref('users/' + uid).once('value');
+      const data = snap.val();
+      if (data) { _userCache[uid] = data; return data; }
+    } else {
+      const res = await fetch(FB_DB_URL + '/users/' + uid + '.json');
+      if (res.ok) {
+        const data = await res.json();
+        if (data) { _userCache[uid] = data; return data; }
+      }
+    }
+  } catch(e) {}
+  return null;
+}
+
+// تحديث بطاقة منشور بعد جلب بيانات المستخدم من Firebase
+async function enrichPostWithUserData(post) {
+  if (!post || !post.uid) return post;
+  // إذا كانت البيانات موجودة بالفعل وكافية، لا نجلب مجدداً
+  if (post.name && post.avatar) return post;
+  const userData = await fetchUserFromFirebase(post.uid);
+  if (userData) {
+    if (!post.name && (userData.name || userData.displayName))
+      post.name = userData.name || userData.displayName;
+    if (!post.avatar && userData.avatar)
+      post.avatar = userData.avatar;
+    if (!post.username && userData.username)
+      post.username = userData.username;
+    if (!post.accountType && userData.accountType)
+      post.accountType = userData.accountType;
+  }
+  return post;
+}
+
+// إثراء قائمة منشورات بعد جلبها
+async function enrichPostsWithUserData(posts) {
+  if (!posts || !posts.length) return posts;
+  // نجلب بيانات المستخدمين غير المكتملة فقط
+  const uniqueUids = [...new Set(posts.filter(p => p.uid && (!p.name || !p.avatar)).map(p => p.uid))];
+  await Promise.all(uniqueUids.map(uid => fetchUserFromFirebase(uid)));
+  return posts.map(p => {
+    if (!p.uid) return p;
+    const u = _userCache[p.uid];
+    if (!u) return p;
+    return {
+      ...p,
+      name:        p.name        || u.name        || u.displayName || p.name,
+      avatar:      p.avatar      || u.avatar       || '',
+      username:    p.username    || u.username     || '',
+      accountType: p.accountType || u.accountType  || p.accountType,
+    };
+  });
+}
+
 // ============================================================
 // STATE (بيانات التطبيق في الذاكرة — بدون localStorage للمنشورات)
 // ============================================================
@@ -223,7 +288,7 @@ function getPosts(callback) {
     callback([]);
     return;
   }
-  db.ref('posts').orderByChild('publishedAt').limitToLast(50).on('value', snap => {
+  db.ref('posts').orderByChild('publishedAt').limitToLast(50).on('value', async snap => {
     const data = snap.val();
     if (!data) {
       state.posts = [];
@@ -233,8 +298,10 @@ function getPosts(callback) {
     const posts = Object.entries(data)
       .map(([id, p]) => ({ ...p, id }))
       .sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
-    state.posts = posts;
-    callback(posts);
+    // إثراء المنشورات ببيانات المستخدمين الحقيقية من Firebase
+    const enriched = await enrichPostsWithUserData(posts);
+    state.posts = enriched;
+    callback(enriched);
   });
 }
 
@@ -247,7 +314,7 @@ function getUserPosts(userId, callback) {
     callback([]);
     return;
   }
-  db.ref('posts').orderByChild('uid').equalTo(userId).on('value', snap => {
+  db.ref('posts').orderByChild('uid').equalTo(userId).on('value', async snap => {
     const data = snap.val();
     if (!data) {
       callback([]);
@@ -256,7 +323,8 @@ function getUserPosts(userId, callback) {
     const posts = Object.entries(data)
       .map(([id, p]) => ({ ...p, id }))
       .sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
-    callback(posts);
+    const enriched = await enrichPostsWithUserData(posts);
+    callback(enriched);
   });
 }
 
@@ -419,10 +487,31 @@ function _goToProfile(uid, username) {
   // إذا كان نفس الشخص — اذهب لملفي بدون params
   if (uid && uid === myUid) { window.location.href = 'profile.html'; return; }
   if (!uid && username && username === myUsername) { window.location.href = 'profile.html'; return; }
-  // شخص آخر — أرسل uid دائماً عبر ?uid=
+  // شخص آخر — استخدم ?uid= للتوافق مع profile.html
   if (uid) { window.location.href = 'profile.html?uid=' + encodeURIComponent(uid); return; }
   if (username) { window.location.href = 'profile.html?uid=' + encodeURIComponent(username); return; }
   window.location.href = 'profile.html';
+}
+
+// ====================== READ MORE helper ======================
+function _buildTextHtml(text, postId) {
+  if (!text) return '';
+  const LIMIT = 180;
+  const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  if (escaped.length <= LIMIT) {
+    return `<p class="mt-3 text-[14px] leading-relaxed text-zinc-800 whitespace-pre-wrap">${escaped}</p>`;
+  }
+  const short = escaped.slice(0, LIMIT);
+  const rest  = escaped.slice(LIMIT);
+  return `<p class="mt-3 text-[14px] leading-relaxed text-zinc-800 whitespace-pre-wrap" id="post-text-${postId}">${short}<span id="post-text-rest-${postId}" class="hidden">${rest}</span><button onclick="toggleReadMore('${postId}')" id="post-readmore-btn-${postId}" class="mr-1 text-[13px] font-bold text-zinc-500 hover:text-zinc-800">... المزيد</button></p>`;
+}
+function toggleReadMore(postId) {
+  const rest = document.getElementById('post-text-rest-' + postId);
+  const btn  = document.getElementById('post-readmore-btn-' + postId);
+  if (!rest || !btn) return;
+  const isHidden = rest.classList.contains('hidden');
+  rest.classList.toggle('hidden', !isHidden);
+  btn.textContent = isHidden ? ' أقل' : '... المزيد';
 }
 
 function renderPostCard(p) {
@@ -440,67 +529,77 @@ function renderPostCard(p) {
                   : p.accountType === 'student'     ? 'تلميذ'
                   : '';
 
-  // الريلز — يظهر كبطاقة صغيرة قابلة للنقر تفتح صفحة الريلز
+  // الاسم والصورة الرمزية — دائماً من بيانات المستخدم
+  const displayName   = p.name   || p.author   || 'مستخدم';
+  const displayAvatar = p.avatar || '';
+
+  // الريلز — يظهر كبطاقة كاملة مثل منشور صورة
   if (p.type === 'reel') {
-    const thumb = p.thumbnail || '';
-    const reelText = (p.text || p.content || '').slice(0, 80);
+    // رندر الريل كبطاقة منشور كاملة مع فيديو قابل للتشغيل
+    const reelText = (p.text || p.content || '');
+    const hasVideo = p.video && (p.video.startsWith('http://') || p.video.startsWith('https://'));
     return `
     <div class="mb-4 rounded-[20px] border border-zinc-200 bg-white shadow-sm overflow-hidden" id="post-${p.id}" data-post-id="${p.id}">
-      <div class="p-3 pb-2">
+      <!-- Header -->
+      <div class="flex items-start justify-between gap-2 p-4 pb-3">
         <div class="flex items-center gap-2.5 cursor-pointer" onclick="_goToProfile('${p.uid || ''}','${(p.username||'').replace(/'/g,"\\'")}')">
-          <div class="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-zinc-200">
-            ${p.avatar ? `<img src="${p.avatar}" class="h-9 w-9 object-cover" loading="lazy" onerror="this.style.display='none'"/>` : `<div class="h-9 w-9 flex items-center justify-center text-zinc-400"><svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg></div>`}
+          <div class="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-zinc-200">
+            ${displayAvatar ? `<img src="${displayAvatar}" class="h-10 w-10 object-cover" loading="lazy" onerror="this.style.display='none'"/>` : `<div class="h-10 w-10 flex items-center justify-center bg-zinc-200 text-zinc-400"><svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg></div>`}
           </div>
           <div>
-            <p class="text-[13px] font-extrabold text-zinc-900">${p.name || p.author || 'مجهول'}</p>
-            <p class="text-[10px] text-zinc-400">${typeLabel ? typeLabel + ' · ' : ''}${formatTimeAgo(p.publishedAt)}</p>
+            <p class="text-[14px] font-extrabold text-zinc-900">${displayName}</p>
+            <div class="flex items-center gap-1.5">
+              <span class="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
+                <svg viewBox="0 0 24 24" class="h-2.5 w-2.5 fill-none stroke-current" stroke-width="2.2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                ريلز
+              </span>
+              <span class="text-[11px] text-zinc-400">${formatTimeAgo(p.publishedAt)}</span>
+            </div>
           </div>
         </div>
+        ${isOwner ? `<button onclick="openPostMenu('${p.id}')" class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-400"><svg viewBox="0 0 24 24" class="h-4 w-4 fill-current"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></button>` : ''}
       </div>
-      <!-- بطاقة الريل — مربعة تماماً مثل إنستغرام -->
-      <div class="mx-3 mb-3 cursor-pointer rounded-[16px] overflow-hidden relative bg-black"
-           style="aspect-ratio:1/1;"
-           onclick="localStorage.setItem('yadwor-goto-reel','${p.id}'); window.location.href='reels.html';">
-        ${thumb
-          ? `<img src="${thumb}" class="w-full h-full object-cover" loading="lazy" style="display:block;"/>`
-          : `<div class="w-full h-full flex items-center justify-center bg-zinc-900" style="min-height:200px;">
-               <svg viewBox="0 0 24 24" class="h-10 w-10 fill-none stroke-white/30" stroke-width="1.4" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-             </div>`
+      <!-- Caption -->
+      ${reelText ? _buildTextHtml(reelText, p.id) .replace('<p class="mt-3', '<p class="px-4 pb-2 text-[14px] leading-relaxed text-zinc-800 whitespace-pre-wrap"').replace('mt-3 text-[14px] leading-relaxed text-zinc-800 whitespace-pre-wrap','px-4 pb-2 text-[14px] leading-relaxed text-zinc-800 whitespace-pre-wrap') : ''}
+      <!-- Video -->
+      <div class="relative overflow-hidden bg-black" style="height:300px;" onclick="localStorage.setItem('yadwor-goto-reel','${p.id}'); window.location.href='reels.html';">
+        ${hasVideo
+          ? `<video src="${p.video}" ${p.thumbnail ? `poster="${p.thumbnail}"` : ''} muted playsinline preload="metadata" class="w-full h-full object-cover" style="cursor:pointer;"></video>`
+          : p.thumbnail
+            ? `<img src="${p.thumbnail}" class="w-full h-full object-cover" loading="lazy" />`
+            : `<div class="w-full h-full flex flex-col items-center justify-center gap-3 bg-zinc-900"><svg viewBox="0 0 24 24" class="h-12 w-12 fill-none stroke-white/20" stroke-width="1.2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><p class="text-white/30 text-sm font-bold">انقر لمشاهدة الريلز</p></div>`
         }
-        <!-- زر تشغيل في المنتصف -->
+        <!-- Play overlay -->
         <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div class="flex h-14 w-14 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm ring-1 ring-white/20">
             <svg viewBox="0 0 24 24" class="h-7 w-7 fill-white ml-0.5"><path d="M8 5v14l11-7z"/></svg>
           </div>
         </div>
-        <!-- شارة ريلز -->
-        <div class="absolute top-2.5 right-2.5 flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 backdrop-blur-sm">
-          <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-white" stroke-width="2.2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-          <span class="text-[10px] font-extrabold text-white tracking-wide">ريلز</span>
-        </div>
-        ${reelText ? `<div class="absolute bottom-0 left-0 right-0 px-3 py-2.5 bg-gradient-to-t from-black/80 via-black/30 to-transparent">
-          <p class="text-[12px] text-white/90 font-semibold line-clamp-1 text-right">${reelText}</p>
-        </div>` : ''}
       </div>
-      <!-- شريط التفاعل -->
-      <div class="flex items-center justify-between border-t border-zinc-100 px-4 py-2">
+      <!-- Actions -->
+      <div class="flex items-center justify-between border-t border-zinc-100 px-4 py-2.5">
         <div class="flex items-center gap-3">
           <button onclick="toggleLike('${p.id}')" class="flex items-center gap-1.5 text-[13px] font-bold ${liked ? 'text-rose-500' : 'text-zinc-500'} hover:text-rose-400">
-            <svg viewBox="0 0 24 24" class="h-[17px] w-[17px]" fill="${liked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="${liked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
             ${likesArr.length || 0}
           </button>
           <button onclick="openComments('${p.id}')" class="flex items-center gap-1.5 text-[13px] font-bold text-zinc-500 hover:text-zinc-700">
-            <svg viewBox="0 0 24 24" class="h-[17px] w-[17px] fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <svg viewBox="0 0 24 24" class="h-[18px] w-[18px] fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             ${commCount}
           </button>
           <span class="flex items-center gap-1.5 text-[13px] font-bold text-zinc-400">
-            <svg viewBox="0 0 24 24" class="h-[17px] w-[17px] fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg viewBox="0 0 24 24" class="h-[18px] w-[18px] fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             ${viewCount}
           </span>
         </div>
-        <button onclick="toggleSave('${p.id}')" class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-zinc-100 ${saved ? 'text-zinc-900' : 'text-zinc-400'}">
-          <svg viewBox="0 0 24 24" class="h-[17px] w-[17px]" fill="${saved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="sharePost('${p.id}')" class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-400">
+            <svg viewBox="0 0 24 24" class="h-[18px] w-[18px] fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          </button>
+          <button onclick="toggleSave('${p.id}')" class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-zinc-100 ${saved ? 'text-zinc-900' : 'text-zinc-400'}">
+            <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="${saved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+        </div>
       </div>
     </div>`;
   }
@@ -530,10 +629,10 @@ function renderPostCard(p) {
       <div class="flex items-start justify-between gap-2">
         <div class="flex items-center gap-2.5 cursor-pointer" onclick="_goToProfile('${p.uid || ''}','${(p.username||'').replace(/'/g,"\\'")}')">
           <div class="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-zinc-200">
-            ${p.avatar ? `<img src="${p.avatar}" class="h-10 w-10 object-cover" loading="lazy" onerror="this.style.display='none'"/>` : `<div class="h-10 w-10 flex items-center justify-center text-zinc-400"><svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg></div>`}
+            ${displayAvatar ? `<img src="${displayAvatar}" class="h-10 w-10 object-cover" loading="lazy" onerror="this.style.display='none'"/>` : `<div class="h-10 w-10 flex items-center justify-center bg-zinc-200 text-zinc-400"><svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg></div>`}
           </div>
           <div>
-            <p class="text-[14px] font-extrabold text-zinc-900">${p.name || 'مجهول'}</p>
+            <p class="text-[14px] font-extrabold text-zinc-900">${displayName}</p>
             <p class="text-[11px] text-zinc-400">${typeLabel ? typeLabel + ' · ' : ''}${formatTimeAgo(p.publishedAt)}</p>
           </div>
         </div>
@@ -541,7 +640,7 @@ function renderPostCard(p) {
           <svg viewBox="0 0 24 24" class="h-4 w-4 fill-current"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
         </button>` : ''}
       </div>
-      ${p.text ? `<p class="mt-3 text-[14px] leading-relaxed text-zinc-800 whitespace-pre-wrap">${p.text}</p>` : ''}
+      ${_buildTextHtml(p.text || '', p.id)}
       ${mediaHtml}
     </div>
     <div class="flex items-center justify-between border-t border-zinc-100 px-4 py-2.5">
