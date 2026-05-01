@@ -488,24 +488,8 @@
 </div>
 
 <script>
-function openSidebar() {
-  document.getElementById('sidebar-overlay').classList.remove('hidden');
-  document.getElementById('sidebar-panel').style.transform = 'translateX(0)';
-  // Show exercises/results only for teacher/institution
-  const pt = localStorage.getItem('yadwor-profile-type') || 'influencer';
-  const showEx = pt === 'teacher' || pt === 'institution';
-  const exLink = document.getElementById('home-sidebar-exercises');
-  const resLink = document.getElementById('home-sidebar-results');
-  if (exLink) exLink.style.display = showEx ? 'flex' : 'none';
-  if (resLink) resLink.style.display = showEx ? 'flex' : 'none';
-  // طلبات الانضمام للمؤسسة فقط
-  const joinLink = document.getElementById('home-sidebar-join-requests');
-  if (joinLink) joinLink.style.display = pt === 'institution' ? 'flex' : 'none';
-}
-function closeSidebar() {
-  document.getElementById('sidebar-overlay').classList.add('hidden');
-  document.getElementById('sidebar-panel').style.transform = 'translateX(100%)';
-}
+// openSidebar / closeSidebar مُعرَّفتان في shared.js
+// doLogout خاصة بهذه الصفحة
 function doLogout() {
   localStorage.removeItem('yadwor-logged-in');
   window.location.replace('index.html');
