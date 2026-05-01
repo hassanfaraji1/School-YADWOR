@@ -496,22 +496,45 @@ function _goToProfile(uid, username) {
 // ====================== READ MORE helper ======================
 function _buildTextHtml(text, postId) {
   if (!text) return '';
-  const LIMIT = 180;
-  const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // حد الأحرف قبل إخفاء النص
+  const LIMIT = 160;
+  // escape HTML لمنع XSS
+  const escaped = text
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
+
+  // CSS مشترك: word-break لمنع فيضان النص الطويل
+  const baseClass = 'mt-2 text-[14px] leading-[1.7] text-zinc-800 break-words overflow-wrap-anywhere';
+
   if (escaped.length <= LIMIT) {
-    return `<p class="mt-3 text-[14px] leading-relaxed text-zinc-800 whitespace-pre-wrap">${escaped}</p>`;
+    return `<p class="${baseClass}" style="word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;">${escaped}</p>`;
   }
-  const short = escaped.slice(0, LIMIT);
-  const rest  = escaped.slice(LIMIT);
-  return `<p class="mt-3 text-[14px] leading-relaxed text-zinc-800 whitespace-pre-wrap" id="post-text-${postId}">${short}<span id="post-text-rest-${postId}" class="hidden">${rest}</span><button onclick="toggleReadMore('${postId}')" id="post-readmore-btn-${postId}" class="mr-1 text-[13px] font-bold text-zinc-500 hover:text-zinc-800">... المزيد</button></p>`;
+
+  // نقطة القطع — نفضّل القطع عند مسافة قريبة من الحد
+  let cutAt = LIMIT;
+  const spaceNear = escaped.lastIndexOf(' ', LIMIT);
+  if (spaceNear > LIMIT * 0.6) cutAt = spaceNear;
+
+  const short = escaped.slice(0, cutAt);
+  const rest  = escaped.slice(cutAt);
+
+  return `<div id="post-text-wrap-${postId}">
+    <p class="${baseClass}" style="word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap;" id="post-text-${postId}">${short}<span id="post-text-rest-${postId}" style="display:none;">${rest}</span></p>
+    <button onclick="toggleReadMore('${postId}')" id="post-readmore-btn-${postId}"
+      style="margin-top:4px;font-size:13px;font-weight:700;color:#6366f1;background:none;border:none;cursor:pointer;padding:0;direction:rtl;">
+      عرض المزيد ↓
+    </button>
+  </div>`;
 }
 function toggleReadMore(postId) {
   const rest = document.getElementById('post-text-rest-' + postId);
   const btn  = document.getElementById('post-readmore-btn-' + postId);
   if (!rest || !btn) return;
-  const isHidden = rest.classList.contains('hidden');
-  rest.classList.toggle('hidden', !isHidden);
-  btn.textContent = isHidden ? ' أقل' : '... المزيد';
+  const isHidden = rest.style.display === 'none' || rest.style.display === '';
+  rest.style.display = isHidden ? 'inline' : 'none';
+  btn.textContent = isHidden ? 'إخفاء ↑' : 'عرض المزيد ↓';
+  btn.style.color = isHidden ? '#71717a' : '#6366f1';
 }
 
 function renderPostCard(p) {
@@ -535,20 +558,24 @@ function renderPostCard(p) {
 
   // الريلز — يظهر كبطاقة كاملة مثل منشور صورة
   if (p.type === 'reel') {
-    // رندر الريل كبطاقة منشور كاملة مع فيديو قابل للتشغيل
+    // ── ريلز = بطاقة منشور كاملة مع فيديو ──
     const reelText = (p.text || p.content || '');
     const hasVideo = p.video && (p.video.startsWith('http://') || p.video.startsWith('https://'));
+    const reelInitial = (displayName.charAt(0) || 'ر').toUpperCase();
+    const reelAvatarEl = displayAvatar
+      ? `<img src="${displayAvatar}" class="h-10 w-10 rounded-full object-cover" loading="lazy"
+             onerror="this.outerHTML='<div style=\'width:40px;height:40px;border-radius:50%;background:#ede9fe;color:#7c3aed;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;\'>${reelInitial}</div>';"/>`
+      : `<div style="width:40px;height:40px;border-radius:50%;background:#ede9fe;color:#7c3aed;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;">${reelInitial}</div>`;
+    const reelCaptionHtml = reelText ? _buildTextHtml(reelText, p.id) : '';
     return `
     <div class="mb-4 rounded-[20px] border border-zinc-200 bg-white shadow-sm overflow-hidden" id="post-${p.id}" data-post-id="${p.id}">
       <!-- Header -->
-      <div class="flex items-start justify-between gap-2 p-4 pb-3">
+      <div class="flex items-start justify-between gap-2 p-4 pb-2">
         <div class="flex items-center gap-2.5 cursor-pointer" onclick="_goToProfile('${p.uid || ''}','${(p.username||'').replace(/'/g,"\\'")}')">
-          <div class="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-zinc-200">
-            ${displayAvatar ? `<img src="${displayAvatar}" class="h-10 w-10 object-cover" loading="lazy" onerror="this.style.display='none'"/>` : `<div class="h-10 w-10 flex items-center justify-center bg-zinc-200 text-zinc-400"><svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg></div>`}
-          </div>
+          <div class="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-indigo-50">${reelAvatarEl}</div>
           <div>
             <p class="text-[14px] font-extrabold text-zinc-900">${displayName}</p>
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-1.5 mt-0.5">
               <span class="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
                 <svg viewBox="0 0 24 24" class="h-2.5 w-2.5 fill-none stroke-current" stroke-width="2.2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
                 ريلز
@@ -557,28 +584,33 @@ function renderPostCard(p) {
             </div>
           </div>
         </div>
-        ${isOwner ? `<button onclick="openPostMenu('${p.id}')" class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-400"><svg viewBox="0 0 24 24" class="h-4 w-4 fill-current"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></button>` : ''}
+        ${isOwner ? `<button onclick="openPostMenu('${p.id}')" class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-400 mt-0.5"><svg viewBox="0 0 24 24" class="h-4 w-4 fill-current"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></button>` : ''}
       </div>
-      <!-- Caption -->
-      ${reelText ? _buildTextHtml(reelText, p.id) .replace('<p class="mt-3', '<p class="px-4 pb-2 text-[14px] leading-relaxed text-zinc-800 whitespace-pre-wrap"').replace('mt-3 text-[14px] leading-relaxed text-zinc-800 whitespace-pre-wrap','px-4 pb-2 text-[14px] leading-relaxed text-zinc-800 whitespace-pre-wrap') : ''}
+      <!-- Caption (قابل للطي) -->
+      ${reelCaptionHtml ? `<div class="px-4 pb-1">${reelCaptionHtml}</div>` : ''}
       <!-- Video -->
-      <div class="relative overflow-hidden bg-black" style="height:300px;" onclick="localStorage.setItem('yadwor-goto-reel','${p.id}'); window.location.href='reels.html';">
+      <div class="relative overflow-hidden bg-zinc-900 cursor-pointer" style="height:300px;"
+           onclick="localStorage.setItem('yadwor-goto-reel','${p.id}'); window.location.href='reels.html';">
         ${hasVideo
-          ? `<video src="${p.video}" ${p.thumbnail ? `poster="${p.thumbnail}"` : ''} muted playsinline preload="metadata" class="w-full h-full object-cover" style="cursor:pointer;"></video>`
+          ? `<video src="${p.video}" ${p.thumbnail ? `poster="${p.thumbnail}"` : ''} muted playsinline preload="metadata"
+               class="w-full h-full object-cover"></video>`
           : p.thumbnail
             ? `<img src="${p.thumbnail}" class="w-full h-full object-cover" loading="lazy" />`
-            : `<div class="w-full h-full flex flex-col items-center justify-center gap-3 bg-zinc-900"><svg viewBox="0 0 24 24" class="h-12 w-12 fill-none stroke-white/20" stroke-width="1.2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><p class="text-white/30 text-sm font-bold">انقر لمشاهدة الريلز</p></div>`
+            : `<div class="w-full h-full flex flex-col items-center justify-center gap-3">
+                 <svg viewBox="0 0 24 24" class="h-12 w-12 fill-none stroke-white/20" stroke-width="1.2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                 <p class="text-white/30 text-sm font-bold">اضغط لمشاهدة الريلز</p>
+               </div>`
         }
-        <!-- Play overlay -->
+        <!-- Play button overlay -->
         <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div class="flex h-14 w-14 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm ring-1 ring-white/20">
-            <svg viewBox="0 0 24 24" class="h-7 w-7 fill-white ml-0.5"><path d="M8 5v14l11-7z"/></svg>
+            <svg viewBox="0 0 24 24" class="h-7 w-7 fill-white" style="margin-right:-2px;"><path d="M8 5v14l11-7z"/></svg>
           </div>
         </div>
       </div>
       <!-- Actions -->
       <div class="flex items-center justify-between border-t border-zinc-100 px-4 py-2.5">
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-4">
           <button onclick="toggleLike('${p.id}')" class="flex items-center gap-1.5 text-[13px] font-bold ${liked ? 'text-rose-500' : 'text-zinc-500'} hover:text-rose-400">
             <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="${liked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
             ${likesArr.length || 0}
@@ -592,12 +624,12 @@ function renderPostCard(p) {
             ${viewCount}
           </span>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5">
           <button onclick="sharePost('${p.id}')" class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-400">
-            <svg viewBox="0 0 24 24" class="h-[18px] w-[18px] fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            <svg viewBox="0 0 24 24" class="h-[17px] w-[17px] fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
           </button>
           <button onclick="toggleSave('${p.id}')" class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-zinc-100 ${saved ? 'text-zinc-900' : 'text-zinc-400'}">
-            <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="${saved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            <svg viewBox="0 0 24 24" class="h-[17px] w-[17px]" fill="${saved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
           </button>
         </div>
       </div>
@@ -628,11 +660,15 @@ function renderPostCard(p) {
     <div class="p-4">
       <div class="flex items-start justify-between gap-2">
         <div class="flex items-center gap-2.5 cursor-pointer" onclick="_goToProfile('${p.uid || ''}','${(p.username||'').replace(/'/g,"\\'")}')">
-          <div class="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-zinc-200">
-            ${displayAvatar ? `<img src="${displayAvatar}" class="h-10 w-10 object-cover" loading="lazy" onerror="this.style.display='none'"/>` : `<div class="h-10 w-10 flex items-center justify-center bg-zinc-200 text-zinc-400"><svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg></div>`}
+          <div class="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-indigo-50 flex items-center justify-center">
+            ${displayAvatar
+              ? `<img src="${displayAvatar}" class="h-10 w-10 rounded-full object-cover" loading="lazy"
+                   onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#6366f1;\'>${(displayName.charAt(0)||'م').toUpperCase()}</div>';"/>`
+              : `<span style="font-size:16px;font-weight:800;color:#6366f1;">${(displayName.charAt(0)||'م').toUpperCase()}</span>`
+            }
           </div>
-          <div>
-            <p class="text-[14px] font-extrabold text-zinc-900">${displayName}</p>
+          <div class="flex-1 min-w-0">
+            <p class="text-[14px] font-extrabold text-zinc-900 truncate">${displayName}</p>
             <p class="text-[11px] text-zinc-400">${typeLabel ? typeLabel + ' · ' : ''}${formatTimeAgo(p.publishedAt)}</p>
           </div>
         </div>
@@ -640,7 +676,7 @@ function renderPostCard(p) {
           <svg viewBox="0 0 24 24" class="h-4 w-4 fill-current"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
         </button>` : ''}
       </div>
-      ${_buildTextHtml(p.text || '', p.id)}
+      <div class="px-0 pt-1">${_buildTextHtml(p.text || '', p.id)}</div>
       ${mediaHtml}
     </div>
     <div class="flex items-center justify-between border-t border-zinc-100 px-4 py-2.5">
