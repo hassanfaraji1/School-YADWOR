@@ -26,10 +26,10 @@
   .reel-shimmer-overlay { position:absolute; inset:0; z-index:5; pointer-events:none; animation: fb-shimmer 1.4s infinite linear; background: linear-gradient(100deg, rgba(26,26,26,0.95) 30%, rgba(50,50,50,0.7) 50%, rgba(26,26,26,0.95) 70%); background-size: 400% 100%; border-radius: 0; }
   .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#18181b; color:white; padding:8px 18px; border-radius:999px; font-size:13px; font-weight:700; z-index:999; pointer-events:none; opacity:0; transition:opacity .2s; }
   .toast.show { opacity:1; }
-  .reel-container { height: 100vh; height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none; }
+  .reel-container { height: 100vh; height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none; -ms-overflow-style: none; }
   .reel-container::-webkit-scrollbar { display: none; }
-  .reel-item { height: 100vh; height: 100dvh; scroll-snap-align: start; position: relative; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden; }
-  video { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+  .reel-item { height: 100vh; height: 100dvh; scroll-snap-align: start; scroll-snap-stop: always; position: relative; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden; flex-shrink: 0; width: 100%; }
+  video { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; display: block; }
   .video-progress { -webkit-appearance: none; appearance: none; width: 100%; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.3); cursor: pointer; outline: none; }
   .video-progress::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; cursor: pointer; margin-top: -5.5px; box-shadow: 0 0 4px rgba(0,0,0,0.5); }
   .video-progress::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; }
@@ -89,9 +89,9 @@ let reelSoundEnabled = false;
   const gotoReel = localStorage.getItem('yadwor-goto-reel');
   if (gotoReel) localStorage.removeItem('yadwor-goto-reel');
 
-  // جلب الريلز من Firebase (onValue realtime)
+  // جلب الريلز من Firebase (onValue realtime) + إثراء ببيانات المستخدمين
   getPosts(function(posts) {
-    renderReels();
+    renderReels(); // async — المنشورات ستُثرى بالبيانات الحقيقية قبل الرندر
     // بعد الرندر مباشرة — انتقل للريل المطلوب
     if (gotoReel) {
       let tries = 0;
@@ -142,7 +142,7 @@ function toggleReelSave(id) {
 let reelReplyTarget = null;
 let reelLikedComments = JSON.parse(localStorage.getItem('yadwor-reel-liked-comments') || '[]');
 
-function renderReels() {
+async function renderReels() {
   const container = document.getElementById('reels-container');
   const reelPosts = state.posts.filter(p => (p.type === 'reel' || p.type === 'video') && p.video);
   
@@ -153,6 +153,26 @@ function renderReels() {
     </div>`;
     return;
   }
+
+  // ── جلب بيانات المستخدمين الحقيقية من Firebase (مرة واحدة فقط) ──
+  if (typeof enrichPostsWithUserData === 'function') {
+    await enrichPostsWithUserData(reelPosts);
+  } else {
+    // fallback: جلب مباشر من Firebase لكل uid فريد
+    const uniqueUids = [...new Set(reelPosts.filter(p => p.uid && (!p.name || !p.avatar)).map(p => p.uid))];
+    await Promise.all(uniqueUids.map(async uid => {
+      try {
+        const snap = await firebase.database().ref('users/' + uid).once('value');
+        const u = snap.val();
+        if (u) {
+          reelPosts.filter(p => p.uid === uid).forEach(p => {
+            if (!p.name)   p.name   = u.name || u.displayName || '';
+            if (!p.avatar) p.avatar = u.avatar || '';
+          });
+        }
+      } catch(e) {}
+    }));
+  }
   
   container.innerHTML = reelPosts.map(post => {
     const myUid = localStorage.getItem('yadwor-uid') || '';
@@ -161,11 +181,12 @@ function renderReels() {
     const commentsCount = post.commentCount || 0;
     const viewCount = post.viewCount || 0;
     const avShId = 'avsh_r_' + post.id;
-    const postAvatar = post.avatar
-      || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(post.author || post.name || 'U') + '&background=444&color=fff&size=100';
-    const postAuthor = post.author || post.name || 'مستخدم';
+    // استخدام البيانات المُثراة من Firebase users/{uid}
+    const postAvatar   = post.avatar || '';
+    const postAuthor   = post.name || post.author || 'مستخدم';
     const postUsername = post.username || '';
-    const postContent = post.text || post.content || '';
+    const postContent  = post.text || post.content || '';
+    const initials     = (postAuthor.charAt(0) || 'م').toUpperCase();
     return `<div class="reel-item" id="reel-${post.id}">
       <div id="reel-sh-${post.id}" class="shimmer absolute inset-0"></div>
       ${post.video && (post.video.startsWith('http://') || post.video.startsWith('https://')) ? `
@@ -202,14 +223,17 @@ function renderReels() {
       <!-- Bottom info -->
       <div class="absolute bottom-0 left-0 right-0 px-4 pt-3" style="padding-bottom: max(20px, env(safe-area-inset-bottom, 20px)); z-index:20; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);">
         <div class="mb-3 flex items-start gap-3">
-          <div class="relative h-10 w-10 shrink-0 rounded-full overflow-hidden cursor-pointer" onclick="window.location.href='profile.html?uid=${post.uid}'">
+          <div class="relative h-10 w-10 shrink-0 rounded-full overflow-hidden cursor-pointer" onclick="_goToProfile('${post.uid}','${postUsername}')">
             <div id="${avShId}" class="shimmer absolute inset-0 rounded-full"></div>
-            <img src="${postAvatar}" class="h-10 w-10 rounded-full object-cover z-[1] relative"
-              onload="(function(){var el=document.getElementById('${avShId}');if(el)el.remove();})()"
-              onerror="(function(){var el=document.getElementById('${avShId}');if(el)el.style.background='#333';})()" />
+            ${postAvatar
+              ? `<img src="${postAvatar}" class="h-10 w-10 rounded-full object-cover z-[1] relative"
+                   onload="(function(){var el=document.getElementById('${avShId}');if(el)el.remove();})()"
+                   onerror="this.style.display='none';(function(){var el=document.getElementById('${avShId}');if(el){el.style.background='#555';el.style.display='flex';el.style.alignItems='center';el.style.justifyContent='center';el.innerHTML='<span style=\"color:#fff;font-weight:800;font-size:14px;\">${initials}</span>';}})()"/>`
+              : `<div class="h-10 w-10 rounded-full flex items-center justify-center bg-zinc-600 z-[1] relative" style="font-size:14px;font-weight:800;color:#fff;">${initials}</div>`
+            }
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-[14px] font-extrabold cursor-pointer" onclick="window.location.href='profile.html?uid=${post.uid}'">${postAuthor}</p>
+            <p class="text-[14px] font-extrabold cursor-pointer" onclick="_goToProfile('${post.uid}','${postUsername}')">${postAuthor}</p>
             <p class="text-[11px] text-zinc-300">@${postUsername}</p>
             <p class="mt-1 text-[13px] leading-5 text-zinc-100 line-clamp-2">${postContent}</p>
           </div>
@@ -517,11 +541,22 @@ async function submitReelComment() {
 
   if (reelReplyTarget && reelReplyTarget.postId === id) {
     // رد على تعليق
+    let replyName = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'مجهول';
+    let replyAvatar = localStorage.getItem('yadwor-avatar-preview') || '';
+    try {
+      const db = firebase.database();
+      const uSnap = await db.ref('users/' + myUid).once('value');
+      const uData = uSnap.val();
+      if (uData) {
+        replyName   = uData.name || uData.displayName || replyName;
+        replyAvatar = uData.avatar || replyAvatar;
+      }
+    } catch(e) {}
     const replyObj = {
       id:      'r_' + Date.now(),
       uid:     myUid,
-      name:    localStorage.getItem('yadwor-settings-name') || 'مجهول',
-      avatar:  localStorage.getItem('yadwor-avatar-preview') || '',
+      name:    replyName,
+      avatar:  replyAvatar,
       text:    text,
       ts:      Date.now(),
       likedBy: {}
@@ -541,11 +576,23 @@ async function submitReelComment() {
   }
 
   // تعليق جديد
+  // جلب الاسم والصورة من Firebase
+  let commenterName   = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'مجهول';
+  let commenterAvatar = localStorage.getItem('yadwor-avatar-preview') || '';
+  try {
+    const db = firebase.database();
+    const uSnap = await db.ref('users/' + myUid).once('value');
+    const uData = uSnap.val();
+    if (uData) {
+      commenterName   = uData.name || uData.displayName || commenterName;
+      commenterAvatar = uData.avatar || commenterAvatar;
+    }
+  } catch(e) {}
   const comment = {
     id:      'c_' + Date.now(),
     uid:     myUid,
-    name:    localStorage.getItem('yadwor-settings-name') || 'مجهول',
-    avatar:  localStorage.getItem('yadwor-avatar-preview') || '',
+    name:    commenterName,
+    avatar:  commenterAvatar,
     text:    text,
     ts:      Date.now(),
     likedBy: {},
