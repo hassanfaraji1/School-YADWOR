@@ -47,9 +47,19 @@
   <!-- ===== COVER + AVATAR section ===== -->
   <div class="rounded-[24px] bg-white border border-zinc-200 overflow-hidden shadow-sm">
     <!-- Cover image -->
-    <div class="relative h-32 bg-zinc-200 cursor-pointer group" onclick="document.getElementById('cover-input').click()">
-      <img id="cover-preview-img" src="" class="w-full h-full object-cover" onerror="this.style.display='none'" />
-      <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-active:opacity-100 transition">
+    <div class="relative cursor-pointer group" style="height:140px;" onclick="document.getElementById('cover-input').click()">
+      <!-- Gradient placeholder (always visible underneath) -->
+      <div id="cover-placeholder" class="absolute inset-0 flex flex-col items-center justify-center gap-2"
+           style="background: linear-gradient(135deg, #1e1b4b 0%, #4c1d95 40%, #7c3aed 80%, #a78bfa 100%);">
+        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-white/50" stroke-width="1.5" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <span class="text-white/60 text-[11px] font-bold">اضغط لإضافة غلاف</span>
+      </div>
+      <!-- Actual cover image — shown on top when loaded -->
+      <img id="cover-preview-img" src="" class="absolute inset-0 w-full h-full object-cover"
+           style="display:none;"
+           onerror="this.style.display='none'; document.getElementById('cover-placeholder').style.display='flex';" />
+      <!-- Hover overlay -->
+      <div class="absolute inset-0 bg-black/35 flex items-center justify-center opacity-0 group-active:opacity-100 transition pointer-events-none">
         <div class="flex items-center gap-2 bg-black/50 rounded-full px-3 py-1.5">
           <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-white" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           <span class="text-white font-bold text-[12px]">تغيير الغلاف</span>
@@ -62,12 +72,24 @@
     <div class="px-4 pt-3 pb-4">
       <div class="flex items-center gap-3 mb-3">
         <!-- Avatar -->
-        <div class="relative shrink-0 cursor-pointer group" onclick="document.getElementById('avatar-input').click()">
-          <img id="avatar-preview-img" src="" class="h-16 w-16 rounded-full object-cover border-[3px] border-zinc-100 shadow-md" onerror="this.style.display='none'" />
-          <div class="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-active:opacity-100 transition">
+        <div class="relative shrink-0 cursor-pointer group" onclick="document.getElementById('avatar-input').click()" style="width:64px;height:64px;">
+          <!-- Placeholder حرف الاسم — يظهر دائماً عند غياب الصورة -->
+          <div id="avatar-placeholder-div"
+               class="absolute inset-0 rounded-full border-[3px] border-zinc-100 shadow-md flex items-center justify-center font-extrabold text-white text-[22px]"
+               style="background: linear-gradient(135deg, #7c3aed, #4f46e5); display:flex;">
+            <span id="avatar-initial-letter">م</span>
+          </div>
+          <!-- الصورة الفعلية — تُغطي الـ placeholder عند وجودها -->
+          <img id="avatar-preview-img" src=""
+               class="absolute inset-0 h-full w-full rounded-full object-cover border-[3px] border-zinc-100 shadow-md"
+               style="display:none;"
+               onerror="this.style.display='none'; document.getElementById('avatar-placeholder-div').style.display='flex';" />
+          <!-- Hover overlay -->
+          <div class="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-active:opacity-100 transition pointer-events-none">
             <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-white" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           </div>
-          <div class="absolute -bottom-0.5 -left-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-800 ring-2 ring-white">
+          <!-- Badge كاميرا -->
+          <div class="absolute -bottom-0.5 -left-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-800 ring-2 ring-white pointer-events-none">
             <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-white" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           </div>
           <input type="file" id="avatar-input" accept="image/*" class="hidden" onchange="handleAvatarChange(this)" />
@@ -228,72 +250,111 @@ let pendingAccountType = null;
 async function initSettings() {
   const uid = localStorage.getItem('yadwor-uid') || '';
 
-  // جلب بيانات المستخدم من Firebase أولاً ثم عرضها
-  let firebaseUser = null;
-  if (uid) {
-    try {
-      const snap = await firebase.database().ref('users/' + uid).once('value');
-      firebaseUser = snap.val();
-    } catch(e) {}
+  // ── 1. عرض فوري من localStorage (بدون انتظار) ──
+  const localAvatar = localStorage.getItem('yadwor-avatar-preview') || '';
+  const localCover  = localStorage.getItem('yadwor-cover-preview')  || '';
+  const localName   = localStorage.getItem('yadwor-settings-name')
+                   || localStorage.getItem('yadwor-user-name') || '';
+
+  // تعيين الحرف الأول من الاسم في placeholder الـ avatar
+  function _setAvatarInitial(name) {
+    const letterEl = document.getElementById('avatar-initial-letter');
+    if (letterEl && name) letterEl.textContent = name.charAt(0).toUpperCase() || 'م';
   }
 
-  // Avatar — Firebase أولاً ثم localStorage ثم placeholder
-  const avatarSrc = (firebaseUser && firebaseUser.avatar)
-    || localStorage.getItem('yadwor-avatar-preview')
-    || '';
-  const avatarEl = document.getElementById('avatar-preview-img');
-  if (avatarSrc) {
-    avatarEl.src = avatarSrc;
-    avatarEl.onerror = () => { avatarEl.src = ''; avatarEl.style.display = 'none'; };
-  } else {
-    // Placeholder SVG إذا لا توجد صورة
-    avatarEl.style.display = 'none';
-    avatarEl.insertAdjacentHTML('afterend', `<div id="avatar-placeholder" class="h-16 w-16 rounded-full bg-zinc-200 flex items-center justify-center border-[3px] border-zinc-100 shadow-md"><svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.5"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg></div>`);
+  // عرض الـ avatar
+  function _showAvatar(src) {
+    const img = document.getElementById('avatar-preview-img');
+    const placeholder = document.getElementById('avatar-placeholder-div');
+    if (src) {
+      img.src = src;
+      img.style.display = '';
+      if (placeholder) placeholder.style.display = 'none';
+    } else {
+      img.style.display = 'none';
+      if (placeholder) placeholder.style.display = 'flex';
+    }
   }
 
-  // Cover
-  const coverSrc = (firebaseUser && firebaseUser.cover)
-    || localStorage.getItem('yadwor-cover-preview')
-    || '';
-  const coverEl = document.getElementById('cover-preview-img');
-  if (coverSrc) {
-    coverEl.src = coverSrc;
-    coverEl.onerror = () => { coverEl.style.display = 'none'; };
-  } else {
-    coverEl.style.display = 'none';
+  // عرض الـ cover
+  function _showCover(src) {
+    const img = document.getElementById('cover-preview-img');
+    const placeholder = document.getElementById('cover-placeholder');
+    if (src) {
+      img.src = src;
+      img.style.display = '';
+      if (placeholder) placeholder.style.display = 'none';
+    } else {
+      img.style.display = 'none';
+      if (placeholder) placeholder.style.display = 'flex';
+    }
   }
 
-  // Name
-  const name = (firebaseUser && (firebaseUser.name || firebaseUser.displayName))
-    || localStorage.getItem('yadwor-settings-name')
-    || localStorage.getItem('yadwor-user-name')
-    || '';
-  document.getElementById('settings-name-input').value = name;
-  document.getElementById('settings-name-display').textContent = name;
+  // عرض فوري
+  _setAvatarInitial(localName || 'م');
+  _showAvatar(localAvatar);
+  _showCover(localCover);
 
-  // Account type
+  document.getElementById('settings-name-input').value       = localName;
+  document.getElementById('settings-name-display').textContent = localName;
+
   const typeLabels = {institution:'مؤسسة تعليمية', influencer:'مؤثر تعليمي', teacher:'أستاذ', student:'تلميذ'};
-  const accType = (firebaseUser && firebaseUser.accountType)
-    || localStorage.getItem('yadwor-account-type')
-    || 'influencer';
-  document.getElementById('settings-type-display').textContent = typeLabels[accType] || 'مؤثر تعليمي';
-  updateAccountTypeButtons(accType);
+  const localType  = localStorage.getItem('yadwor-account-type') || 'influencer';
+  document.getElementById('settings-type-display').textContent = typeLabels[localType] || 'مؤثر تعليمي';
+  updateAccountTypeButtons(localType);
 
-  // Language
   const lang = localStorage.getItem('yadwor-language') || 'ar';
   updateLangButtons(lang);
 
-  // Notif settings
   const notifSettings = JSON.parse(localStorage.getItem('yadwor-notif-settings') || '{"comments":true,"followers":true,"messages":true,"join":true}');
-  document.getElementById('notif-comments').checked = notifSettings.comments !== false;
+  document.getElementById('notif-comments').checked  = notifSettings.comments  !== false;
   document.getElementById('notif-followers').checked = notifSettings.followers !== false;
-  document.getElementById('notif-messages').checked = notifSettings.messages !== false;
-  document.getElementById('notif-join').checked = notifSettings.join !== false;
+  document.getElementById('notif-messages').checked  = notifSettings.messages  !== false;
+  document.getElementById('notif-join').checked      = notifSettings.join      !== false;
 
-  // Privacy settings
   const privSettings = JSON.parse(localStorage.getItem('yadwor-privacy-settings') || '{}');
-  document.getElementById('privacy-private').checked = privSettings.private || false;
+  document.getElementById('privacy-private').checked        = privSettings.private       || false;
   document.getElementById('privacy-hide-followers').checked = privSettings.hideFollowers || false;
+
+  // ── 2. جلب من Firebase في الخلفية وتحديث ما تغير ──
+  if (!uid) return;
+  try {
+    const snap = await firebase.database().ref('users/' + uid).once('value');
+    const fbData = snap.val();
+    if (!fbData) return;
+
+    // الاسم
+    const fbName = fbData.name || fbData.displayName || '';
+    if (fbName) {
+      localStorage.setItem('yadwor-settings-name', fbName);
+      localStorage.setItem('yadwor-user-name', fbName);
+      document.getElementById('settings-name-input').value       = fbName;
+      document.getElementById('settings-name-display').textContent = fbName;
+      _setAvatarInitial(fbName);
+    }
+
+    // الصورة الشخصية
+    const fbAvatar = fbData.avatar || fbData.avatarUrl || '';
+    if (fbAvatar) {
+      localStorage.setItem('yadwor-avatar-preview', fbAvatar);
+      _showAvatar(fbAvatar);
+    }
+
+    // الغلاف
+    const fbCover = fbData.cover || fbData.coverUrl || '';
+    if (fbCover) {
+      localStorage.setItem('yadwor-cover-preview', fbCover);
+      _showCover(fbCover);
+    }
+
+    // نوع الحساب
+    const fbType = fbData.accountType || '';
+    if (fbType) {
+      localStorage.setItem('yadwor-account-type', fbType);
+      document.getElementById('settings-type-display').textContent = typeLabels[fbType] || fbType;
+      updateAccountTypeButtons(fbType);
+    }
+  } catch(e) { console.warn('Firebase settings load:', e); }
 }
 
 function handleAvatarChange(input) {
@@ -302,7 +363,12 @@ function handleAvatarChange(input) {
   const reader = new FileReader();
   reader.onload = (e) => {
     pendingAvatarSrc = e.target.result;
-    document.getElementById('avatar-preview-img').src = pendingAvatarSrc;
+    // إظهار الصورة وإخفاء placeholder
+    const img = document.getElementById('avatar-preview-img');
+    const placeholder = document.getElementById('avatar-placeholder-div');
+    img.src = pendingAvatarSrc;
+    img.style.display = '';
+    if (placeholder) placeholder.style.display = 'none';
     document.getElementById('save-photos-btn').classList.remove('hidden');
   };
   reader.readAsDataURL(file);
@@ -314,7 +380,12 @@ function handleCoverChange(input) {
   const reader = new FileReader();
   reader.onload = (e) => {
     pendingCoverSrc = e.target.result;
-    document.getElementById('cover-preview-img').src = pendingCoverSrc;
+    // إظهار الغلاف وإخفاء placeholder
+    const img = document.getElementById('cover-preview-img');
+    const placeholder = document.getElementById('cover-placeholder');
+    img.src = pendingCoverSrc;
+    img.style.display = '';
+    if (placeholder) placeholder.style.display = 'none';
     document.getElementById('save-photos-btn').classList.remove('hidden');
   };
   reader.readAsDataURL(file);
