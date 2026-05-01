@@ -48,7 +48,7 @@
   <div class="rounded-[24px] bg-white border border-zinc-200 overflow-hidden shadow-sm">
     <!-- Cover image -->
     <div class="relative h-32 bg-zinc-200 cursor-pointer group" onclick="document.getElementById('cover-input').click()">
-      <img id="cover-preview-img" src="" class="w-full h-full object-cover" />
+      <img id="cover-preview-img" src="" class="w-full h-full object-cover" onerror="this.style.display='none'" />
       <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-active:opacity-100 transition">
         <div class="flex items-center gap-2 bg-black/50 rounded-full px-3 py-1.5">
           <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-white" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -63,7 +63,7 @@
       <div class="flex items-center gap-3 mb-3">
         <!-- Avatar -->
         <div class="relative shrink-0 cursor-pointer group" onclick="document.getElementById('avatar-input').click()">
-          <img id="avatar-preview-img" src="" class="h-16 w-16 rounded-full object-cover border-[3px] border-zinc-100 shadow-md" />
+          <img id="avatar-preview-img" src="" class="h-16 w-16 rounded-full object-cover border-[3px] border-zinc-100 shadow-md" onerror="this.style.display='none'" />
           <div class="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-active:opacity-100 transition">
             <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-white" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           </div>
@@ -225,32 +225,72 @@ let pendingCoverSrc = null;
 // نوع الحساب المحدد مؤقتاً (قبل الحفظ)
 let pendingAccountType = null;
 
-function initSettings() {
-  // Load current values
-  document.getElementById('avatar-preview-img').src = state.settingsAvatarPreview;
-  document.getElementById('cover-preview-img').src = state.settingsCoverPreview;
-  document.getElementById('settings-name-input').value = state.settingsName;
-  document.getElementById('settings-name-display').textContent = state.settingsName;
+async function initSettings() {
+  const uid = localStorage.getItem('yadwor-uid') || '';
 
+  // جلب بيانات المستخدم من Firebase أولاً ثم عرضها
+  let firebaseUser = null;
+  if (uid) {
+    try {
+      const snap = await firebase.database().ref('users/' + uid).once('value');
+      firebaseUser = snap.val();
+    } catch(e) {}
+  }
+
+  // Avatar — Firebase أولاً ثم localStorage ثم placeholder
+  const avatarSrc = (firebaseUser && firebaseUser.avatar)
+    || localStorage.getItem('yadwor-avatar-preview')
+    || '';
+  const avatarEl = document.getElementById('avatar-preview-img');
+  if (avatarSrc) {
+    avatarEl.src = avatarSrc;
+    avatarEl.onerror = () => { avatarEl.src = ''; avatarEl.style.display = 'none'; };
+  } else {
+    // Placeholder SVG إذا لا توجد صورة
+    avatarEl.style.display = 'none';
+    avatarEl.insertAdjacentHTML('afterend', `<div id="avatar-placeholder" class="h-16 w-16 rounded-full bg-zinc-200 flex items-center justify-center border-[3px] border-zinc-100 shadow-md"><svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.5"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg></div>`);
+  }
+
+  // Cover
+  const coverSrc = (firebaseUser && firebaseUser.cover)
+    || localStorage.getItem('yadwor-cover-preview')
+    || '';
+  const coverEl = document.getElementById('cover-preview-img');
+  if (coverSrc) {
+    coverEl.src = coverSrc;
+    coverEl.onerror = () => { coverEl.style.display = 'none'; };
+  } else {
+    coverEl.style.display = 'none';
+  }
+
+  // Name
+  const name = (firebaseUser && (firebaseUser.name || firebaseUser.displayName))
+    || localStorage.getItem('yadwor-settings-name')
+    || localStorage.getItem('yadwor-user-name')
+    || '';
+  document.getElementById('settings-name-input').value = name;
+  document.getElementById('settings-name-display').textContent = name;
+
+  // Account type
   const typeLabels = {institution:'مؤسسة تعليمية', influencer:'مؤثر تعليمي', teacher:'أستاذ', student:'تلميذ'};
-  const accType = localStorage.getItem('yadwor-account-type') || 'influencer';
+  const accType = (firebaseUser && firebaseUser.accountType)
+    || localStorage.getItem('yadwor-account-type')
+    || 'influencer';
   document.getElementById('settings-type-display').textContent = typeLabels[accType] || 'مؤثر تعليمي';
-
-  // Set account type buttons (only institution + influencer visible)
   updateAccountTypeButtons(accType);
 
-  // Set language
+  // Language
   const lang = localStorage.getItem('yadwor-language') || 'ar';
   updateLangButtons(lang);
 
-  // Load notif settings
+  // Notif settings
   const notifSettings = JSON.parse(localStorage.getItem('yadwor-notif-settings') || '{"comments":true,"followers":true,"messages":true,"join":true}');
   document.getElementById('notif-comments').checked = notifSettings.comments !== false;
   document.getElementById('notif-followers').checked = notifSettings.followers !== false;
   document.getElementById('notif-messages').checked = notifSettings.messages !== false;
   document.getElementById('notif-join').checked = notifSettings.join !== false;
 
-  // Load privacy settings
+  // Privacy settings
   const privSettings = JSON.parse(localStorage.getItem('yadwor-privacy-settings') || '{}');
   document.getElementById('privacy-private').checked = privSettings.private || false;
   document.getElementById('privacy-hide-followers').checked = privSettings.hideFollowers || false;
