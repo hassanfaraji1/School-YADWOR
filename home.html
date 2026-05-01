@@ -520,54 +520,7 @@ function renderHome() {
   getPosts(function(posts) {
     feed.innerHTML = '';
 
-    // ── شريط الريلز في أعلى الفيد ──
-    const reelPosts = posts.filter(p => p.type === 'reel');
-    let reelsStripHtml = '';
-    if (reelPosts.length > 0) {
-      const reelItems = reelPosts.slice(0, 10).map(p => {
-        const thumb = p.thumbnail || '';
-        const name  = (p.name || p.author || 'ريلز').slice(0, 12);
-        return `
-        <div class="shrink-0 cursor-pointer flex flex-col items-center gap-1.5"
-             style="width:72px;"
-             onclick="localStorage.setItem('yadwor-goto-reel','${p.id}'); window.location.href='reels.html';">
-          <div class="relative overflow-hidden rounded-[14px] bg-zinc-900 ring-2 ring-violet-500/70"
-               style="width:72px; height:72px;">
-            ${thumb
-              ? `<img src="${thumb}" class="w-full h-full object-cover" loading="lazy" />`
-              : `<div class="w-full h-full flex items-center justify-center">
-                   <svg viewBox="0 0 24 24" class="h-6 w-6 fill-none stroke-white/40" stroke-width="1.5" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-                 </div>`
-            }
-            <div class="absolute inset-0 flex items-center justify-center bg-black/20">
-              <div class="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
-                <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-white ml-0.5"><path d="M8 5v14l11-7z"/></svg>
-              </div>
-            </div>
-          </div>
-          <p class="text-[10px] font-bold text-zinc-600 truncate w-full text-center">${name}</p>
-        </div>`;
-      }).join('');
-
-      reelsStripHtml = `
-      <div class="mb-3 rounded-[18px] border border-zinc-200 bg-white shadow-sm overflow-hidden">
-        <div class="flex items-center justify-between px-4 pt-3 pb-2">
-          <a href="reels.html" class="text-[11px] font-bold text-violet-600 hover:underline">عرض الكل</a>
-          <div class="flex items-center gap-1.5">
-            <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-zinc-700" stroke-width="2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-            <span class="text-[13px] font-extrabold text-zinc-800">الريلز</span>
-          </div>
-        </div>
-        <div class="flex gap-3 overflow-x-auto px-4 pb-3 scrollbar-hide" style="scrollbar-width:none;">
-          ${reelItems}
-        </div>
-      </div>`;
-    }
-
-    // فلترة: الرئيسية تعرض المنشورات العادية فقط (الريلز تظهر في الشريط أعلاه فقط)
-    const regularPosts = posts.filter(p => p.type !== 'reel');
-
-    if (!regularPosts.length && !reelPosts.length) {
+    if (!posts.length) {
       feed.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-center gap-4 px-6">
         <div class="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100">
           <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M8 8h5"/></svg>
@@ -578,15 +531,65 @@ function renderHome() {
       return;
     }
 
-    // بناء الفيد: شريط الريلز + المنشورات العادية
+    // ── شريط الريلز الأفقي في أعلى الفيد ──
+    const reelPosts = posts.filter(p => p.type === 'reel' || p.type === 'video');
+    let reelsStripHtml = '';
+    if (reelPosts.length > 0) {
+      const reelItems = reelPosts.slice(0, 12).map(p => {
+        const thumb   = p.thumbnail || '';
+        const dispName = (p.name || p.author || 'ريلز');
+        // حلقة avatar — إذا لم يكن موجوداً نستخدم ui-avatars
+        const avatarSrc = p.avatar || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(dispName.slice(0,1)) + '&background=6d28d9&color=fff&size=64&bold=true');
+        return `
+        <div class="shrink-0 cursor-pointer flex flex-col items-center gap-1.5" style="width:76px;"
+             onclick="localStorage.setItem('yadwor-goto-reel','${p.id}'); window.location.href='reels.html';">
+          <div class="relative overflow-hidden rounded-[16px] bg-zinc-900"
+               style="width:72px; height:72px; box-shadow: 0 0 0 2.5px #7c3aed;">
+            ${thumb
+              ? `<img src="${thumb}" class="w-full h-full object-cover" loading="lazy" onerror="this.style.display='none'" />`
+              : `<div class="w-full h-full flex items-center justify-center bg-zinc-900">
+                   <img src="${avatarSrc}" class="w-full h-full object-cover rounded-[14px]" loading="lazy" onerror="this.style.display='none'" />
+                 </div>`
+            }
+            <div class="absolute inset-0 bg-black/25 flex items-center justify-center">
+              <div class="flex h-6 w-6 items-center justify-center rounded-full bg-white/30 backdrop-blur-sm">
+                <svg viewBox="0 0 24 24" class="h-3 w-3 fill-white ml-0.5"><path d="M8 5v14l11-7z"/></svg>
+              </div>
+            </div>
+          </div>
+          <p class="text-[10px] font-bold text-zinc-600 truncate w-full text-center leading-tight">${dispName.slice(0,10)}</p>
+        </div>`;
+      }).join('');
+
+      reelsStripHtml = `
+      <div class="mb-4 rounded-[20px] border border-zinc-200 bg-white shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between px-4 pt-3.5 pb-2.5">
+          <a href="reels.html" class="text-[12px] font-bold text-violet-600 hover:underline">عرض الكل</a>
+          <div class="flex items-center gap-1.5">
+            <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-zinc-800" stroke-width="2.2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            <span class="text-[14px] font-extrabold text-zinc-900">الريلز</span>
+          </div>
+        </div>
+        <div class="flex gap-3 overflow-x-auto px-4 pb-4 scrollbar-hide" style="scrollbar-width:none; -ms-overflow-style:none;">
+          ${reelItems}
+        </div>
+      </div>`;
+    }
+
+    // ── جميع المنشورات (غير الريلز) في الفيد الرئيسي
+    // الريلز تظهر فقط في الشريط الأفقي — لا نعيد عرضها كبطاقات
+    const regularPosts = posts.filter(p => p.type !== 'reel' && p.type !== 'video');
+
     let feedHtml = reelsStripHtml;
+
     if (regularPosts.length) {
       feedHtml += regularPosts.map(p => {
         const card = renderPostCard(p);
         if (!card) return '';
-        return card.replace(`id="post-${p.id}"`, `id="post-${p.id}" data-post-id="${p.id}"`);
+        // تأكد data-post-id موجود للمشاهدات
+        return card.includes('data-post-id') ? card : card.replace(`id="post-${p.id}"`, `id="post-${p.id}" data-post-id="${p.id}"`);
       }).join('');
-    } else {
+    } else if (!reelPosts.length) {
       feedHtml += `<div class="flex flex-col items-center justify-center py-16 text-center gap-4 px-6">
         <div class="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100">
           <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M8 8h5"/></svg>
@@ -688,6 +691,30 @@ function _myUid()      { return localStorage.getItem('yadwor-uid') || ''; }
 function _myName()     { return localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || ''; }
 function _myUsername() { return localStorage.getItem('yadwor-username') || ''; }
 function _myAvatar()   { return localStorage.getItem('yadwor-avatar-preview') || ''; }
+// جلب وتخزين بيانات المستخدم من Firebase في بداية الصفحة
+(async function _prefetchMyUserData() {
+  const uid = localStorage.getItem('yadwor-uid') || '';
+  if (!uid) return;
+  try {
+    const snap = await firebase.database().ref('users/' + uid).once('value');
+    const data = snap.val();
+    if (!data) return;
+    // تحديث localStorage بأحدث بيانات من Firebase
+    if (data.name || data.displayName) {
+      localStorage.setItem('yadwor-settings-name', data.name || data.displayName);
+      localStorage.setItem('yadwor-user-name', data.name || data.displayName);
+    }
+    if (data.avatar) localStorage.setItem('yadwor-avatar-preview', data.avatar);
+    if (data.accountType) {
+      localStorage.setItem('yadwor-account-type', data.accountType);
+      localStorage.setItem('yadwor-profile-type', data.accountType);
+    }
+    if (data.username) localStorage.setItem('yadwor-username', data.username);
+    state.myName   = data.name || data.displayName || state.myName;
+    state.myAvatar = data.avatar || state.myAvatar;
+    state.myType   = data.accountType || state.myType;
+  } catch(e) {}
+})();
 function _myType()     { return localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || 'influencer'; }
 function currentProfile() {
   try { return JSON.parse(localStorage.getItem('yadwor-user-data') || '{}'); } catch(e) { return {}; }
@@ -702,13 +729,21 @@ function _syncStateFromStorage() {
 // handleDraftVideo و uploadVideoToCloudinary مُعرَّفتان في shared.js
 
 async function publishPost() {
-  // دائماً اقرأ بيانات المستخدم الحقيقي من localStorage مباشرة
   _syncStateFromStorage();
-  const realUid      = _myUid();
-  const realUsername = _myUsername();
-  const realAvatar   = _myAvatar() || currentProfile().avatar || '';
-  const realName     = _myName()   || currentProfile().name   || 'مستخدم';
-  const realType     = _myType();
+  const realUid = _myUid();
+  if (!realUid) { showToast('يرجى تسجيل الدخول أولاً'); return; }
+
+  // جلب بيانات المستخدم الحقيقية من Firebase أولاً
+  let firebaseUser = null;
+  try {
+    const snap = await firebase.database().ref('users/' + realUid).once('value');
+    firebaseUser = snap.val();
+  } catch(e) {}
+
+  const realUsername = (firebaseUser && firebaseUser.username) || _myUsername();
+  const realAvatar   = (firebaseUser && firebaseUser.avatar)   || _myAvatar() || currentProfile().avatar || '';
+  const realName     = (firebaseUser && (firebaseUser.name || firebaseUser.displayName)) || _myName() || currentProfile().name || 'مستخدم';
+  const realType     = (firebaseUser && firebaseUser.accountType) || _myType();
   const roleLabels   = {institution:'مؤسسة تعليمية',teacher:'أستاذ',student:'تلميذ',influencer:'مؤثر تعليمي',user:'مستخدم'};
   const realRole     = roleLabels[realType] || 'مؤثر تعليمي';
 
