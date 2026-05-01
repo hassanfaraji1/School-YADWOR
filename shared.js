@@ -482,14 +482,17 @@ async function saveInteractionNotif(targetUid, notifObj) {
 // renderPostCard — بطاقة المنشور الرئيسية
 // ============================================================
 function _goToProfile(uid, username) {
-  const myUid      = localStorage.getItem('yadwor-uid')      || '';
-  const myUsername = localStorage.getItem('yadwor-username') || '';
-  // إذا كان نفس الشخص — اذهب لملفي بدون params
-  if (uid && uid === myUid) { window.location.href = 'profile.html'; return; }
-  if (!uid && username && username === myUsername) { window.location.href = 'profile.html'; return; }
-  // شخص آخر — استخدم ?uid= للتوافق مع profile.html
-  if (uid) { window.location.href = 'profile.html?uid=' + encodeURIComponent(uid); return; }
-  if (username) { window.location.href = 'profile.html?uid=' + encodeURIComponent(username); return; }
+  // دائماً أرسل uid في الـ URL — profile.html يحدد إذا كان ملفي أنا أم زائر
+  // هذا يضمن أن الضغط على اسم أي شخص يفتح ملفه الصحيح
+  if (uid) {
+    window.location.href = 'profile.html?uid=' + encodeURIComponent(uid);
+    return;
+  }
+  if (username) {
+    window.location.href = 'profile.html?uid=' + encodeURIComponent(username);
+    return;
+  }
+  // إذا لا يوجد uid ولا username — ملفي الشخصي
   window.location.href = 'profile.html';
 }
 
