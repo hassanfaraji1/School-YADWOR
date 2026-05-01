@@ -514,6 +514,7 @@ function getDefaultTab(type) {
 
 // ====================== جلب صور الأعضاء من Firebase ======================
 async function enrichAvatarsFromFirebase(members, containerId) {
+  // جلب أسماء وصور المستخدمين الحقيقية من Firebase
   for (const r of members) {
     if (!r.uid) continue;
     try {
@@ -2681,40 +2682,67 @@ function renderVisitorTabContent(tabId, vPosts) {
 // ====================== VISITOR PROFILE FROM URL ======================
 const _urlParams = new URLSearchParams(window.location.search);
 const _visitorUsername = _urlParams.get('username') || '';
-// uid param يُستخدم دائماً للتوجيه — يمكن أن يكون uid أو username
-const _visitorUid      = _urlParams.get('uid')      || '';
+// يدعم كلاً من ?uid= و ?id= للتوافق مع جميع صفحات التطبيق
+const _visitorUid = _urlParams.get('uid') || _urlParams.get('id') || '';
 let _visitorProfile = null;
 
 async function loadVisitorProfile(username, uid) {
-  // 1) جلب من Firebase بالـ uid
+  // 1) جلب من Firebase بالـ uid — هذا هو المصدر الأول والأدق
   if (uid) {
     try {
-      const userSnap = await _pDb().ref('users/' + uid).once('value'); const userData = userSnap.val();
-      if (userData && (userData.name || userData.avatar)) return userData;
-    } catch(e) {}
-  }
-  // 2) بحث بالـ username في Firebase
-  if (username) {
-    try {
-      const userSnap = await _pDb().ref('users').once('value'); const userData = userSnap.val();
+      const userSnap = await _pDb().ref('users/' + uid).once('value');
+      const userData = userSnap.val();
       if (userData) {
-        const all = userData;
-        if (all) {
-          const found = Object.values(all).find(u => u && u.username === username);
-          if (found && (found.name || found.avatar)) return found;
-        }
+        // إضافة uid دائماً للبيانات المُرجَعة
+        const result = { uid, ...userData };
+        // تحديث كاش shared.js إن كان موجوداً
+        if (typeof _userCache !== 'undefined') _userCache[uid] = result;
+        return result;
       }
     } catch(e) {}
   }
-  // 3) fallback: بناء من المنشورات
+  // 2) بحث بالـ username في Firebase (لو الـ uid غير معروف)
+  if (username) {
+    try {
+      const userSnap = await _pDb().ref('users').orderByChild('username').equalTo(username).once('value');
+      const userData = userSnap.val();
+      if (userData) {
+        const entries = Object.entries(userData);
+        if (entries.length) {
+          const [foundUid, foundData] = entries[0];
+          const result = { uid: foundUid, ...foundData };
+          if (typeof _userCache !== 'undefined') _userCache[foundUid] = result;
+          return result;
+        }
+      }
+    } catch(e) {
+      // fallback: بحث كامل
+      try {
+        const allSnap = await _pDb().ref('users').once('value');
+        const allUsers = allSnap.val();
+        if (allUsers) {
+          const found = Object.entries(allUsers).find(([,u]) => u && u.username === username);
+          if (found) {
+            const [foundUid, foundData] = found;
+            const result = { uid: foundUid, ...foundData };
+            if (typeof _userCache !== 'undefined') _userCache[foundUid] = result;
+            return result;
+          }
+        }
+      } catch(e2) {}
+    }
+  }
+  // 3) fallback من منشورات محلية
   const matchPost = state.posts.find(p =>
     (uid && p.uid === uid) || (username && p.username === username)
   );
   if (matchPost) {
     return {
-      name:     matchPost.author   || username || 'مستخدم',
+      uid:      matchPost.uid      || uid      || '',
+      name:     matchPost.name     || matchPost.author || username || 'مستخدم',
       username: matchPost.username || username || 'user',
       avatar:   matchPost.avatar   || '',
+      accountType: matchPost.accountType || '',
       bio: '', cover: '', followers: 0, following: 0, verified: false
     };
   }
