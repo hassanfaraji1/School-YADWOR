@@ -482,8 +482,8 @@ async function saveInteractionNotif(targetUid, notifObj) {
 // renderPostCard — بطاقة المنشور الرئيسية
 // ============================================================
 function _goToProfile(uid, username) {
-  // دائماً أرسل uid في الـ URL — profile.html يحدد إذا كان ملفي أنا أم زائر
-  // هذا يضمن أن الضغط على اسم أي شخص يفتح ملفه الصحيح
+  // دائماً أرسل ?uid= — profile.html تُحدد بنفسها إذا كان صاحب الملف أم زائر
+  // هذا يضمن أن كل ضغطة على اسم/صورة تفتح الملف الصحيح
   if (uid) {
     window.location.href = 'profile.html?uid=' + encodeURIComponent(uid);
     return;
@@ -492,7 +492,6 @@ function _goToProfile(uid, username) {
     window.location.href = 'profile.html?uid=' + encodeURIComponent(username);
     return;
   }
-  // إذا لا يوجد uid ولا username — ملفي الشخصي
   window.location.href = 'profile.html';
 }
 
@@ -1093,12 +1092,41 @@ async function submitComment() {
 // Sidebar
 // ============================================================
 function openSidebar() {
+  // يدعم كلا المعرّفين: sidebar-panel (home.html) و sidebar (صفحات أخرى)
+  const panel   = document.getElementById('sidebar-panel');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (panel) {
+    panel.style.transform = 'translateX(0)';
+  }
+  if (overlay) {
+    overlay.classList.remove('hidden');
+  }
+  // fallback للصفحات التي تستخدم id="sidebar" مع Tailwind
   const sb = document.getElementById('sidebar');
-  if (sb) sb.classList.remove('-translate-x-full');
+  if (sb && !panel) sb.classList.remove('-translate-x-full', 'hidden');
+
+  // إظهار روابط خاصة بنوع الحساب
+  try {
+    const pt = localStorage.getItem('yadwor-account-type')
+            || localStorage.getItem('yadwor-profile-type')
+            || 'influencer';
+    const showEx   = pt === 'teacher' || pt === 'institution';
+    const exLink   = document.getElementById('home-sidebar-exercises');
+    const resLink  = document.getElementById('home-sidebar-results');
+    const joinLink = document.getElementById('home-sidebar-join-requests');
+    if (exLink)   exLink.style.display   = showEx ? 'flex' : 'none';
+    if (resLink)  resLink.style.display  = showEx ? 'flex' : 'none';
+    if (joinLink) joinLink.style.display = pt === 'institution' ? 'flex' : 'none';
+  } catch(e) {}
 }
 function closeSidebar() {
+  const panel   = document.getElementById('sidebar-panel');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (panel)   panel.style.transform = 'translateX(100%)';
+  if (overlay) overlay.classList.add('hidden');
+  // fallback
   const sb = document.getElementById('sidebar');
-  if (sb) sb.classList.add('-translate-x-full');
+  if (sb && !panel) sb.classList.add('-translate-x-full');
 }
 
 // ============================================================
