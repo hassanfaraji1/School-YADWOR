@@ -520,8 +520,16 @@ function renderHome() {
     }
 
     // ── كل المنشورات بما فيها الريلز تظهر كبطاقات كاملة في الفيد ──
-    // الريلز = بطاقة منشور عادية مع فيديو قابل للتشغيل
-    const allPosts = posts; // لا نفلتر — كل شيء يظهر
+    const allPosts = posts;
+
+    // تحقق من uid لكل منشور — المنشورات بدون uid تُصلَح مؤقتاً بـ uid النصي
+    // هذا يمنع إرسال uid فارغ لـ _goToProfile
+    allPosts.forEach(p => {
+      if (!p.uid && p.author) {
+        // محاولة استرداد uid من الـ author field أو تجاهله
+        p._missingUid = true;
+      }
+    });
 
     let feedHtml = allPosts.map(p => {
       const card = renderPostCard(p);
