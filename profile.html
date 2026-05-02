@@ -830,57 +830,6 @@ function _renderVisitorProfile(vp, vPosts) {
         <div id="visitor-tab-content" class="pt-4">${renderVisitorTabContent(vTabs[0].id, vPosts)}</div>
       </div>
     </div>`;
-
-    // تحديث أعداد tabs وإحصائيات الأساتذة/التلاميذ من Firebase بعد رندر الصفحة
-    if (vAccountType === 'institution') {
-      const _vInstIdForUpdate = _visitorUid || _visitorUsername;
-      (async () => {
-        try {
-          const db = _pDb();
-          if (!db) return;
-          const jrSnap = await db.ref('joinRequests/' + _vInstIdForUpdate).once('value');
-          const jrData = jrSnap.val();
-          if (!jrData) return;
-          const allAccepted = Object.values(jrData).filter(r => r && r.status === 'accepted');
-          const teachersCount = allAccepted.filter(r => r.role === 'teacher').length;
-          const studentsCount = allAccepted.filter(r => r.role === 'student').length;
-
-          // دمج الطلبات في state
-          allAccepted.forEach(r => {
-            const idx = state.joinRequests.findIndex(x => x.id === r.id);
-            if (idx === -1) state.joinRequests.push(r); else state.joinRequests[idx] = r;
-          });
-
-          // تحديث عداد tab الأساتذة
-          const teacherTabBtn = document.getElementById('vtab-teachers');
-          if (teacherTabBtn) {
-            const cntEl = teacherTabBtn.querySelector('span:last-child');
-            if (cntEl && !cntEl.classList.contains('absolute')) cntEl.textContent = teachersCount;
-          }
-
-          // تحديث عداد tab التلاميذ
-          const studentTabBtn = document.getElementById('vtab-students');
-          if (studentTabBtn) {
-            const cntEl = studentTabBtn.querySelector('span:last-child');
-            if (cntEl && !cntEl.classList.contains('absolute')) cntEl.textContent = studentsCount;
-          }
-
-          // تحديث الإحصائيات في البطاقة (المربع الثالث = أستاذ، الرابع = تلميذ)
-          const statGrid = document.querySelector('.grid.grid-cols-4.divide-x');
-          if (statGrid) {
-            const statDivs = statGrid.querySelectorAll('div');
-            if (statDivs[2]) statDivs[2].querySelector('.text-\\[14px\\],.font-extrabold') && (statDivs[2].querySelector('[style*="color:#1e40af"]').textContent = teachersCount);
-            if (statDivs[3]) statDivs[3].querySelector('[style*="color:#1e40af"]') && (statDivs[3].querySelector('[style*="color:#1e40af"]').textContent = studentsCount);
-          }
-
-          // إذا كان المستخدم في tab التلاميذ حالياً، أعِد رندره
-          const studentsTabActive = document.querySelector('#vtab-students .absolute');
-          if (studentsTabActive) {
-            document.getElementById('visitor-tab-content').innerHTML = renderVisitorTabContent('students', vPosts);
-          }
-        } catch(e) {}
-      })();
-    }
     return;
   }
 
@@ -958,7 +907,40 @@ function _doRenderMyProfile(myPosts, _fbUserData) {
   const myUidForStat = localStorage.getItem('yadwor-uid') || '';
   let stat3 = 0;
   if (state.profileType === 'institution') {
-    stat3 = prof.teachers || 0;
+    // حساب الأساتذة من state.joinRequests أولاً
+    stat3 = (state.joinRequests||[]).filter(r =>
+      r.role === 'teacher' && r.status === 'accepted' &&
+      (r.institutionUid === myUidForStat || r.institutionId === myUidForStat)
+    ).length;
+    // جلب من Firebase بشكل async وتحديث DOM
+    (async () => {
+      try {
+        const db = window.firebase && window.firebase.database ? window.firebase.database() : null;
+        if (!db) return;
+        const jrSnap = await db.ref('joinRequests/' + myUidForStat).once('value');
+        const jrData = jrSnap.val();
+        if (!jrData) return;
+        const allReqs = Object.values(jrData).filter(r => r && r.status === 'accepted');
+        const teachersCount = allReqs.filter(r => r.role === 'teacher').length;
+        const studentsCount = allReqs.filter(r => r.role === 'student').length;
+        // دمج في state
+        allReqs.forEach(r => {
+          if (!r.id) return;
+          const idx = state.joinRequests.findIndex(x => x.id === r.id);
+          if (idx === -1) state.joinRequests.push(r); else state.joinRequests[idx] = r;
+        });
+        // تحديث DOM مباشرة
+        const s3El = document.getElementById('my-stat3-val');
+        const s4El = document.getElementById('my-stat4-val');
+        if (s3El) s3El.textContent = teachersCount;
+        if (s4El) s4El.textContent = studentsCount;
+        // تحديث عدادات tabs
+        const tabT = document.getElementById('ptab-teachers');
+        const tabS = document.getElementById('ptab-students');
+        if (tabT) { const sp = tabT.querySelectorAll('span:not(.absolute)'); if(sp.length>=2) sp[1].textContent = teachersCount; }
+        if (tabS) { const sp = tabS.querySelectorAll('span:not(.absolute)'); if(sp.length>=2) sp[1].textContent = studentsCount; }
+      } catch(e) {}
+    })();
   } else if (state.profileType === 'teacher') {
     // عدد تلاميذ الأستاذ المطابقين
     const teacherReqStat = (state.joinRequests||[]).find(r =>
@@ -986,7 +968,8 @@ function _doRenderMyProfile(myPosts, _fbUserData) {
         }).length
       : 0;
   }
-  const stat4 = state.profileType==='institution' ? formatNumber(prof.students||0) : 0;
+  // للمؤسسة: stat4 يُحدَّث لاحقاً بشكل async من Firebase (انظر أعلاه)
+  const stat4 = state.profileType==='institution' ? ((state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted'&&(r.institutionUid===myUidForStat||r.institutionId===myUidForStat)).length) : 0;
   const stat3label = state.profileType==='institution' ? 'أستاذ' : state.profileType==='teacher' ? 'تلاميذ' : state.profileType==='student' ? 'أساتذة' : 'منشورات';
   const stat4label = state.profileType==='institution' ? 'تلميذ' : state.profileType==='teacher' ? 'كتب' : state.profileType==='student' ? 'ألقاب' : 'وسائط';
   const displayName = prof.name || state.settingsName || localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || '';
@@ -1084,8 +1067,8 @@ function _doRenderMyProfile(myPosts, _fbUserData) {
           <div class="mt-3 grid grid-cols-4 divide-x divide-x-reverse divide-zinc-100">
             <div class="text-center px-1"><div class="text-[14px] font-extrabold">${formatNumber(prof.followers)}</div><div class="text-[9px] text-zinc-500 font-bold mt-0.5">متابع</div></div>
             <div class="text-center px-1"><div class="text-[14px] font-extrabold">${formatNumber(prof.following)}</div><div class="text-[9px] text-zinc-500 font-bold mt-0.5">يتابع</div></div>
-            <div class="text-center px-1"><div class="text-[14px] font-extrabold" style="color:#1e40af;">${stat3}</div><div class="text-[9px] font-bold mt-0.5" style="color:#4b5563;">${stat3label}</div></div>
-            <div class="text-center px-1"><div class="text-[14px] font-extrabold" style="color:#1e40af;">${stat4}</div><div class="text-[9px] font-bold mt-0.5" style="color:#4b5563;">${stat4label}</div></div>
+            <div class="text-center px-1"><div id="my-stat3-val" class="text-[14px] font-extrabold" style="color:#1e40af;">${stat3}</div><div class="text-[9px] font-bold mt-0.5" style="color:#4b5563;">${stat3label}</div></div>
+            <div class="text-center px-1"><div id="my-stat4-val" class="text-[14px] font-extrabold" style="color:#1e40af;">${stat4}</div><div class="text-[9px] font-bold mt-0.5" style="color:#4b5563;">${stat4label}</div></div>
           </div>
         </div>
 
@@ -2692,77 +2675,8 @@ function renderVisitorTabContent(tabId, vPosts) {
       </div>`).join('')}</div>`;
   }
   if(tabId === 'students') {
-    // تحديد نوع الملف المُزار
-    const vAccountTypeForStudents = _visitorProfile ? (_visitorProfile.accountType || _visitorProfile.type || 'user') : 'user';
-
-    // ── حالة مؤسسة: نعرض كل التلاميذ المقبولين مباشرة ──
-    if (vAccountTypeForStudents === 'institution') {
-      const vInstId = _visitorUid || _visitorUsername;
-      const gridIdInst = 'visitor-students-grid';
-      setTimeout(async () => {
-        const containerInst = document.getElementById(gridIdInst);
-        if (!containerInst) return;
-        // جلب كل الطلبات المقبولة من Firebase مباشرة
-        let allInstStudents = (state.joinRequests || []).filter(r =>
-          r.role === 'student' && r.status === 'accepted' &&
-          (r.institutionUid === vInstId || r.institutionId === vInstId)
-        );
-        // إذا لم نجد في state، نجلب من Firebase
-        if (!allInstStudents.length) {
-          try {
-            const db = _pDb();
-            const jrSnap = await db.ref('joinRequests/' + vInstId).once('value');
-            const jrData = jrSnap.val();
-            if (jrData) {
-              allInstStudents = Object.values(jrData).filter(r => r && r.status === 'accepted' && r.role === 'student');
-              // دمج في state
-              Object.values(jrData).forEach(r => {
-                if (!r || !r.id) return;
-                const idx = state.joinRequests.findIndex(x => x.id === r.id);
-                if (idx === -1) state.joinRequests.push(r); else state.joinRequests[idx] = r;
-              });
-            }
-          } catch(e) {}
-        }
-        if (!allInstStudents.length) {
-          containerInst.innerHTML = emptyState('لم ينضم أي تلميذ بعد');
-          return;
-        }
-        containerInst.innerHTML = allInstStudents.map(r => {
-          const sUid = r.uid || r.userId || '';
-          const profileLink = sUid ? `profile.html?uid=${encodeURIComponent(sUid)}` : '#';
-          const name = r.fullName || 'تلميذ';
-          const sub = r.levelName || '';
-          const avatarSrc = r.avatarUrl || r.avatar || '';
-          const avatarEl = avatarSrc
-            ? `<img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover absolute inset-0 w-full h-full"
-                onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
-               <div class="absolute inset-0 hidden items-center justify-center rounded-full bg-sky-500 text-white text-[15px] font-extrabold">${name.charAt(0).toUpperCase()}</div>`
-            : `<div class="absolute inset-0 flex items-center justify-center rounded-full bg-sky-500 text-white text-[15px] font-extrabold">${name.charAt(0).toUpperCase()}</div>`;
-          return `<div onclick="window.location.href='${profileLink}'" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition cursor-pointer">
-            <div class="relative h-11 w-11 shrink-0 rounded-full overflow-hidden bg-sky-100">${avatarEl}</div>
-            <div class="flex-1 min-w-0">
-              <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${name}</h3>
-              <p class="text-[11px] text-zinc-400 font-medium truncate">${sub}</p>
-            </div>
-            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-50 border border-zinc-200">
-              <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-500" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
-            </div>
-          </div>`;
-        }).join('');
-        enrichAvatarsFromFirebase(allInstStudents, gridIdInst);
-      }, 0);
-      return `<div id="${gridIdInst}" class="grid gap-2">${[1,2,3].map(()=>`
-        <div class="flex items-center gap-3 rounded-[16px] bg-white border border-zinc-100 p-3">
-          <div class="shimmer h-11 w-11 rounded-full shrink-0"></div>
-          <div class="flex-1 space-y-1.5">
-            <div class="shimmer h-3.5 w-28 rounded-full"></div>
-            <div class="shimmer h-3 w-20 rounded-full"></div>
-          </div>
-        </div>`).join('')}</div>`;
-    }
-
-    // ── حالة أستاذ: نعرض تلاميذه المطابقين له ──
+    // إذا كان الملف المُزار هو أستاذ: نعرض تلاميذه المطابقين له
+    const vId = _visitorUid || _visitorUsername;
     const gridIdVS = 'visitor-students-grid';
     // عرض shimmer أثناء التحميل
     setTimeout(async () => {
@@ -3167,21 +3081,6 @@ async function syncJoinRequestsFromFirebase() {
     state._viewingUsername = _visitorUsername || _visitorUid || '';
     await syncJoinRequestsFromFirebase();
     _visitorProfile = await loadVisitorProfile(_visitorUsername, _visitorUid);
-    // بعد جلب طلبات الانضمام: حدّث أعداد الأساتذة والتلاميذ في بيانات المؤسسة
-    if (_visitorProfile && (_visitorProfile.accountType === 'institution' || _visitorProfile.type === 'institution')) {
-      const _vInstId = _visitorUid || _visitorUsername;
-      const _acceptedTeachersCount = (state.joinRequests || []).filter(r =>
-        r.role === 'teacher' && r.status === 'accepted' &&
-        (r.institutionUid === _vInstId || r.institutionId === _vInstId)
-      ).length;
-      const _acceptedStudentsCount = (state.joinRequests || []).filter(r =>
-        r.role === 'student' && r.status === 'accepted' &&
-        (r.institutionUid === _vInstId || r.institutionId === _vInstId)
-      ).length;
-      // تحديث بيانات البروفايل بالأرقام الحقيقية
-      _visitorProfile.teachers = _acceptedTeachersCount;
-      _visitorProfile.students = _acceptedStudentsCount;
-    }
     // التحقق من أن البروفايل تم جلبه — إذا فشل أظهر رسالة
     if (!_visitorProfile) {
       document.body.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:80vh;gap:16px;font-family:Tajawal,sans-serif;direction:rtl;">
