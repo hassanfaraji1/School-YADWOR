@@ -547,10 +547,11 @@ async function enrichAvatarsFromFirebase(members, containerId) {
 
 function renderProfile() {
   // ── إذا كنا نعرض ملف شخص آخر (زائر) ──
-  if (state._viewingUsername && _visitorProfile) {
+  // نتحقق من _viewingUid أو _viewingUsername — أي منهما كافٍ
+  if ((_visitorUid || state._viewingUsername) && _visitorProfile) {
     const vp = _visitorProfile;
-    // جلب منشورات الزائر من Firebase مباشرة (getUserPosts من shared.js)
-    const targetUid = _visitorUid || '';
+    // جلب منشورات الزائر بـ uid دائماً (الأدق) — ثم username كـ fallback
+    const targetUid = _visitorUid || state._viewingUid || '';
     getUserPosts(targetUid, function(vPosts) {
       _renderVisitorProfile(vp, vPosts);
     });
@@ -1101,11 +1102,10 @@ function renderProfileTabContent() {
   function personCard(r) {
     const uid = r.uid || r.userId || '';
     const username = r.username || '';
-    const myUid = localStorage.getItem('yadwor-uid') || '';
-    // بناء رابط التوجيه — دائماً استخدم ?uid= للتوافق مع _goToProfile
+    // دائماً استخدم ?uid= — profile.html تُحدد إذا كان صاحب الملف أم زائر
     let navUrl = 'profile.html';
-    if (uid && uid !== myUid) navUrl = 'profile.html?uid=' + encodeURIComponent(uid);
-    else if (!uid && username) navUrl = 'profile.html?uid=' + encodeURIComponent(username);
+    if (uid) navUrl = 'profile.html?uid=' + encodeURIComponent(uid);
+    else if (username) navUrl = 'profile.html?uid=' + encodeURIComponent(username);
     // جلب الصورة: من الطلب مباشرة، أو من المنشورات، أو ui-avatars كـ fallback
     const fromPost = uid
       ? state.posts.find(p => p.uid && String(p.uid) === String(uid))
@@ -2693,8 +2693,8 @@ async function loadVisitorProfile(username, uid) {
       const userSnap = await _pDb().ref('users/' + uid).once('value');
       const userData = userSnap.val();
       if (userData) {
-        // إضافة uid دائماً للبيانات المُرجَعة
-        const result = { uid, ...userData };
+        // uid يُحفظ دائماً في البيانات المُرجَعة ولا يُستبدل
+        const result = { ...userData, uid };
         // تحديث كاش shared.js إن كان موجوداً
         if (typeof _userCache !== 'undefined') _userCache[uid] = result;
         return result;
@@ -2963,18 +2963,31 @@ async function syncJoinRequestsFromFirebase() {
   await syncAccountTypeFromFirebase();
 
   // تحديد هل نعرض ملف شخص آخر أم ملفي أنا
-  // الاعتماد على uid الفريد أولاً — إذا uid مختلف فهو شخص آخر
-  const isVisitor = (_visitorUid && _visitorUid !== myUid)
-                 || (!_visitorUid && _visitorUsername && _visitorUsername !== myUsername);
+  // القاعدة: إذا وُجد ?uid= في URL وكان مختلفاً عن myUid → زائر
+  //          إذا كان ?uid= هو myUid نفسه → أنا (صاحب الملف)
+  //          إذا لا يوجد ?uid= أصلاً → ملفي
+  const isVisitor = (
+    (_visitorUid && _visitorUid !== myUid) ||
+    (!_visitorUid && _visitorUsername && _visitorUsername !== myUsername)
+  );
 
   if (isVisitor) {
     // ملف شخص آخر — حفظ uid للفلترة الدقيقة
-    state._viewingUid      = _visitorUid;
-    state._viewingUsername = _visitorUsername || _visitorUid;
+    state._viewingUid      = _visitorUid || '';
+    state._viewingUsername = _visitorUsername || _visitorUid || '';
     await syncJoinRequestsFromFirebase();
     _visitorProfile = await loadVisitorProfile(_visitorUsername, _visitorUid);
+    // التحقق من أن البروفايل تم جلبه — إذا فشل أظهر رسالة
+    if (!_visitorProfile) {
+      document.body.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:80vh;gap:16px;font-family:Tajawal,sans-serif;direction:rtl;">
+        <p style="font-size:18px;font-weight:800;color:#18181b;">لم يُعثر على هذا الملف الشخصي</p>
+        <p style="font-size:14px;color:#71717a;">ربما تم حذف الحساب أو الرابط غير صحيح</p>
+        <button onclick="history.back()" style="margin-top:8px;padding:12px 24px;background:#18181b;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif;">العودة</button>
+      </div>`;
+      return;
+    }
   } else {
-    // ملفي أنا — لا يوجد viewing
+    // ملفي أنا — لا يوجد viewing (سواء كان ?uid=myUid أو لا params)
     state._viewingUid      = null;
     state._viewingUsername = null;
     await syncJoinRequestsFromFirebase();
