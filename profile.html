@@ -527,12 +527,12 @@ async function enrichAvatarsFromFirebase(members, containerId) {
       if (!r.uid && userData.uid) r.uid = userData.uid;
       const container = document.getElementById(containerId);
       if (!container) continue;
-      // البحث عن البطاقة بواسطة data-uid أو onclick يحتوي uid
+      // البحث عن البطاقة بواسطة onclick يحتوي uid
       const allCards = container.querySelectorAll('[onclick]');
       allCards.forEach(card => {
         const onclickVal = card.getAttribute('onclick') || '';
-        if (!onclickVal.includes(r.uid)) return;
-        // تحديث onclick للتأكد أن uid صحيح
+        if (!onclickVal.includes(encodeURIComponent(r.uid)) && !onclickVal.includes(r.uid)) return;
+        // تحديث onclick — دائماً ?uid= بغض النظر عن هوية المستخدم الحالي
         card.setAttribute('onclick', `window.location.href='profile.html?uid=${encodeURIComponent(r.uid)}'`);
         if (!userData.avatar) return;
         const avatarContainer = card.querySelector('.rounded-full.overflow-hidden');
@@ -553,6 +553,16 @@ function renderProfile() {
     // جلب منشورات الزائر بـ uid دائماً (الأدق) — ثم username كـ fallback
     const targetUid = _visitorUid || state._viewingUid || '';
     getUserPosts(targetUid, function(vPosts) {
+      // تخزين منشورات الزائر في state.posts حتى تعمل getVisitorPosts بشكل صحيح
+      if (targetUid) {
+        state._viewingUid = targetUid;
+        // دمج منشورات الزائر في state.posts (بدون تكرار)
+        vPosts.forEach(p => {
+          const idx = state.posts.findIndex(sp => sp.id === p.id);
+          if (idx === -1) state.posts.push(p);
+          else state.posts[idx] = p;
+        });
+      }
       _renderVisitorProfile(vp, vPosts);
     });
     return;
@@ -788,44 +798,43 @@ function _renderMyProfile(myPosts) {
     firebase.database().ref('users/' + myUid).once('value').then(function(snap) {
       const fbUser = snap.val();
       if (fbUser) {
-        // تحديث localStorage من Firebase إذا كانت البيانات ناقصة
-        const storedName = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || '';
-        if (!storedName && fbUser.name) {
-          localStorage.setItem('yadwor-settings-name', fbUser.name);
+        // تحديث localStorage من Firebase (مزامنة ثانوية فقط)
+        if (fbUser.name || fbUser.displayName) {
+          localStorage.setItem('yadwor-settings-name', fbUser.name || fbUser.displayName);
+          localStorage.setItem('yadwor-user-name', fbUser.name || fbUser.displayName);
         }
-        if (fbUser.avatar && !localStorage.getItem('yadwor-avatar-preview')) {
-          localStorage.setItem('yadwor-avatar-preview', fbUser.avatar);
-        }
-        if (fbUser.accountType && !localStorage.getItem('yadwor-account-type')) {
+        if (fbUser.avatar) localStorage.setItem('yadwor-avatar-preview', fbUser.avatar);
+        if (fbUser.accountType) {
           localStorage.setItem('yadwor-account-type', fbUser.accountType);
           state.profileType = fbUser.accountType;
         }
+        if (fbUser.username) localStorage.setItem('yadwor-username', fbUser.username);
       }
-      _doRenderMyProfile(myPosts);
+      _doRenderMyProfile(myPosts, fbUser || null);
     }).catch(function() {
-      _doRenderMyProfile(myPosts);
+      _doRenderMyProfile(myPosts, null);
     });
   } else {
-    _doRenderMyProfile(myPosts);
+    _doRenderMyProfile(myPosts, null);
   }
 }
 
-function _doRenderMyProfile(myPosts) {
-  // ── جلب البيانات الحقيقية للمستخدم من localStorage ──
-  let ru = {};
-  try { ru = JSON.parse(localStorage.getItem('yadwor-user-data') || '{}'); } catch(e) {}
-  // دائماً استخدم بيانات المستخدم الحالي من localStorage
+function _doRenderMyProfile(myPosts, _fbUserData) {
+  // ── جلب البيانات من Firebase أولاً (مررت من _renderMyProfile) ──
+  // _fbUserData = البيانات الحقيقية من Firebase
+  // localStorage يُستخدم فقط كـ fallback إذا لم تكن Firebase أعادت بيانات
+  const fbU = _fbUserData || {};
   const prof = {
-    name:     localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || ru.name || '',
-    username: localStorage.getItem('yadwor-username') || ru.username || '',
-    avatar:   localStorage.getItem('yadwor-avatar-preview') || ru.avatar || '',
-    cover:    localStorage.getItem('yadwor-cover-preview')  || ru.cover  || 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1400&auto=format&fit=crop',
-    bio:      localStorage.getItem('yadwor-bio') || ru.bio || '',
-    location: localStorage.getItem('yadwor-location') || ru.location || '',
-    followers: ru.followers || 0,
-    following: ru.following || 0,
-    verified:  ru.verified  || false,
-    institution: ru.institution || ''
+    name:     fbU.name     || fbU.displayName || localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || '',
+    username: fbU.username || localStorage.getItem('yadwor-username') || '',
+    avatar:   fbU.avatar   || localStorage.getItem('yadwor-avatar-preview') || '',
+    cover:    fbU.cover    || localStorage.getItem('yadwor-cover-preview')  || 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1400&auto=format&fit=crop',
+    bio:      fbU.bio      || localStorage.getItem('yadwor-bio') || '',
+    location: fbU.location || localStorage.getItem('yadwor-location') || '',
+    followers: fbU.followers || 0,
+    following: fbU.following || 0,
+    verified:  fbU.verified  || false,
+    institution: fbU.institution || ''
   };
 
   const tabs = getProfileTabs();
@@ -2416,6 +2425,8 @@ function cancelMyJoinRequest(institutionId) {
 
 // تحديث فلترة منشورات الزائر بشكل صحيح عند تبديل التبويب
 function getVisitorPosts() {
+  // تعيد منشورات الزائر المحفوظة في state بعد جلبها من Firebase
+  // هذه الدالة تُستخدم فقط عند تبديل التبويبات (بعد أن يكون getUserPosts قد استُدعى)
   if (state._viewingUid) {
     return state.posts.filter(p => p.uid && String(p.uid) === String(state._viewingUid));
   }
@@ -2459,10 +2470,9 @@ function renderVisitorTabContent(tabId, vPosts) {
       const accepted = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted'&&(r.institutionId===vId||r.institutionUid===vId));
       if(!accepted.length) return emptyState('لم ينضم أي أستاذ بعد');
       return `<div class="grid gap-2">${accepted.map((r)=>{
-        const tUid = r.uid || r.userId || '';
+      const tUid = r.uid || r.userId || '';
         const tUsername = r.username || r.fullName || '';
-        const myUidV = localStorage.getItem('yadwor-uid') || '';
-        const profileLink = (tUid && tUid !== myUidV) ? `profile.html?uid=${tUid}` : (!tUid && tUsername ? `profile.html?uid=${tUsername}` : (tUid === myUidV ? 'profile.html' : '#'));
+        const profileLink = tUid ? `profile.html?uid=${encodeURIComponent(tUid)}` : (tUsername ? `profile.html?uid=${encodeURIComponent(tUsername)}` : '#');
         const fromPost = tUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(tUid)) : state.posts.find(p=>p.username===tUsername);
         const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
         const avatarEl = avatarSrc
@@ -2544,8 +2554,7 @@ function renderVisitorTabContent(tabId, vPosts) {
       containerVT.innerHTML = matchedVT.map((r) => {
         const tUid = r.uid || r.userId || '';
         const tUsername = r.username || r.fullName || '';
-        const myUidV = localStorage.getItem('yadwor-uid') || '';
-        const profileLink = (tUid && tUid !== myUidV) ? `profile.html?uid=${tUid}` : (!tUid && tUsername ? `profile.html?uid=${tUid || tUsername}` : (tUid === myUidV ? 'profile.html' : '#'));
+        const profileLink = tUid ? `profile.html?uid=${encodeURIComponent(tUid)}` : (tUsername ? `profile.html?uid=${encodeURIComponent(tUsername)}` : '#');
         const fromPost = tUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(tUid)) : state.posts.find(p=>p.username===tUsername);
         const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
         const avatarEl = avatarSrc
@@ -2639,8 +2648,7 @@ function renderVisitorTabContent(tabId, vPosts) {
       containerVS.innerHTML = matchedVS.map((r) => {
         const sUid = r.uid || r.userId || '';
         const sUsername = r.username || r.fullName || '';
-        const myUidVS = localStorage.getItem('yadwor-uid') || '';
-        const profileLink = (sUid && sUid !== myUidVS) ? `profile.html?uid=${sUid}` : (!sUid && sUsername ? `profile.html?uid=${sUid || sUsername}` : (sUid === myUidVS ? 'profile.html' : '#'));
+        const profileLink = sUid ? `profile.html?uid=${encodeURIComponent(sUid)}` : (sUsername ? `profile.html?uid=${encodeURIComponent(sUsername)}` : '#');
         const fromPost = sUid ? state.posts.find(p=>p.uid&&String(p.uid)===String(sUid)) : state.posts.find(p=>p.username===sUsername);
         const avatarSrc = r.avatarUrl || r.avatar || (fromPost&&fromPost.avatar) || '';
         const avatarEl = avatarSrc
@@ -2716,7 +2724,7 @@ async function loadVisitorProfile(username, uid) {
         }
       }
     } catch(e) {
-      // fallback: بحث كامل
+      // fallback: بحث كامل في كل المستخدمين
       try {
         const allSnap = await _pDb().ref('users').once('value');
         const allUsers = allSnap.val();
@@ -2732,20 +2740,7 @@ async function loadVisitorProfile(username, uid) {
       } catch(e2) {}
     }
   }
-  // 3) fallback من منشورات محلية
-  const matchPost = state.posts.find(p =>
-    (uid && p.uid === uid) || (username && p.username === username)
-  );
-  if (matchPost) {
-    return {
-      uid:      matchPost.uid      || uid      || '',
-      name:     matchPost.name     || matchPost.author || username || 'مستخدم',
-      username: matchPost.username || username || 'user',
-      avatar:   matchPost.avatar   || '',
-      accountType: matchPost.accountType || '',
-      bio: '', cover: '', followers: 0, following: 0, verified: false
-    };
-  }
+  // 3) لم يُعثر على الحساب في Firebase — إرجاع null (سيُظهر رسالة "لم يُعثر على الملف")
   return null;
 }
 
@@ -2956,8 +2951,26 @@ async function syncJoinRequestsFromFirebase() {
 
 // Init
 (async function() {
-  const myUid      = localStorage.getItem('yadwor-uid')      || '';
-  const myUsername = localStorage.getItem('yadwor-username') || '';
+  // محاولة جلب myUid من localStorage أولاً، ثم من Firebase Auth كـ fallback
+  let myUid      = localStorage.getItem('yadwor-uid')      || '';
+  let myUsername = localStorage.getItem('yadwor-username') || '';
+
+  // إذا لم يكن myUid في localStorage، حاول جلبه من Firebase Auth
+  if (!myUid && window.firebase && firebase.auth) {
+    try {
+      await new Promise(resolve => {
+        const unsub = firebase.auth().onAuthStateChanged(user => {
+          if (user) {
+            myUid = user.uid;
+            localStorage.setItem('yadwor-uid', user.uid);
+          }
+          unsub();
+          resolve();
+        });
+        setTimeout(resolve, 3000); // timeout 3 ثوانٍ
+      });
+    } catch(e) {}
+  }
 
   // مزامنة نوع الحساب من Firebase (قد يكون تغيّر بعد قبول طلب انضمام)
   await syncAccountTypeFromFirebase();
