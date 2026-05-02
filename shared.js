@@ -496,19 +496,21 @@ async function saveInteractionNotif(targetUid, notifObj) {
 // ============================================================
 function _goToProfile(uid, username) {
   // دائماً أرسل ?uid= في URL — profile.html تُحدد هل هو صاحب الملف أم زائر
+  // الأولوية: uid دائماً — username فقط إذا لم يكن uid موجوداً
   const resolvedUid = (uid && String(uid).trim()) || '';
-  const resolvedUsername = (username && String(username).trim()) || '';
 
   if (resolvedUid) {
     window.location.href = 'profile.html?uid=' + encodeURIComponent(resolvedUid);
     return;
   }
-  if (resolvedUsername) {
-    window.location.href = 'profile.html?uid=' + encodeURIComponent(resolvedUsername);
-    return;
-  }
-  // لا uid ولا username — افتح ملفي الشخصي
+  // لا uid — افتح ملفي الشخصي (الحالة الوحيدة المشروعة)
   window.location.href = 'profile.html';
+}
+
+// دالة موحدة لفتح أي ملف شخصي بـ uid — تُستخدم في جميع الصفحات
+function openProfile(uid) {
+  if (!uid || !String(uid).trim()) return;
+  window.location.href = 'profile.html?uid=' + encodeURIComponent(String(uid).trim());
 }
 
 // ====================== READ MORE helper ======================
