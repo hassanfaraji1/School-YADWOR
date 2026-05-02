@@ -303,12 +303,65 @@
 
 <script src="shared.js"></script>
 <script>
+// ======= _pDb() — دالة موحدة للوصول إلى Firebase Database =======
+// يجب تعريفها قبل أي استخدام في profile.html
+function _pDb() {
+  try {
+    if (window.firebase && window.firebase.database) {
+      return window.firebase.database();
+    }
+  } catch(e) {}
+  // إرجاع كائن وهمي لمنع أخطاء TypeError: cannot read property 'ref' of null
+  return {
+    ref: function() {
+      return {
+        once: function() { return Promise.resolve({ val: function() { return null; } }); },
+        set: function() { return Promise.resolve(); },
+        update: function() { return Promise.resolve(); },
+        remove: function() { return Promise.resolve(); },
+        on: function() {},
+        orderByChild: function() { return this; },
+        equalTo: function() { return this; }
+      };
+    }
+  };
+}
+// ================================================================
+
 const appCurrency = localStorage.getItem('yadwor-currency') || 'DH';
 
-// joinedInstitution: تُعيّن true عندما يتم قبول الشخص في المؤسسة
-if (typeof state !== 'undefined' && state.joinedInstitution === undefined) {
-  state.joinedInstitution = localStorage.getItem('yadwor-joined-institution') === 'true';
+// تهيئة خصائص state الخاصة بـ profile.html إذا لم تكن موجودة
+if (typeof state !== 'undefined') {
+  if (state.profileType === undefined)
+    state.profileType = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || 'influencer';
+  if (state.activeTab === undefined)
+    state.activeTab = 'posts';
+  if (state.joinStep === undefined)
+    state.joinStep = 1;
+  if (state.joinRole === undefined)
+    state.joinRole = null;
+  if (state.selectedLevel === undefined)
+    state.selectedLevel = '';
+  if (state.selectedSubjects === undefined)
+    state.selectedSubjects = [];
+  if (state.institutionCatalog === undefined)
+    state.institutionCatalog = {};
+  if (state.settingsName === undefined)
+    state.settingsName = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || '';
+  if (state.settingsAccountType === undefined)
+    state.settingsAccountType = state.profileType;
+  if (state.isFollowing === undefined)
+    state.isFollowing = false;
+  if (state._viewingUid === undefined)
+    state._viewingUid = null;
+  if (state._viewingUsername === undefined)
+    state._viewingUsername = null;
+  if (state.joinedInstitution === undefined)
+    state.joinedInstitution = localStorage.getItem('yadwor-joined-institution') === 'true';
 }
+
+// joinedInstitution: تُعيّن true عندما يتم قبول الشخص في المؤسسة
+// (تهيئتها تمت بالأعلى بشكل موحد)
 // ====================== تنظيف — بدون localStorage للمنشورات ======================
 // المنشورات تأتي فقط من Firebase عبر shared.js
 // ====================== INSTITUTION INFO MODAL ======================
@@ -348,13 +401,13 @@ async function showInstitutionInfoModal() {
   // إذا وجدنا مؤسسة محلياً، نجلب من Firebase مسار تلك المؤسسة تحديداً
   const knownInstUid = localAccepted ? (localAccepted.institutionUid || localAccepted.institutionId || '') : '';
   if (knownInstUid) {
-    try {
-      const jrSnap = await _pDb().ref('joinRequests/' + knownInstUid).once('value'); const jrData = jrSnap.val();
-      if (jrData) {
-        const data = jrData;
-        if (data) {
-          const fbReqs = Object.values(data).filter(r => r && r.id);
-          // دمج مع state.joinRequests
+    const db = _pDb();
+    if (db) {
+      try {
+        const jrSnap = await db.ref('joinRequests/' + knownInstUid).once('value');
+        const jrData = jrSnap.val();
+        if (jrData) {
+          const fbReqs = Object.values(jrData).filter(r => r && r.id);
           fbReqs.forEach(r => {
             const idx = allRequests.findIndex(x => x.id === r.id);
             if (idx === -1) allRequests.push(r); else allRequests[idx] = r;
@@ -362,8 +415,8 @@ async function showInstitutionInfoModal() {
           state.joinRequests = allRequests;
           localStorage.setItem('yadwor-join-requests', JSON.stringify(allRequests));
         }
-      }
-    } catch(e) {}
+      } catch(e) {}
+    }
   }
 
   const myReq = allRequests.find(r =>
@@ -377,13 +430,16 @@ async function showInstitutionInfoModal() {
     // حاول جلب اسم المؤسسة من Firebase
     const instUid = myReq.institutionUid || myReq.institutionId || '';
     if (instUid) {
-      try {
-        const userSnap = await _pDb().ref('users/' + instUid).once('value'); const userData = userSnap.val();
-        if (userData) {
-          const d = userData;
-          if (d && d.name) institutionName = d.name;
-        }
-      } catch(e) {}
+      const db2 = _pDb();
+      if (db2) {
+        try {
+          const userSnap = await db2.ref('users/' + instUid).once('value'); const userData = userSnap.val();
+          if (userData) {
+            const d = userData;
+            if (d && d.name) institutionName = d.name;
+          }
+        } catch(e) {}
+      }
     }
     if (!institutionName) institutionName = myReq.institutionUsername || myReq.institutionName || 'مؤسسة غير معروفة';
     institutionSub = myReq.levelName ? `${myReq.levelName} — ${(myReq.subjects||[]).map(s=>s.name||s).join('، ')}` : '';
@@ -471,10 +527,8 @@ function updateSidebarButtons() {
 
 // ====================== GOTO CHAT ======================
 function goToChat() {
-  const prof = profiles[state.profileType];
-  const name = encodeURIComponent(prof.name);
-  const avatar = encodeURIComponent(prof.avatar);
-  window.location.href = `messages.html?chat=${name}&avatar=${avatar}`;
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  window.location.href = 'messages.html';
 }
 
 // ====================== PROFILE RENDER ======================
@@ -489,7 +543,6 @@ function switchProfile(type) {
   localStorage.setItem('yadwor-profile-type', type);
   localStorage.setItem('yadwor-account-type', type);
   state.activeTab = getDefaultTab(type);
-  // تحديث accountType في جميع منشوراتي محلياً وعلى Firebase
   if (typeof updateMyPostsAccountTypeInFirebase === 'function') {
     updateMyPostsAccountTypeInFirebase(type);
   }
@@ -510,15 +563,18 @@ function getDefaultTab(type) {
   if(type==='institution') return 'posts';
   if(type==='teacher') return 'posts';
   if(type==='student') return 'posts';
+  return 'posts';
 }
 
 // ====================== جلب صور الأعضاء من Firebase ======================
 async function enrichAvatarsFromFirebase(members, containerId) {
+  const db = _pDb();
+  if (!db) return;
   // جلب أسماء وصور المستخدمين الحقيقية من Firebase
   for (const r of members) {
     if (!r.uid) continue;
     try {
-      const userSnap = await _pDb().ref('users/' + r.uid).once('value');
+      const userSnap = await db.ref('users/' + r.uid).once('value');
       const userData = userSnap.val();
       if (!userData) continue;
       // حفظ الصورة والـ uid في كائن الطلب
@@ -1494,22 +1550,23 @@ function closeUnfollowModal() {
 
 async function _updateVisitorFollowersCount(uid, username, delta) {
   if (!uid) return;
+  const db = _pDb();
   try {
     // 1) تحديث عداد "متابع" للحساب المتابَع في Firebase SDK
-    const followersSnap = await _pDb().ref('users/' + uid + '/followers').once('value');
+    const followersSnap = await db.ref('users/' + uid + '/followers').once('value');
     const cur = parseInt(followersSnap.val()) || 0;
     const newVal = Math.max(0, cur + delta);
-    await _pDb().ref('users/' + uid + '/followers').set(newVal);
+    await db.ref('users/' + uid + '/followers').set(newVal);
   } catch(e) {}
 
   // 2) تحديث عداد "يتابع" للمستخدم الحالي في Firebase وفي localStorage
   const myUid = localStorage.getItem('yadwor-uid');
   if (!myUid) return;
   try {
-    const followingSnap = await _pDb().ref('users/' + myUid + '/following').once('value');
+    const followingSnap = await db.ref('users/' + myUid + '/following').once('value');
     const cur2 = parseInt(followingSnap.val()) || 0;
     const newVal2 = Math.max(0, cur2 + delta);
-    await _pDb().ref('users/' + myUid + '/following').set(newVal2);
+    await db.ref('users/' + myUid + '/following').set(newVal2);
     // تحديث في localStorage أيضاً
     try {
       const ru = typeof getRealUser === 'function' ? getRealUser() : {};
@@ -2695,10 +2752,11 @@ const _visitorUid = _urlParams.get('uid') || _urlParams.get('id') || '';
 let _visitorProfile = null;
 
 async function loadVisitorProfile(username, uid) {
+  const db = _pDb();
   // 1) جلب من Firebase بالـ uid — هذا هو المصدر الأول والأدق
-  if (uid) {
+  if (uid && db) {
     try {
-      const userSnap = await _pDb().ref('users/' + uid).once('value');
+      const userSnap = await db.ref('users/' + uid).once('value');
       const userData = userSnap.val();
       if (userData) {
         // uid يُحفظ دائماً في البيانات المُرجَعة ولا يُستبدل
@@ -2710,9 +2768,9 @@ async function loadVisitorProfile(username, uid) {
     } catch(e) {}
   }
   // 2) بحث بالـ username في Firebase (لو الـ uid غير معروف)
-  if (username) {
+  if (username && db) {
     try {
-      const userSnap = await _pDb().ref('users').orderByChild('username').equalTo(username).once('value');
+      const userSnap = await db.ref('users').orderByChild('username').equalTo(username).once('value');
       const userData = userSnap.val();
       if (userData) {
         const entries = Object.entries(userData);
@@ -2725,19 +2783,21 @@ async function loadVisitorProfile(username, uid) {
       }
     } catch(e) {
       // fallback: بحث كامل في كل المستخدمين
-      try {
-        const allSnap = await _pDb().ref('users').once('value');
-        const allUsers = allSnap.val();
-        if (allUsers) {
-          const found = Object.entries(allUsers).find(([,u]) => u && u.username === username);
-          if (found) {
-            const [foundUid, foundData] = found;
-            const result = { uid: foundUid, ...foundData };
-            if (typeof _userCache !== 'undefined') _userCache[foundUid] = result;
-            return result;
+      if (db) {
+        try {
+          const allSnap = await db.ref('users').once('value');
+          const allUsers = allSnap.val();
+          if (allUsers) {
+            const found = Object.entries(allUsers).find(([,u]) => u && u.username === username);
+            if (found) {
+              const [foundUid, foundData] = found;
+              const result = { uid: foundUid, ...foundData };
+              if (typeof _userCache !== 'undefined') _userCache[foundUid] = result;
+              return result;
+            }
           }
-        }
-      } catch(e2) {}
+        } catch(e2) {}
+      }
     }
   }
   // 3) لم يُعثر على الحساب في Firebase — إرجاع null (سيُظهر رسالة "لم يُعثر على الملف")
@@ -2754,8 +2814,10 @@ async function loadVisitorProfile(username, uid) {
 async function syncAccountTypeFromFirebase() {
   const uid = localStorage.getItem('yadwor-uid') || '';
   if (!uid) return;
+  const db = _pDb();
+  if (!db) return;
   try {
-    const snap = await _pDb().ref('users/' + uid).once('value');
+    const snap = await db.ref('users/' + uid).once('value');
     const data = snap.val();
     if (data) {
       const accountType = data.accountType || data.profileType || '';
@@ -2778,23 +2840,23 @@ async function syncAccountTypeFromFirebase() {
 async function syncJoinRequestsFromFirebase() {
   const myUid = localStorage.getItem('yadwor-uid') || '';
   const rejectedIds = (() => { try { return JSON.parse(localStorage.getItem('yadwor-rejected-request-ids') || '[]'); } catch(e) { return []; } })();
+  const db = _pDb();
 
   try {
     // --- حالة 1: نعرض ملف شخص آخر ---
     if (_visitorUid) {
       // أولاً نجرب مباشرة: هل _visitorUid هو uid مؤسسة؟
-      let institutionUidToFetch = _visitorUid;
       let directFetchData = null;
-      try {
-        const directRes = { ok: true, json: async () => { const _s = await _pDb().ref('joinRequests/' + _visitorUid).once('value'); return _s.val(); } };
-        if (directRes.ok) {
-          const d = await directRes.json();
+      if (db) {
+        try {
+          const _s = await db.ref('joinRequests/' + _visitorUid).once('value');
+          const d = _s.val();
           // إذا أرجع بيانات (المسار صحيح → هو uid مؤسسة)
           if (d && typeof d === 'object' && Object.keys(d).length > 0) {
             directFetchData = d;
           }
-        }
-      } catch(e) {}
+        } catch(e) {}
+      }
 
       if (directFetchData) {
         // _visitorUid هو uid مؤسسة → استخدم البيانات مباشرة
@@ -2813,10 +2875,10 @@ async function syncJoinRequestsFromFirebase() {
       } else {
         // _visitorUid هو uid أستاذ أو تلميذ → نجد مؤسسته أولاً
         let visitorInstUid = '';
-        try {
-          const allInstRes = { ok: true, json: async () => { const _s = await _pDb().ref('joinRequests').once('value'); return _s.val(); } };
-          if (allInstRes.ok) {
-            const allInst = await allInstRes.json();
+        if (db) {
+          try {
+            const allInstSnap = await db.ref('joinRequests').once('value');
+            const allInst = allInstSnap.val();
             if (allInst) {
               for (const instUid of Object.keys(allInst)) {
                 const instReqs = allInst[instUid];
@@ -2828,29 +2890,27 @@ async function syncJoinRequestsFromFirebase() {
                 if (found) { visitorInstUid = instUid; break; }
               }
             }
-          }
-        } catch(e) {}
+          } catch(e) {}
+        }
 
-        if (visitorInstUid) {
+        if (visitorInstUid && db) {
           // جلب كل طلبات مؤسسة الشخص المُزار
           try {
-            const instRes = { ok: true, json: async () => { const _s = await _pDb().ref('joinRequests/' + visitorInstUid).once('value'); return _s.val(); } };
-            if (instRes.ok) {
-              const instData = await instRes.json();
-              if (instData) {
-                const fbReqs = Object.values(instData).filter(r => r && r.id && !rejectedIds.includes(r.id));
-                const otherReqs = (state.joinRequests || []).filter(r =>
-                  (r.institutionUid || r.institutionId || '') !== visitorInstUid
-                );
-                const merged = [...otherReqs];
-                fbReqs.forEach(r => {
-                  const idx = merged.findIndex(x => x.id === r.id);
-                  if (idx === -1) merged.push(r); else merged[idx] = r;
-                });
-                state.joinRequests = merged;
-                localStorage.setItem('yadwor-join-requests', JSON.stringify(merged));
-                return;
-              }
+            const instSnap = await db.ref('joinRequests/' + visitorInstUid).once('value');
+            const instData = instSnap.val();
+            if (instData) {
+              const fbReqs = Object.values(instData).filter(r => r && r.id && !rejectedIds.includes(r.id));
+              const otherReqs = (state.joinRequests || []).filter(r =>
+                (r.institutionUid || r.institutionId || '') !== visitorInstUid
+              );
+              const merged = [...otherReqs];
+              fbReqs.forEach(r => {
+                const idx = merged.findIndex(x => x.id === r.id);
+                if (idx === -1) merged.push(r); else merged[idx] = r;
+              });
+              state.joinRequests = merged;
+              localStorage.setItem('yadwor-join-requests', JSON.stringify(merged));
+              return;
             }
           } catch(e) {}
         }
@@ -2859,7 +2919,6 @@ async function syncJoinRequestsFromFirebase() {
     }
 
     // --- حالة 2: ملفي الشخصي أو لا يوجد visitorUid ---
-    // نجلب طلبات المستخدم الحالي + كل طلبات مؤسسته لحساب الأساتذة/التلاميذ
     if (!myUid) return;
 
     // أولاً: حاول جلب من localStorage كـ seed
@@ -2873,7 +2932,7 @@ async function syncJoinRequestsFromFirebase() {
     if (fbStoredInstUid) instUidsSet.add(fbStoredInstUid);
 
     // إذا لا نعرف أي مؤسسة بعد → جلب طلب المستخدم من Firebase أولاً لاكتشاف مؤسسته
-    if (instUidsSet.size === 0) {
+    if (instUidsSet.size === 0 && db) {
       try {
         const userRes = await fetch(`${FB_DB_URL}/joinRequests.json?orderBy="uid"&equalTo="${myUid}"`);
         if (userRes.ok) {
@@ -2891,20 +2950,18 @@ async function syncJoinRequestsFromFirebase() {
         }
       } catch(e) {}
       // Fallback: جلب كل المؤسسات وابحث عن المستخدم (أبطأ لكن ضروري)
-      if (instUidsSet.size === 0) {
+      if (instUidsSet.size === 0 && db) {
         try {
-          const allRes = { ok: true, json: async () => { const _s = await _pDb().ref('joinRequests').once('value'); return _s.val(); } };
-          if (allRes.ok) {
-            const allData = await allRes.json();
-            if (allData) {
-              for (const instUid of Object.keys(allData)) {
-                const instReqs = allData[instUid];
-                if (!instReqs) continue;
-                const myReq = Object.values(instReqs).find(r =>
-                  r && (r.uid === myUid || r.userId === myUid)
-                );
-                if (myReq) { instUidsSet.add(instUid); break; }
-              }
+          const allSnap = await db.ref('joinRequests').once('value');
+          const allData = allSnap.val();
+          if (allData) {
+            for (const instUid of Object.keys(allData)) {
+              const instReqs = allData[instUid];
+              if (!instReqs) continue;
+              const myReq = Object.values(instReqs).find(r =>
+                r && (r.uid === myUid || r.userId === myUid)
+              );
+              if (myReq) { instUidsSet.add(instUid); break; }
             }
           }
         } catch(e) {}
@@ -2914,12 +2971,12 @@ async function syncJoinRequestsFromFirebase() {
     const instUids = [...instUidsSet];
 
     for (const instUid of instUids) {
+      if (!db) continue;
       try {
-        const jrSnap = await _pDb().ref('joinRequests/' + instUid).once('value'); const jrData = jrSnap.val();
+        const jrSnap = await db.ref('joinRequests/' + instUid).once('value'); const jrData = jrSnap.val();
         const data = jrData;
         if (!data) continue;
         // جلب كل الطلبات المقبولة في المؤسسة (ليس فقط طلبات المستخدم الحالي)
-        // — هذا ضروري لحساب الأساتذة/التلاميذ بشكل صحيح
         const fbReqs = Object.values(data).filter(r =>
           r && r.id && !rejectedIds.includes(r.id) && r.status === 'accepted'
         );
