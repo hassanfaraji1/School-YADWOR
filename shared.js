@@ -162,19 +162,21 @@ async function enrichPostWithUserData(post) {
 // إثراء قائمة منشورات بعد جلبها
 async function enrichPostsWithUserData(posts) {
   if (!posts || !posts.length) return posts;
-  // نجلب بيانات المستخدمين غير المكتملة فقط
+  // نجلب بيانات المستخدمين غير المكتملة فقط (UID موجود لكن name أو avatar غائب)
   const uniqueUids = [...new Set(posts.filter(p => p.uid && (!p.name || !p.avatar)).map(p => p.uid))];
   await Promise.all(uniqueUids.map(uid => fetchUserFromFirebase(uid)));
   return posts.map(p => {
-    if (!p.uid) return p;
+    if (!p.uid) return p; // لا uid = لا إثراء (uid يجب أن يكون محفوظاً مع المنشور)
     const u = _userCache[p.uid];
     if (!u) return p;
     return {
       ...p,
-      name:        p.name        || u.name        || u.displayName || p.name,
+      // uid لا يُغيَّر أبداً — هو uid صاحب المنشور الحقيقي
+      uid:         p.uid,
+      name:        p.name        || u.name        || u.displayName || '',
       avatar:      p.avatar      || u.avatar       || '',
       username:    p.username    || u.username     || '',
-      accountType: p.accountType || u.accountType  || p.accountType,
+      accountType: p.accountType || u.accountType  || '',
     };
   });
 }
@@ -314,10 +316,21 @@ function getUserPosts(userId, callback) {
     callback([]);
     return;
   }
+  // نجلب منشورات المستخدم عبر index uid
   db.ref('posts').orderByChild('uid').equalTo(userId).on('value', async snap => {
     const data = snap.val();
     if (!data) {
-      callback([]);
+      // fallback: اجلب كل المنشورات وصفّي يدوياً (للمنشورات القديمة بدون uid index)
+      db.ref('posts').limitToLast(100).once('value').then(async allSnap => {
+        const allData = allSnap.val();
+        if (!allData) { callback([]); return; }
+        const posts = Object.entries(allData)
+          .map(([id, p]) => ({ ...p, id }))
+          .filter(p => p.uid && String(p.uid) === String(userId))
+          .sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
+        const enriched = await enrichPostsWithUserData(posts);
+        callback(enriched);
+      }).catch(() => callback([]));
       return;
     }
     const posts = Object.entries(data)
@@ -482,16 +495,19 @@ async function saveInteractionNotif(targetUid, notifObj) {
 // renderPostCard — بطاقة المنشور الرئيسية
 // ============================================================
 function _goToProfile(uid, username) {
-  // دائماً أرسل ?uid= — profile.html تُحدد بنفسها إذا كان صاحب الملف أم زائر
-  // هذا يضمن أن كل ضغطة على اسم/صورة تفتح الملف الصحيح
-  if (uid) {
-    window.location.href = 'profile.html?uid=' + encodeURIComponent(uid);
+  // دائماً أرسل ?uid= في URL — profile.html تُحدد هل هو صاحب الملف أم زائر
+  const resolvedUid = (uid && String(uid).trim()) || '';
+  const resolvedUsername = (username && String(username).trim()) || '';
+
+  if (resolvedUid) {
+    window.location.href = 'profile.html?uid=' + encodeURIComponent(resolvedUid);
     return;
   }
-  if (username) {
-    window.location.href = 'profile.html?uid=' + encodeURIComponent(username);
+  if (resolvedUsername) {
+    window.location.href = 'profile.html?uid=' + encodeURIComponent(resolvedUsername);
     return;
   }
+  // لا uid ولا username — افتح ملفي الشخصي
   window.location.href = 'profile.html';
 }
 
