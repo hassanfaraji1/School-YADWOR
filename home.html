@@ -72,7 +72,21 @@
       </button>
     </div>
   </header>
-  <main id="home-feed" class="mx-auto max-w-[760px] pt-3" style="padding-left:5px;padding-right:5px;"></main>
+  <!-- ===== شريط الفلترة — يظهر فقط للطلاب ===== -->
+  <div id="filter-bar" style="display:none;" class="mx-auto max-w-[760px] px-3 pt-3 pb-1">
+    <div class="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+      <button id="filter-btn-all" onclick="setFeedFilter('all')"
+        class="flex-shrink-0 rounded-full px-4 py-1.5 text-[13px] font-bold border transition-all duration-150"
+        style="background:#18181b;color:#fff;border-color:#18181b;">
+        الكل
+      </button>
+      <button id="filter-btn-level" onclick="setFeedFilter('level')"
+        class="flex-shrink-0 rounded-full px-4 py-1.5 text-[13px] font-bold border border-zinc-300 bg-white text-zinc-600 transition-all duration-150">
+        <span id="filter-level-label">مستواي</span>
+      </button>
+    </div>
+  </div>
+  <main id="home-feed" class="mx-auto max-w-[760px] pt-2" style="padding-left:5px;padding-right:5px;"></main>
   <!-- Loading dots for infinite scroll -->
   <div id="load-more-indicator" class="loading-dots hidden">
     <span></span><span></span><span></span>
@@ -500,12 +514,100 @@ function doLogout() {
 <script>
 const PAGE = 'home';
 
+// ====================== FEED FILTER (طلاب فقط) ======================
+let _allPosts = [];
+let _currentFilter = localStorage.getItem('yadwor-feed-filter') || 'all';
+let _myLevelId = '';
+
+function initFilterBar() {
+  const myType = _myType();
+  if (myType !== 'student') return; // يظهر فقط للطلاب
+
+  // جلب مستوى التلميذ من localStorage أو Firebase
+  try {
+    const userData = JSON.parse(localStorage.getItem('yadwor-user-data') || '{}');
+    _myLevelId = userData.levelId || userData.level || '';
+  } catch(e) {}
+
+  const bar = document.getElementById('filter-bar');
+  if (bar) bar.style.display = 'block';
+
+  // تحديث اسم المستوى في الزر
+  if (_myLevelId) {
+    const levelNames = {
+      '1am': 'الأولى متوسط', '2am': 'الثانية متوسط', '3am': 'الثالثة متوسط', '4am': 'الرابعة متوسط',
+      '1as': 'الأولى ثانوي', '2as': 'الثانية ثانوي', '3as': 'الثالثة ثانوي',
+      '1prep': 'الأولى إعدادي', '2prep': 'الثانية إعدادي', '3prep': 'الثالثة إعدادي',
+    };
+    const label = levelNames[_myLevelId] || _myLevelId;
+    const el = document.getElementById('filter-level-label');
+    if (el) el.textContent = label;
+  }
+
+  // تطبيق الفلتر المحفوظ
+  applyFilter(_currentFilter);
+}
+
+function setFeedFilter(filter) {
+  _currentFilter = filter;
+  localStorage.setItem('yadwor-feed-filter', filter);
+  applyFilter(filter);
+}
+
+function applyFilter(filter) {
+  // تحديث شكل الأزرار
+  const allBtn   = document.getElementById('filter-btn-all');
+  const lvlBtn   = document.getElementById('filter-btn-level');
+  if (allBtn) {
+    allBtn.style.background   = filter === 'all' ? '#18181b' : '#fff';
+    allBtn.style.color        = filter === 'all' ? '#fff' : '#52525b';
+    allBtn.style.borderColor  = filter === 'all' ? '#18181b' : '#d4d4d8';
+  }
+  if (lvlBtn) {
+    lvlBtn.style.background   = filter === 'level' ? '#18181b' : '#fff';
+    lvlBtn.style.color        = filter === 'level' ? '#fff' : '#52525b';
+    lvlBtn.style.borderColor  = filter === 'level' ? '#18181b' : '#d4d4d8';
+  }
+
+  // فلترة المنشورات
+  let toShow = _allPosts;
+  if (filter === 'level' && _myLevelId) {
+    toShow = _allPosts.filter(p => {
+      // إذا المنشور لا يحمل levelId يظهر للجميع (منشورات عامة)
+      if (!p.levelId) return true;
+      return p.levelId === _myLevelId;
+    });
+  }
+
+  const feed = document.getElementById('home-feed');
+  if (!feed) return;
+
+  if (!toShow.length) {
+    feed.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-center gap-4 px-6">
+      <div class="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M8 8h5"/></svg>
+      </div>
+      <p class="text-[15px] font-bold text-zinc-400">لا توجد منشورات لمستواك بعد</p>
+    </div>`;
+    return;
+  }
+
+  feed.innerHTML = toShow.map(p => {
+    const card = renderPostCard(p);
+    if (!card) return '';
+    return card.includes('data-post-id') ? card : card.replace(`id="post-${p.id}"`, `id="post-${p.id}" data-post-id="${p.id}"`);
+  }).join('');
+  setupInfiniteScroll();
+  setTimeout(setupPostViewTracking, 300);
+}
+
 // ====================== HOME RENDER — onValue realtime ======================
 function renderHome() {
   const feed = document.getElementById('home-feed');
   feed.innerHTML = [1,2,3].map(() => shimmerPostCard()).join('');
 
   getPosts(function(posts) {
+    _allPosts = posts;
     feed.innerHTML = '';
 
     if (!posts.length) {
@@ -516,34 +618,15 @@ function renderHome() {
         <p class="text-[15px] font-bold text-zinc-400">لا توجد منشورات بعد</p>
         <p class="text-[13px] text-zinc-400">كن أول من ينشر شيئاً!</p>
       </div>`;
+      initFilterBar();
       return;
     }
 
-    // ── كل المنشورات بما فيها الريلز تظهر كبطاقات كاملة في الفيد ──
-    const allPosts = posts;
+    // تهيئة شريط الفلترة
+    initFilterBar();
 
-    // تحقق من uid لكل منشور — المنشورات بدون uid تُصلَح مؤقتاً بـ uid النصي
-    // هذا يمنع إرسال uid فارغ لـ _goToProfile
-    allPosts.forEach(p => {
-      if (!p.uid && p.author) {
-        // محاولة استرداد uid من الـ author field أو تجاهله
-        p._missingUid = true;
-      }
-    });
-
-    let feedHtml = allPosts.map(p => {
-      const card = renderPostCard(p);
-      if (!card) return '';
-      return card.includes('data-post-id') ? card : card.replace(`id="post-${p.id}"`, `id="post-${p.id}" data-post-id="${p.id}"`);
-    }).join('');
-
-    if (!feedHtml.trim()) {
-      feedHtml = `<div class="flex flex-col items-center justify-center py-16 text-center gap-4 px-6">
-        <p class="text-[15px] font-bold text-zinc-400">لا توجد منشورات بعد</p>
-      </div>`;
-    }
-
-    feed.innerHTML = feedHtml;
+    // تطبيق الفلتر الحالي
+    applyFilter(_currentFilter);
     setupInfiniteScroll();
     setTimeout(setupPostViewTracking, 300);
   });
