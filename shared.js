@@ -516,8 +516,8 @@ function openProfile(uid) {
 // ====================== READ MORE helper ======================
 function _buildTextHtml(text, postId) {
   if (!text) return '';
-  // حد الأحرف قبل إخفاء النص
-  const LIMIT = 160;
+  // حد الأحرف قبل إخفاء النص (سطرين تقريباً)
+  const LIMIT = 85;
   // escape HTML لمنع XSS
   const escaped = text
     .replace(/&/g,'&amp;')
@@ -609,7 +609,7 @@ function renderPostCard(p) {
       <!-- Caption (قابل للطي) -->
       ${reelCaptionHtml ? `<div class="px-4 pb-1">${reelCaptionHtml}</div>` : ''}
       <!-- Video -->
-      <div class="relative overflow-hidden bg-zinc-900 cursor-pointer" style="height:300px;"
+      <div class="relative overflow-hidden bg-zinc-900 cursor-pointer" style="height:240px;"
            onclick="localStorage.setItem('yadwor-goto-reel','${p.id}'); window.location.href='reels.html';">
         ${hasVideo
           ? `<video src="${p.video}" ${p.thumbnail ? `poster="${p.thumbnail}"` : ''} muted playsinline preload="metadata"
@@ -661,7 +661,7 @@ function renderPostCard(p) {
   if (p.images && p.images.length) {
     if (p.images.length === 1) {
       mediaHtml = `<div class="mt-3 overflow-hidden rounded-[16px] cursor-pointer" onclick="openImageViewer(${JSON.stringify(p.images)},0)">
-        <img src="${p.images[0]}" class="w-full object-cover rounded-[16px]" style="max-height:420px;" loading="lazy" />
+        <img src="${p.images[0]}" class="w-full object-cover rounded-[16px]" style="max-height:260px;" loading="lazy" />
       </div>`;
     } else {
       const cols = p.images.length === 2 ? 'grid-cols-2' : 'grid-cols-2';
