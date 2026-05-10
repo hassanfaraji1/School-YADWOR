@@ -571,11 +571,49 @@ function applyFilter(filter) {
 
   // فلترة المنشورات
   let toShow = _allPosts;
-  if (filter === 'level' && _myLevelId) {
+  if (filter === 'level') {
+    // جلب بيانات التلميذ الكاملة
+    let myData = {};
+    try { myData = JSON.parse(localStorage.getItem('yadwor-user-data') || '{}'); } catch(e) {}
+    const myLevelId   = (myData.levelId || myData.level || _myLevelId || '').trim();
+    const mySubjects  = (myData.subjects || []).map(s => (s.name || s || '').trim()).filter(Boolean);
+    const myInstId    = (myData.institutionUid || myData.institutionId || '').trim();
+
     toShow = _allPosts.filter(p => {
-      // إذا المنشور لا يحمل levelId يظهر للجميع (منشورات عامة)
-      if (!p.levelId) return true;
-      return p.levelId === _myLevelId;
+      // المنشورات التي نشرها المستخدم نفسه تظهر دائماً
+      if (p.uid && p.uid === (localStorage.getItem('yadwor-uid') || '')) return true;
+
+      // المنشورات التي لا تحمل أي معلومات مستوى تُظهر للجميع
+      const postLevel   = (p.levelId || '').trim();
+      const postSubject = (p.subject || '').trim();
+      const postInst    = (p.institutionUid || p.institutionId || '').trim();
+
+      // إذا المنشور عنده levelId يجب أن يطابق مستوى التلميذ
+      if (postLevel && myLevelId && postLevel !== myLevelId) return false;
+
+      // إذا المنشور عنده subject يجب أن تكون ضمن مواد التلميذ
+      if (postSubject && mySubjects.length && !mySubjects.includes(postSubject)) return false;
+
+      // إذا المنشور عنده مؤسسة يجب أن تطابق مؤسسة التلميذ
+      if (postInst && myInstId && postInst !== myInstId) return false;
+
+      // إذا المنشور صاحبه أستاذ — تحقق من isStudentMatchingTeacher إذا توفر
+      if (p.accountType === 'teacher' || p.role === 'أستاذ') {
+        if (typeof isStudentMatchingTeacher === 'function' && myData && Object.keys(myData).length) {
+          const teacherProfile = {
+            levelId:        postLevel || p.teacherLevelId || '',
+            subject:        postSubject || p.teacherSubject || '',
+            subjects:       p.subjects || [],
+            institutionUid: postInst || p.institutionUid || '',
+          };
+          // إذا كلا الجانبين لديهما بيانات كاملة — استخدم الدالة الدقيقة
+          if (teacherProfile.levelId && (teacherProfile.subject || teacherProfile.subjects.length)) {
+            return isStudentMatchingTeacher(myData, teacherProfile);
+          }
+        }
+      }
+
+      return true;
     });
   }
 
