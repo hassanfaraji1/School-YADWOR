@@ -53,8 +53,9 @@
 <!-- ===== HOME PAGE ===== -->
 <div class="pb-16">
   <header class="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/95 backdrop-blur-xl">
-    <div class="mx-auto flex h-11 max-w-[1100px] items-center justify-between px-3">
-      <div class="flex items-center gap-1.5">
+    <div class="mx-auto flex h-12 max-w-[1100px] items-center justify-between px-3">
+      <!-- يسار: قائمة + إشعارات -->
+      <div class="flex items-center gap-1">
         <button onclick="openSidebar()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
           <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         </button>
@@ -62,30 +63,45 @@
           <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span id="notif-badge" class="absolute top-[2px] right-[3px] flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-rose-500 px-1 text-center text-[9px] font-extrabold leading-none text-white shadow ring-2 ring-white" style="display:none;"></span>
         </a>
-        <a href="reels.html" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-800">
+      </div>
+      <!-- يمين: ريلز + فلترة + نشر -->
+      <div class="flex items-center gap-1">
+        <a href="reels.html" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-700">
           <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.9" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
         </a>
+        <!-- زر الفلترة — يظهر للطالب والأستاذ فقط -->
+        <div id="header-filter-btn" style="display:none;" class="relative">
+          <button onclick="toggleFilterDropdown()" id="filter-toggle-btn"
+            class="flex items-center gap-1 rounded-full px-2.5 h-8 text-[12px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 transition-all">
+            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-current" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
+            <span id="filter-active-label">الكل</span>
+            <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <!-- القائمة المنسدلة -->
+          <div id="filter-dropdown" class="hidden absolute left-0 top-[calc(100%+6px)] z-50 w-48 rounded-2xl bg-white border border-zinc-200 shadow-xl overflow-hidden" style="min-width:160px;">
+            <button onclick="selectFilter('all')" id="fdrop-all"
+              class="flex items-center justify-between w-full px-4 py-3 text-[13px] font-bold text-zinc-800 hover:bg-zinc-50 transition-colors">
+              <span>الكل</span>
+              <svg id="fdrop-all-check" viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current text-zinc-900" stroke-width="2.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+            </button>
+            <div class="border-t border-zinc-100 mx-3"></div>
+            <button onclick="selectFilter('level')" id="fdrop-level"
+              class="flex items-center justify-between w-full px-4 py-3 text-[13px] font-bold text-zinc-500 hover:bg-zinc-50 transition-colors">
+              <span id="fdrop-level-label">مستواي</span>
+              <svg id="fdrop-level-check" viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current opacity-0" stroke-width="2.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+            </button>
+          </div>
+        </div>
+        <!-- زر النشر -->
+        <button onclick="document.getElementById('post-modal').classList.remove('hidden')"
+          class="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-white shadow-sm hover:bg-zinc-700 transition-colors">
+          <svg viewBox="0 0 24 24" class="h-[14px] w-[14px] fill-none stroke-current" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
       </div>
-      <h1 class="text-[15px] font-extrabold tracking-tight">الرئيسية</h1>
-      <button onclick="document.getElementById('post-modal').classList.remove('hidden')" class="mr-1 flex h-9 w-9 items-center justify-center rounded-full bg-zinc-900/95 text-white shadow-sm">
-        <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
-      </button>
     </div>
   </header>
-  <!-- ===== شريط الفلترة — يظهر فقط للطلاب ===== -->
-  <div id="filter-bar" style="display:none;" class="mx-auto max-w-[760px] px-3 pt-3 pb-1">
-    <div class="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-      <button id="filter-btn-all" onclick="setFeedFilter('all')"
-        class="flex-shrink-0 rounded-full px-4 py-1.5 text-[13px] font-bold border transition-all duration-150"
-        style="background:#18181b;color:#fff;border-color:#18181b;">
-        الكل
-      </button>
-      <button id="filter-btn-level" onclick="setFeedFilter('level')"
-        class="flex-shrink-0 rounded-full px-4 py-1.5 text-[13px] font-bold border border-zinc-300 bg-white text-zinc-600 transition-all duration-150">
-        <span id="filter-level-label">مستواي</span>
-      </button>
-    </div>
-  </div>
+  <!-- filter-bar قديم — محجوب، الفلترة الآن في الهيدر -->
+  <div id="filter-bar" style="display:none;"></div>
   <main id="home-feed" class="mx-auto max-w-[760px] pt-2" style="padding-left:5px;padding-right:5px;"></main>
   <!-- Loading dots for infinite scroll -->
   <div id="load-more-indicator" class="loading-dots hidden">
@@ -514,103 +530,158 @@ function doLogout() {
 <script>
 const PAGE = 'home';
 
-// ====================== FEED FILTER (طلاب فقط) ======================
+// ====================== FEED FILTER (طلاب وأساتذة) ======================
 let _allPosts = [];
 let _currentFilter = localStorage.getItem('yadwor-feed-filter') || 'all';
 let _myLevelId = '';
+let _filterDropdownOpen = false;
+
+// أسماء المستويات
+const _LEVEL_NAMES = {
+  '1am':'الأولى متوسط','2am':'الثانية متوسط','3am':'الثالثة متوسط','4am':'الرابعة متوسط',
+  '1as':'الأولى ثانوي','2as':'الثانية ثانوي','3as':'الثالثة ثانوي',
+  '1prep':'الأولى إعدادي','2prep':'الثانية إعدادي','3prep':'الثالثة إعدادي',
+};
+
+// فتح/إغلاق القائمة المنسدلة
+function toggleFilterDropdown() {
+  _filterDropdownOpen = !_filterDropdownOpen;
+  const dd = document.getElementById('filter-dropdown');
+  if (dd) dd.classList.toggle('hidden', !_filterDropdownOpen);
+}
+
+// إغلاق القائمة عند النقر خارجها
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#header-filter-btn')) {
+    _filterDropdownOpen = false;
+    const dd = document.getElementById('filter-dropdown');
+    if (dd) dd.classList.add('hidden');
+  }
+});
+
+// اختيار فلتر من القائمة
+function selectFilter(filter) {
+  _filterDropdownOpen = false;
+  const dd = document.getElementById('filter-dropdown');
+  if (dd) dd.classList.add('hidden');
+  setFeedFilter(filter);
+}
 
 function initFilterBar() {
   const myType = _myType();
-  if (myType !== 'student') return; // يظهر فقط للطلاب
+  // يظهر فقط للطلاب والأساتذة
+  if (myType !== 'student' && myType !== 'teacher') return;
 
-  // جلب مستوى التلميذ من localStorage أو Firebase
-  try {
-    const userData = JSON.parse(localStorage.getItem('yadwor-user-data') || '{}');
-    _myLevelId = userData.levelId || userData.level || '';
-  } catch(e) {}
+  let myData = {};
+  try { myData = JSON.parse(localStorage.getItem('yadwor-user-data') || '{}'); } catch(e) {}
+  _myLevelId = (myData.levelId || myData.level || '').trim();
 
-  const bar = document.getElementById('filter-bar');
-  if (bar) bar.style.display = 'block';
+  // إظهار زر الفلترة في الهيدر
+  const headerBtn = document.getElementById('header-filter-btn');
+  if (headerBtn) headerBtn.style.display = 'block';
 
-  // تحديث اسم المستوى في الزر
-  if (_myLevelId) {
-    const levelNames = {
-      '1am': 'الأولى متوسط', '2am': 'الثانية متوسط', '3am': 'الثالثة متوسط', '4am': 'الرابعة متوسط',
-      '1as': 'الأولى ثانوي', '2as': 'الثانية ثانوي', '3as': 'الثالثة ثانوي',
-      '1prep': 'الأولى إعدادي', '2prep': 'الثانية إعدادي', '3prep': 'الثالثة إعدادي',
-    };
-    const label = levelNames[_myLevelId] || _myLevelId;
-    const el = document.getElementById('filter-level-label');
-    if (el) el.textContent = label;
-  }
+  // تحديث نص المستوى في القائمة المنسدلة
+  const levelLabel = _LEVEL_NAMES[_myLevelId] || (_myLevelId ? _myLevelId : 'مستواي');
+  const el = document.getElementById('fdrop-level-label');
+  if (el) el.textContent = levelLabel;
 
-  // تطبيق الفلتر المحفوظ
+  // تطبيق الفلتر المحفوظ وتحديث واجهة الزر
+  _updateFilterUI(_currentFilter);
   applyFilter(_currentFilter);
 }
 
 function setFeedFilter(filter) {
   _currentFilter = filter;
   localStorage.setItem('yadwor-feed-filter', filter);
+  _updateFilterUI(filter);
   applyFilter(filter);
 }
 
+// تحديث شكل زر الفلترة والقائمة
+function _updateFilterUI(filter) {
+  // تحديث النص في الزر الرئيسي
+  const activeLabel = document.getElementById('filter-active-label');
+  if (activeLabel) {
+    if (filter === 'all') {
+      activeLabel.textContent = 'الكل';
+    } else {
+      const levelLabel = _LEVEL_NAMES[_myLevelId] || 'مستواي';
+      activeLabel.textContent = levelLabel;
+    }
+  }
+  // تحديث علامات الاختيار في القائمة
+  const allCheck   = document.getElementById('fdrop-all-check');
+  const lvlCheck   = document.getElementById('fdrop-level-check');
+  const allRow     = document.getElementById('fdrop-all');
+  const lvlRow     = document.getElementById('fdrop-level');
+  if (allCheck)  allCheck.style.opacity  = filter === 'all'   ? '1' : '0';
+  if (lvlCheck)  lvlCheck.style.opacity  = filter === 'level' ? '1' : '0';
+  if (allRow)    allRow.style.color      = filter === 'all'   ? '#18181b' : '#71717a';
+  if (lvlRow)    lvlRow.style.color      = filter === 'level' ? '#18181b' : '#71717a';
+  // لون الزر الرئيسي يتغير إذا كان فلتر مفعّل
+  const toggleBtn = document.getElementById('filter-toggle-btn');
+  if (toggleBtn) {
+    toggleBtn.style.background   = filter === 'level' ? '#18181b' : '';
+    toggleBtn.style.color        = filter === 'level' ? '#fff'    : '';
+    toggleBtn.style.borderColor  = filter === 'level' ? '#18181b' : '';
+  }
+}
+
 function applyFilter(filter) {
-  // تحديث شكل الأزرار
-  const allBtn   = document.getElementById('filter-btn-all');
-  const lvlBtn   = document.getElementById('filter-btn-level');
-  if (allBtn) {
-    allBtn.style.background   = filter === 'all' ? '#18181b' : '#fff';
-    allBtn.style.color        = filter === 'all' ? '#fff' : '#52525b';
-    allBtn.style.borderColor  = filter === 'all' ? '#18181b' : '#d4d4d8';
-  }
-  if (lvlBtn) {
-    lvlBtn.style.background   = filter === 'level' ? '#18181b' : '#fff';
-    lvlBtn.style.color        = filter === 'level' ? '#fff' : '#52525b';
-    lvlBtn.style.borderColor  = filter === 'level' ? '#18181b' : '#d4d4d8';
-  }
+  let myData = {};
+  try { myData = JSON.parse(localStorage.getItem('yadwor-user-data') || '{}'); } catch(e) {}
+  const myType      = _myType();
+  const myLevelId   = (myData.levelId || myData.level || _myLevelId || '').trim();
+  const mySubjects  = (myData.subjects || []).map(s => (s.name || s || '').trim()).filter(Boolean);
+  const myInstId    = (myData.institutionUid || myData.institutionId || '').trim();
+  const myUid       = localStorage.getItem('yadwor-uid') || '';
 
-  // فلترة المنشورات
   let toShow = _allPosts;
+
   if (filter === 'level') {
-    // جلب بيانات التلميذ الكاملة
-    let myData = {};
-    try { myData = JSON.parse(localStorage.getItem('yadwor-user-data') || '{}'); } catch(e) {}
-    const myLevelId   = (myData.levelId || myData.level || _myLevelId || '').trim();
-    const mySubjects  = (myData.subjects || []).map(s => (s.name || s || '').trim()).filter(Boolean);
-    const myInstId    = (myData.institutionUid || myData.institutionId || '').trim();
-
     toShow = _allPosts.filter(p => {
-      // المنشورات التي نشرها المستخدم نفسه تظهر دائماً
-      if (p.uid && p.uid === (localStorage.getItem('yadwor-uid') || '')) return true;
+      // منشورات المستخدم نفسه تظهر دائماً
+      if (p.uid && p.uid === myUid) return true;
 
-      // المنشورات التي لا تحمل أي معلومات مستوى تُظهر للجميع
       const postLevel   = (p.levelId || '').trim();
       const postSubject = (p.subject || '').trim();
       const postInst    = (p.institutionUid || p.institutionId || '').trim();
 
-      // إذا المنشور عنده levelId يجب أن يطابق مستوى التلميذ
-      if (postLevel && myLevelId && postLevel !== myLevelId) return false;
-
-      // إذا المنشور عنده subject يجب أن تكون ضمن مواد التلميذ
-      if (postSubject && mySubjects.length && !mySubjects.includes(postSubject)) return false;
-
-      // إذا المنشور عنده مؤسسة يجب أن تطابق مؤسسة التلميذ
-      if (postInst && myInstId && postInst !== myInstId) return false;
-
-      // إذا المنشور صاحبه أستاذ — تحقق من isStudentMatchingTeacher إذا توفر
-      if (p.accountType === 'teacher' || p.role === 'أستاذ') {
-        if (typeof isStudentMatchingTeacher === 'function' && myData && Object.keys(myData).length) {
+      // ===== منطق الطالب =====
+      if (myType === 'student') {
+        // منشور عنده مؤسسة ≠ مؤسسة الطالب → أخفِ
+        if (postInst && myInstId && postInst !== myInstId) return false;
+        // منشور عنده مستوى ≠ مستوى الطالب → أخفِ
+        if (postLevel && myLevelId && postLevel !== myLevelId) return false;
+        // منشور عنده مادة وليست ضمن مواد الطالب → أخفِ
+        if (postSubject && mySubjects.length && !mySubjects.includes(postSubject)) return false;
+        // إذا المنشور صاحبه أستاذ — تحقق دقيق
+        if ((p.accountType === 'teacher' || p.role === 'أستاذ') && typeof isStudentMatchingTeacher === 'function') {
           const teacherProfile = {
-            levelId:        postLevel || p.teacherLevelId || '',
-            subject:        postSubject || p.teacherSubject || '',
-            subjects:       p.subjects || [],
-            institutionUid: postInst || p.institutionUid || '',
+            levelId: postLevel || p.teacherLevelId || '',
+            subject: postSubject || p.teacherSubject || '',
+            subjects: p.subjects || [],
+            institutionUid: postInst || '',
           };
-          // إذا كلا الجانبين لديهما بيانات كاملة — استخدم الدالة الدقيقة
           if (teacherProfile.levelId && (teacherProfile.subject || teacherProfile.subjects.length)) {
             return isStudentMatchingTeacher(myData, teacherProfile);
           }
         }
+        return true;
+      }
+
+      // ===== منطق الأستاذ =====
+      if (myType === 'teacher') {
+        // نفس المؤسسة إذا وُجدت
+        if (postInst && myInstId && postInst !== myInstId) return false;
+        // نفس المستوى إذا وُجد
+        if (postLevel && myLevelId && postLevel !== myLevelId) return false;
+        // نفس المادة إذا وُجدت
+        if (postSubject) {
+          const myTeacherSubject = (myData.subject || (mySubjects[0] || '')).trim();
+          if (myTeacherSubject && postSubject !== myTeacherSubject) return false;
+        }
+        return true;
       }
 
       return true;
