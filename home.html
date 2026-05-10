@@ -581,10 +581,16 @@ function initFilterBar() {
   const headerBtn = document.getElementById('header-filter-btn');
   if (headerBtn) headerBtn.style.display = 'block';
 
-  // تحديث نص المستوى في القائمة المنسدلة
+  // تحديث نص المستوى الحقيقي في القائمة المنسدلة
   const levelLabel = _LEVEL_NAMES[_myLevelId] || (_myLevelId ? _myLevelId : 'مستواي');
   const el = document.getElementById('fdrop-level-label');
   if (el) el.textContent = levelLabel;
+
+  // تحديث نص الزر إذا كان الفلتر الحالي هو "مستوى"
+  if (_currentFilter === 'level') {
+    const activeLabel = document.getElementById('filter-active-label');
+    if (activeLabel) activeLabel.textContent = levelLabel;
+  }
 
   // تطبيق الفلتر المحفوظ وتحديث واجهة الزر
   _updateFilterUI(_currentFilter);
@@ -600,10 +606,15 @@ function setFeedFilter(filter) {
 
 // تحديث شكل زر الفلترة والقائمة
 function _updateFilterUI(filter) {
-  // النص في الزر: "الكل" أو "مستوى" — لا يتغير اللون أبداً
   const activeLabel = document.getElementById('filter-active-label');
   if (activeLabel) {
-    activeLabel.textContent = filter === 'all' ? 'الكل' : 'مستوى';
+    if (filter === 'all') {
+      activeLabel.textContent = 'الكل';
+    } else {
+      // عرض اسم المستوى الحقيقي في الزر عند تفعيل فلتر "مستوى"
+      const levelLabel = _LEVEL_NAMES[_myLevelId] || (_myLevelId ? _myLevelId : 'مستوى');
+      activeLabel.textContent = levelLabel;
+    }
   }
   // علامات الاختيار ✓ في القائمة فقط
   const allCheck = document.getElementById('fdrop-all-check');
@@ -626,10 +637,19 @@ function applyFilter(filter) {
   const myInstId   = (myData.institutionUid || myData.institutionId || '').trim();
   const myUid      = localStorage.getItem('yadwor-uid') || '';
 
-  let toShow = _allPosts;
+  // ===== أولاً: إخفاء المنشورات التالفة دائماً (في كل الفلاتر) =====
+  // منشور تالف = لا يوجد له uid أو اسم أو نوع حساب
+  const validPosts = _allPosts.filter(p => {
+    if (!p) return false;
+    if (!p.uid && !p.name && !p.author) return false; // لا صاحب
+    if (!p.id) return false; // لا معرّف
+    return true;
+  });
+
+  let toShow = validPosts;
 
   if (filter === 'level' && myLevelId) {
-    toShow = _allPosts.filter(p => {
+    toShow = validPosts.filter(p => {
       // منشورات المستخدم نفسه تظهر دائماً
       if (p.uid && p.uid === myUid) return true;
 
@@ -639,29 +659,31 @@ function applyFilter(filter) {
       const isInstitution = (p.accountType === 'institution' || p.role === 'مؤسسة تعليمية');
 
       // ===== منشورات المؤسسات =====
-      // تظهر فقط إذا كانت نفس المستوى (أو لا يوجد levelId على المنشور)
       if (isInstitution) {
-        if (!postLevel) return false; // منشور مؤسسة بدون مستوى لا يظهر
-        return postLevel === myLevelId;
+        // تظهر فقط مؤسسة المستخدم نفسها
+        if (!myInstId) return false; // المستخدم لم ينضم لمؤسسة → لا تظهر مؤسسات
+        if (!postInstId) return false; // المنشور لا يحمل معرف مؤسسة → أخفِ
+        return postInstId === myInstId; // فقط مؤسستي أنا
       }
 
-      // ===== المنطق العام: نفس المستوى هو الشرط الأساسي =====
-      // إذا المنشور عنده levelId يجب أن يطابق مستواي
+      // ===== الشرط الأساسي: نفس المستوى =====
+      // إذا لم يكن للمنشور levelId اعتبره عاماً وأظهره
       if (postLevel && postLevel !== myLevelId) return false;
 
-      // ===== منطق إضافي للطالب =====
+      // ===== منطق الطالب =====
       if (myType === 'student') {
-        // إذا المنشور صاحبه أستاذ — تحقق من المستوى والمادة
         if (p.accountType === 'teacher' || p.role === 'أستاذ') {
-          // المستوى يجب أن يطابق
+          // الأستاذ يجب أن يكون عنده نفس المستوى
           if (postLevel && postLevel !== myLevelId) return false;
-          // إذا المنشور عنده مادة وليست ضمن مواد الطالب → أخفِ
+          // إذا المنشور عنده مادة → يجب أن تكون ضمن مواد الطالب
           if (postSubject && mySubjects.length && !mySubjects.includes(postSubject)) return false;
           return true;
         }
+        // منشورات الطلاب وغيرهم: نفس المستوى يكفي
+        return true;
       }
 
-      // ===== منطق إضافي للأستاذ =====
+      // ===== منطق الأستاذ =====
       if (myType === 'teacher') {
         const mySubject = (myData.subject || (mySubjects[0] || '')).trim();
         if (postLevel && postLevel !== myLevelId) return false;
@@ -701,7 +723,8 @@ function renderHome() {
   feed.innerHTML = [1,2,3].map(() => shimmerPostCard()).join('');
 
   getPosts(function(posts) {
-    _allPosts = posts;
+    // تصفية المنشورات التالفة فور الاستلام
+    _allPosts = (posts || []).filter(p => p && p.id && (p.uid || p.name || p.author));
     feed.innerHTML = '';
 
     if (!posts.length) {
