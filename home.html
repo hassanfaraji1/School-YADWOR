@@ -65,7 +65,7 @@
       </div>
       <!-- يمين: فلترة + إشعارات + نشر -->
       <div class="flex items-center gap-1">
-        <!-- زر الفلترة — يظهر للطالب والأستاذ فقط -->
+        <!-- زر الفلترة — يظهر لجميع الحسابات -->
         <div id="header-filter-btn" style="display:none;" class="relative">
           <button onclick="toggleFilterDropdown()" id="filter-toggle-btn"
             class="flex items-center gap-1 rounded-full px-2.5 h-8 text-[12px] font-bold border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 transition-all shadow-sm">
@@ -73,19 +73,9 @@
             <span id="filter-active-label">الكل</span>
             <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
           </button>
-          <!-- القائمة المنسدلة -->
-          <div id="filter-dropdown" class="hidden absolute right-0 top-[calc(100%+6px)] z-50 rounded-2xl bg-white border border-zinc-200 shadow-xl overflow-hidden" style="min-width:160px;">
-            <button onclick="selectFilter('all')" id="fdrop-all"
-              class="flex items-center justify-between w-full px-4 py-3 text-[13px] font-bold hover:bg-zinc-50 transition-colors">
-              <span>الكل</span>
-              <svg id="fdrop-all-check" viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-zinc-800" stroke-width="2.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
-            </button>
-            <div class="border-t border-zinc-100 mx-3"></div>
-            <button onclick="selectFilter('level')" id="fdrop-level"
-              class="flex items-center justify-between w-full px-4 py-3 text-[13px] font-bold hover:bg-zinc-50 transition-colors">
-              <span id="fdrop-level-label">مستوى</span>
-              <svg id="fdrop-level-check" viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-zinc-800 opacity-0" stroke-width="2.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
-            </button>
+          <!-- القائمة المنسدلة — تُبنى ديناميكياً حسب نوع الحساب -->
+          <div id="filter-dropdown" class="hidden absolute right-0 top-[calc(100%+6px)] z-50 rounded-2xl bg-white border border-zinc-200 shadow-xl overflow-hidden" style="min-width:170px;">
+            <!-- يُملأ بـ JS في initFilterBar -->
           </div>
         </div>
         <!-- إشعارات -->
@@ -583,31 +573,47 @@ function selectFilter(filter) {
   setFeedFilter(filter);
 }
 
-function initFilterBar() {
-  const myType = _myType();
-  // يظهر فقط للطلاب والأساتذة
-  if (myType !== 'student' && myType !== 'teacher') return;
+// خريطة الفلاتر حسب نوع الحساب
+const _FILTER_OPTIONS = {
+  student:     [{id:'all',label:'الكل'},{id:'level',label:'مستواي'},{id:'teachers',label:'أساتذتي'},{id:'institution',label:'مؤسستي'}],
+  teacher:     [{id:'all',label:'الكل'},{id:'level',label:'مستواي'},{id:'students',label:'تلاميذي'},{id:'institution',label:'مؤسستي'}],
+  institution: [{id:'all',label:'الكل'},{id:'teachers',label:'أساتذتي'},{id:'students',label:'تلاميذي'}],
+  influencer:  [{id:'all',label:'الكل'},{id:'level',label:'مستواي'}],
+  default:     [{id:'all',label:'الكل'}],
+};
 
+function _getFilterOptions() {
+  const t = _myType();
+  return _FILTER_OPTIONS[t] || _FILTER_OPTIONS.default;
+}
+
+function initFilterBar() {
   let myData = {};
   try { myData = JSON.parse(localStorage.getItem('yadwor-user-data') || '{}'); } catch(e) {}
   _myLevelId = (myData.levelId || myData.level || '').trim();
 
-  // إظهار زر الفلترة في الهيدر
+  const opts = _getFilterOptions();
+  if (!opts.length || (opts.length === 1 && opts[0].id === 'all')) return; // لا داعي للزر
+
+  // إظهار زر الفلترة
   const headerBtn = document.getElementById('header-filter-btn');
   if (headerBtn) headerBtn.style.display = 'block';
 
-  // تحديث نص المستوى الحقيقي في القائمة المنسدلة
-  const levelLabel = _LEVEL_NAMES[_myLevelId] || (_myLevelId ? _myLevelId : 'مستواي');
-  const el = document.getElementById('fdrop-level-label');
-  if (el) el.textContent = levelLabel;
-
-  // تحديث نص الزر إذا كان الفلتر الحالي هو "مستوى"
-  if (_currentFilter === 'level') {
-    const activeLabel = document.getElementById('filter-active-label');
-    if (activeLabel) activeLabel.textContent = levelLabel;
+  // بناء القائمة المنسدلة ديناميكياً
+  const dd = document.getElementById('filter-dropdown');
+  if (dd) {
+    dd.innerHTML = opts.map((opt, i) => `
+      ${i > 0 ? '<div style="border-top:1px solid #f4f4f5;margin:0 12px;"></div>' : ''}
+      <button onclick="selectFilter('${opt.id}')" id="fdrop-${opt.id}"
+        class="flex items-center justify-between w-full px-4 py-3 text-[13px] font-bold hover:bg-zinc-50 transition-colors" style="color:#71717a;">
+        <span>${opt.label}</span>
+        <svg id="fdrop-${opt.id}-check" viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-zinc-800 opacity-0" stroke-width="2.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+      </button>`).join('');
   }
 
-  // تطبيق الفلتر المحفوظ وتحديث واجهة الزر
+  // إذا الفلتر المحفوظ غير موجود في خيارات هذا الحساب → reset
+  if (!opts.find(o => o.id === _currentFilter)) _currentFilter = 'all';
+
   _updateFilterUI(_currentFilter);
   applyFilter(_currentFilter);
 }
@@ -619,28 +625,27 @@ function setFeedFilter(filter) {
   applyFilter(filter);
 }
 
-// تحديث شكل زر الفلترة والقائمة
 function _updateFilterUI(filter) {
+  const opts = _getFilterOptions();
+  const activeOpt = opts.find(o => o.id === filter) || opts[0];
+
+  // نص الزر: اسم الفلتر النشط
   const activeLabel = document.getElementById('filter-active-label');
   if (activeLabel) {
-    if (filter === 'all') {
-      activeLabel.textContent = 'الكل';
+    if (filter === 'level') {
+      activeLabel.textContent = _LEVEL_NAMES[_myLevelId] || 'مستواي';
     } else {
-      // عرض اسم المستوى الحقيقي في الزر عند تفعيل فلتر "مستوى"
-      const levelLabel = _LEVEL_NAMES[_myLevelId] || (_myLevelId ? _myLevelId : 'مستوى');
-      activeLabel.textContent = levelLabel;
+      activeLabel.textContent = activeOpt.label;
     }
   }
-  // علامات الاختيار ✓ في القائمة فقط
-  const allCheck = document.getElementById('fdrop-all-check');
-  const lvlCheck = document.getElementById('fdrop-level-check');
-  const allRow   = document.getElementById('fdrop-all');
-  const lvlRow   = document.getElementById('fdrop-level');
-  if (allCheck) allCheck.style.opacity = filter === 'all'   ? '1' : '0';
-  if (lvlCheck) lvlCheck.style.opacity = filter === 'level' ? '1' : '0';
-  if (allRow)   allRow.style.color     = filter === 'all'   ? '#18181b' : '#71717a';
-  if (lvlRow)   lvlRow.style.color     = filter === 'level' ? '#18181b' : '#71717a';
-  // الزر الرئيسي لا يتغير لونه أبداً
+
+  // تحديث علامات ✓ وألوان الأزرار
+  opts.forEach(opt => {
+    const btn   = document.getElementById('fdrop-' + opt.id);
+    const check = document.getElementById('fdrop-' + opt.id + '-check');
+    if (btn)   btn.style.color   = opt.id === filter ? '#18181b' : '#71717a';
+    if (check) check.style.opacity = opt.id === filter ? '1' : '0';
+  });
 }
 
 function applyFilter(filter) {
@@ -649,65 +654,85 @@ function applyFilter(filter) {
   const myType     = _myType();
   const myLevelId  = (myData.levelId || myData.level || _myLevelId || '').trim();
   const mySubjects = (myData.subjects || []).map(s => (s.name || s || '').trim()).filter(Boolean);
+  const mySubject  = (myData.subject || mySubjects[0] || '').trim();
   const myInstId   = (myData.institutionUid || myData.institutionId || '').trim();
   const myUid      = localStorage.getItem('yadwor-uid') || '';
 
-  // ===== أولاً: إخفاء المنشورات التالفة دائماً (في كل الفلاتر) =====
-  // منشور تالف = لا يوجد له uid أو اسم أو نوع حساب
-  const validPosts = _allPosts.filter(p => {
-    if (!p) return false;
-    if (!p.uid && !p.name && !p.author) return false; // لا صاحب
-    if (!p.id) return false; // لا معرّف
-    return true;
-  });
+  // تصفية المنشورات التالفة دائماً
+  const validPosts = _allPosts.filter(p => p && p.id && (p.uid || p.name || p.author));
 
   let toShow = validPosts;
+  let emptyMsg = 'لا توجد منشورات';
 
-  if (filter === 'level' && myLevelId) {
+  if (filter !== 'all') {
     toShow = validPosts.filter(p => {
-      // منشورات المستخدم نفسه تظهر دائماً
-      if (p.uid && p.uid === myUid) return true;
+      if (p.uid && p.uid === myUid) return true; // منشوراتي دائماً
 
       const postLevel   = (p.levelId || '').trim();
       const postSubject = (p.subject || '').trim();
       const postInstId  = (p.institutionUid || p.institutionId || '').trim();
-      const isInstitution = (p.accountType === 'institution' || p.role === 'مؤسسة تعليمية');
+      const postUid     = (p.uid || '').trim();
+      const isInst      = p.accountType === 'institution' || p.role === 'مؤسسة تعليمية';
+      const isTeacher   = p.accountType === 'teacher'     || p.role === 'أستاذ';
+      const isStudent   = p.accountType === 'student'     || p.role === 'تلميذ';
 
-      // ===== منشورات المؤسسات =====
-      if (isInstitution) {
-        // تظهر فقط مؤسسة المستخدم نفسها
-        if (!myInstId) return false; // المستخدم لم ينضم لمؤسسة → لا تظهر مؤسسات
-        if (!postInstId) return false; // المنشور لا يحمل معرف مؤسسة → أخفِ
-        return postInstId === myInstId; // فقط مؤسستي أنا
+      // ===== فلتر مستواي (طالب / أستاذ / مؤثر) =====
+      if (filter === 'level') {
+        if (!myLevelId) return false;
+        if (isInst) return false; // المؤسسات لا تظهر في "مستواي"
+        if (postLevel && postLevel !== myLevelId) return false;
+        if (myType === 'student') {
+          if (isTeacher && postSubject && mySubjects.length && !mySubjects.includes(postSubject)) return false;
+        }
+        if (myType === 'teacher') {
+          if (postSubject && mySubject && postSubject !== mySubject) return false;
+        }
+        return true;
       }
 
-      // ===== الشرط الأساسي: نفس المستوى =====
-      // إذا لم يكن للمنشور levelId اعتبره عاماً وأظهره
-      if (postLevel && postLevel !== myLevelId) return false;
+      // ===== فلتر مؤسستي (طالب / أستاذ) =====
+      if (filter === 'institution') {
+        if (!isInst) return false;
+        if (!myInstId || !postInstId) return false;
+        return postInstId === myInstId;
+      }
 
-      // ===== منطق الطالب =====
-      if (myType === 'student') {
-        if (p.accountType === 'teacher' || p.role === 'أستاذ') {
-          // الأستاذ يجب أن يكون عنده نفس المستوى
-          if (postLevel && postLevel !== myLevelId) return false;
-          // إذا المنشور عنده مادة → يجب أن تكون ضمن مواد الطالب
-          if (postSubject && mySubjects.length && !mySubjects.includes(postSubject)) return false;
+      // ===== فلتر أساتذتي (طالب / مؤسسة) =====
+      if (filter === 'teachers') {
+        if (!isTeacher) return false;
+        if (myType === 'student') {
+          // الأستاذ يجب أن يكون في نفس المؤسسة أو نفس المستوى+المادة
+          if (myInstId && postInstId && postInstId !== myInstId) return false;
+          if (postLevel && myLevelId && postLevel !== myLevelId) return false;
           return true;
         }
-        // منشورات الطلاب وغيرهم: نفس المستوى يكفي
-        return true;
+        if (myType === 'institution') {
+          // أساتذة انضموا لهذه المؤسسة
+          return postInstId === myInstId || (p.institutionUid === myInstId);
+        }
+        return false;
       }
 
-      // ===== منطق الأستاذ =====
-      if (myType === 'teacher') {
-        const mySubject = (myData.subject || (mySubjects[0] || '')).trim();
-        if (postLevel && postLevel !== myLevelId) return false;
-        if (postSubject && mySubject && postSubject !== mySubject) return false;
-        return true;
+      // ===== فلتر تلاميذي (أستاذ / مؤسسة) =====
+      if (filter === 'students') {
+        if (!isStudent) return false;
+        if (myType === 'teacher') {
+          // التلميذ في نفس المؤسسة أو نفس المستوى
+          if (myInstId && postInstId && postInstId !== myInstId) return false;
+          if (postLevel && myLevelId && postLevel !== myLevelId) return false;
+          return true;
+        }
+        if (myType === 'institution') {
+          return postInstId === myInstId || (p.institutionUid === myInstId);
+        }
+        return false;
       }
 
       return true;
     });
+
+    const labels = {level:'مستواك',institution:'مؤسستك',teachers:'أساتذتك',students:'تلاميذك'};
+    emptyMsg = `لا توجد منشورات لـ ${labels[filter] || ''}`;
   }
 
   const feed = document.getElementById('home-feed');
@@ -718,7 +743,7 @@ function applyFilter(filter) {
       <div class="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100">
         <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M8 8h5"/></svg>
       </div>
-      <p class="text-[15px] font-bold text-zinc-400">لا توجد منشورات لمستواك بعد</p>
+      <p class="text-[15px] font-bold text-zinc-400">${emptyMsg}</p>
     </div>`;
     return;
   }
@@ -814,7 +839,7 @@ const _ALL_LEVELS = [
 
 function initComposerSelectors() {
   const myType = _myType();
-  if (myType !== 'student' && myType !== 'teacher') return;
+  // يظهر لجميع الحسابات (طالب، أستاذ، مؤسسة، مؤثر)
 
   let myData = {};
   try { myData = JSON.parse(localStorage.getItem('yadwor-user-data') || '{}'); } catch(e) {}
