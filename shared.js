@@ -604,7 +604,7 @@ function renderPostCard(p) {
             </div>
           </div>
         </div>
-        ${isOwner ? `<button onclick="openPostMenu('${p.id}')" class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-400 mt-0.5"><svg viewBox="0 0 24 24" class="h-4 w-4 fill-current"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></button>` : ''}
+        <button onclick="openPostMenu('${p.id}', ${isOwner})" class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-400 mt-0.5"><svg viewBox="0 0 24 24" class="h-4 w-4 fill-current"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></button>
       </div>
       <!-- Caption (قابل للطي) -->
       ${reelCaptionHtml ? `<div class="px-4 pb-1">${reelCaptionHtml}</div>` : ''}
@@ -639,6 +639,10 @@ function renderPostCard(p) {
             <svg viewBox="0 0 24 24" class="h-[18px] w-[18px] fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             ${commCount}
           </button>
+          <span class="flex items-center gap-1.5 text-[13px] font-bold text-zinc-400">
+            <svg viewBox="0 0 24 24" class="h-[18px] w-[18px] fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            ${viewCount}
+          </span>
         </div>
         <div class="flex items-center gap-1.5">
           <button onclick="sharePost('${p.id}')" class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-400">
@@ -688,9 +692,9 @@ function renderPostCard(p) {
             <p class="text-[11px] text-zinc-400">${typeLabel ? typeLabel + ' · ' : ''}${formatTimeAgo(p.publishedAt)}</p>
           </div>
         </div>
-        ${isOwner ? `<button onclick="openPostMenu('${p.id}')" class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-400">
+        <button onclick="openPostMenu('${p.id}', ${isOwner})" class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-400">
           <svg viewBox="0 0 24 24" class="h-4 w-4 fill-current"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-        </button>` : ''}
+        </button>
       </div>
       <div class="px-0 pt-1">${_buildTextHtml(p.text || '', p.id)}</div>
       ${mediaHtml}
@@ -705,6 +709,10 @@ function renderPostCard(p) {
           <svg viewBox="0 0 24 24" class="h-[18px] w-[18px] fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           ${commCount}
         </button>
+        <span class="flex items-center gap-1.5 text-[13px] font-bold text-zinc-400">
+          <svg viewBox="0 0 24 24" class="h-[18px] w-[18px] fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          ${viewCount}
+        </span>
       </div>
       <div class="flex items-center gap-2">
         <button onclick="sharePost('${p.id}')" class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-400">
@@ -798,27 +806,71 @@ function sharePost(postId) {
 // فتح قائمة المنشور (تعديل / حذف)
 // ============================================================
 let _menuPostId = null;
-function openPostMenu(postId) {
+function openPostMenu(postId, isOwner) {
   _menuPostId = postId;
   const existing = document.getElementById('_post-menu-overlay');
   if (existing) existing.remove();
   const overlay = document.createElement('div');
   overlay.id = '_post-menu-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:9990;background:rgba(0,0,0,0.4);display:flex;align-items:flex-end;justify-content:center;padding:0;font-family:Tajawal,sans-serif;direction:rtl;';
+
+  const ownerButtons = `
+    <button onclick="openEditModal('${postId}')" style="display:flex;align-items:center;gap:14px;width:100%;padding:14px 20px;background:none;border:none;font-family:Tajawal,sans-serif;font-size:15px;font-weight:700;color:#18181b;cursor:pointer;">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#18181b;stroke-width:2;stroke-linecap:round;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      تعديل المنشور
+    </button>
+    <button onclick="openDeleteModal('${postId}')" style="display:flex;align-items:center;gap:14px;width:100%;padding:14px 20px;background:none;border:none;font-family:Tajawal,sans-serif;font-size:15px;font-weight:700;color:#e53935;cursor:pointer;">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#e53935;stroke-width:2;stroke-linecap:round;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+      حذف المنشور
+    </button>`;
+
+  const reportButton = `
+    <button onclick="reportPost('${postId}')" style="display:flex;align-items:center;gap:14px;width:100%;padding:14px 20px;background:none;border:none;font-family:Tajawal,sans-serif;font-size:15px;font-weight:700;color:#e53935;cursor:pointer;">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#e53935;stroke-width:2;stroke-linecap:round;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      الإبلاغ عن المنشور
+    </button>`;
+
   overlay.innerHTML = `
     <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:12px 0 28px;" onclick="event.stopPropagation()">
       <div style="width:36px;height:4px;background:#e4e4e7;border-radius:4px;margin:0 auto 14px;"></div>
-      <button onclick="openEditModal('${postId}')" style="display:flex;align-items:center;gap:14px;width:100%;padding:14px 20px;background:none;border:none;font-family:Tajawal,sans-serif;font-size:15px;font-weight:700;color:#18181b;cursor:pointer;">
-        <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#18181b;stroke-width:2;stroke-linecap:round;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        تعديل المنشور
-      </button>
-      <button onclick="openDeleteModal('${postId}')" style="display:flex;align-items:center;gap:14px;width:100%;padding:14px 20px;background:none;border:none;font-family:Tajawal,sans-serif;font-size:15px;font-weight:700;color:#e53935;cursor:pointer;">
-        <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#e53935;stroke-width:2;stroke-linecap:round;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-        حذف المنشور
-      </button>
+      ${isOwner ? ownerButtons : reportButton}
     </div>`;
   overlay.addEventListener('click', () => overlay.remove());
   document.body.appendChild(overlay);
+}
+
+function reportPost(postId) {
+  const overlay = document.getElementById('_post-menu-overlay');
+  if (overlay) overlay.remove();
+  // نافذة تأكيد الإبلاغ
+  const conf = document.createElement('div');
+  conf.id = '_report-overlay';
+  conf.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-family:Tajawal,sans-serif;direction:rtl;padding:20px;';
+  conf.innerHTML = `
+    <div style="background:#fff;border-radius:20px;width:100%;max-width:340px;padding:24px 20px;text-align:center;">
+      <div style="width:48px;height:48px;background:#fee2e2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+        <svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:none;stroke:#e53935;stroke-width:2;stroke-linecap:round;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <p style="font-size:16px;font-weight:800;color:#18181b;margin-bottom:8px;">الإبلاغ عن المنشور</p>
+      <p style="font-size:13px;color:#71717a;margin-bottom:20px;">هل تريد الإبلاغ عن هذا المنشور؟ سيتم مراجعته من قِبل الإدارة.</p>
+      <div style="display:flex;gap:10px;">
+        <button onclick="document.getElementById('_report-overlay').remove()" style="flex:1;padding:11px;background:#f4f4f5;border:none;border-radius:12px;font-family:Tajawal,sans-serif;font-size:14px;font-weight:700;color:#52525b;cursor:pointer;">إلغاء</button>
+        <button onclick="confirmReport('${postId}')" style="flex:1;padding:11px;background:#e53935;border:none;border-radius:12px;font-family:Tajawal,sans-serif;font-size:14px;font-weight:700;color:#fff;cursor:pointer;">إبلاغ</button>
+      </div>
+    </div>`;
+  document.body.appendChild(conf);
+}
+
+async function confirmReport(postId) {
+  document.getElementById('_report-overlay')?.remove();
+  try {
+    await firebase.database().ref('reports/' + postId + '/' + (_myUid() || 'anon')).set({
+      reportedAt: Date.now(),
+      reportedBy: _myUid() || 'anon',
+      postId: postId,
+    });
+  } catch(e) {}
+  if (typeof showToast === 'function') showToast('تم إرسال البلاغ بنجاح');
 }
 
 function openEditModal(postId) {
@@ -1178,7 +1230,19 @@ function handleDraftVideo(input) {
   state.draftVideoFile = file;
   state.draftVideo = URL.createObjectURL(file);
   const preview = document.getElementById('draft-video-preview');
-  if (preview) preview.innerHTML = `<video src="${state.draftVideo}" controls playsinline preload="metadata" class="max-h-[280px] w-full object-contain"></video>`;
+  if (preview) preview.innerHTML = `
+    <div style="position:relative;width:100px;height:100px;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;background:#000;flex-shrink:0;display:inline-block;">
+      <video src="${state.draftVideo}" muted playsinline preload="metadata"
+        style="width:100%;height:100%;object-fit:cover;display:block;"></video>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+        <div style="width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:#fff;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,0.55);border-radius:4px;padding:1px 4px;font-size:9px;color:#fff;font-family:Tajawal,sans-serif;">
+        ${(file.size/1024/1024).toFixed(1)}MB
+      </div>
+    </div>`;
 }
 
 // ============================================================
