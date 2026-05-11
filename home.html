@@ -536,7 +536,31 @@ function doLogout() {
 <script>
 const PAGE = 'home';
 
-// ====================== FEED FILTER (طلاب وأساتذة) ======================
+// جلب institutionUid من Firebase مباشرة وتخزينه
+let _cachedInstId = null;
+async function _getMyInstId() {
+  if (_cachedInstId !== null) return _cachedInstId;
+  // أولاً من localStorage
+  let myData = {};
+  try { myData = JSON.parse(localStorage.getItem('yadwor-user-data') || '{}'); } catch(e) {}
+  let instId = (myData.institutionUid || myData.institutionId || '').trim();
+  if (instId) { _cachedInstId = instId; return instId; }
+  // إذا لم يوجد — اجلب من Firebase مباشرة
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  if (!myUid) { _cachedInstId = ''; return ''; }
+  try {
+    const db = firebase.database();
+    const snap = await db.ref('users/' + myUid + '/institutionUid').once('value');
+    instId = (snap.val() || '').trim();
+    if (instId) {
+      // احفظه في localStorage للمرة القادمة
+      myData.institutionUid = instId;
+      try { localStorage.setItem('yadwor-user-data', JSON.stringify(myData)); } catch(e) {}
+    }
+  } catch(e) {}
+  _cachedInstId = instId;
+  return instId;
+}
 let _allPosts = [];
 let _currentFilter = localStorage.getItem('yadwor-feed-filter') || 'all';
 let _myLevelId = '';
@@ -566,11 +590,11 @@ document.addEventListener('click', function(e) {
 });
 
 // اختيار فلتر من القائمة
-function selectFilter(filter) {
+async function selectFilter(filter) {
   _filterDropdownOpen = false;
   const dd = document.getElementById('filter-dropdown');
   if (dd) dd.classList.add('hidden');
-  setFeedFilter(filter);
+  await setFeedFilter(filter);
 }
 
 // خريطة الفلاتر حسب نوع الحساب — المؤثر لا يظهر له زر فلترة
@@ -587,7 +611,7 @@ function _getFilterOptions() {
   return _FILTER_OPTIONS[t] || _FILTER_OPTIONS.default;
 }
 
-function initFilterBar() {
+async function initFilterBar() {
   const myType = _myType();
   const opts = _getFilterOptions();
 
@@ -618,14 +642,14 @@ function initFilterBar() {
   if (!opts.find(o => o.id === _currentFilter)) _currentFilter = 'all';
 
   _updateFilterUI(_currentFilter);
-  applyFilter(_currentFilter);
+  await applyFilter(_currentFilter);
 }
 
-function setFeedFilter(filter) {
+async function setFeedFilter(filter) {
   _currentFilter = filter;
   localStorage.setItem('yadwor-feed-filter', filter);
   _updateFilterUI(filter);
-  applyFilter(filter);
+  await applyFilter(filter);
 }
 
 function _updateFilterUI(filter) {
@@ -651,15 +675,16 @@ function _updateFilterUI(filter) {
   });
 }
 
-function applyFilter(filter) {
+async function applyFilter(filter) {
   let myData = {};
   try { myData = JSON.parse(localStorage.getItem('yadwor-user-data') || '{}'); } catch(e) {}
   const myType     = _myType();
   const myLevelId  = (myData.levelId || myData.level || _myLevelId || '').trim();
   const mySubjects = (myData.subjects || []).map(s => (s.name || s || '').trim()).filter(Boolean);
   const mySubject  = (myData.subject || mySubjects[0] || '').trim();
-  const myInstId   = (myData.institutionUid || myData.institutionId || '').trim();
   const myUid      = localStorage.getItem('yadwor-uid') || '';
+  // جلب institutionUid من Firebase إذا لم يكن محفوظاً
+  const myInstId   = await _getMyInstId();
 
   // تصفية المنشورات التالفة دائماً
   const validPosts = _allPosts.filter(p => p && p.id && (p.uid || p.name || p.author));
