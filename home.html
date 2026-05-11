@@ -94,7 +94,7 @@
           <span id="notif-badge" class="absolute top-[2px] right-[3px] flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-rose-500 px-1 text-center text-[9px] font-extrabold leading-none text-white shadow ring-2 ring-white" style="display:none;"></span>
         </a>
         <!-- زر النشر — مربع صغير بنفس حجم أيقونة الإشعارات -->
-        <button onclick="document.getElementById('post-modal').classList.remove('hidden')"
+        <button onclick="openPostModal()"
           class="flex h-9 w-9 items-center justify-center rounded-[10px] bg-white border border-zinc-300 text-zinc-800 hover:bg-zinc-50 transition-colors">
           <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
         </button>
@@ -356,6 +356,17 @@
         إضافة صورة
         <input type="file" id="draft-image-input" accept="image/*" multiple class="hidden" onchange="handleDraftImages(this)" />
       </label>
+      <!-- اختيار المستوى والمادة — يظهر للأستاذ والطالب فقط -->
+      <div id="draft-level-subject-row" style="display:none;" class="mt-3 flex gap-2">
+        <select id="draft-level-select"
+          class="flex-1 rounded-[12px] border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-[13px] font-bold text-zinc-700 focus:border-zinc-900">
+          <option value="">المستوى (اختياري)</option>
+        </select>
+        <select id="draft-subject-select"
+          class="flex-1 rounded-[12px] border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-[13px] font-bold text-zinc-700 focus:border-zinc-900">
+          <option value="">المادة (اختياري)</option>
+        </select>
+      </div>
     </div>
     <div id="reel-composer-area" style="display:none">
       <textarea id="draft-text-reel" rows="3" placeholder="اكتب وصف الفيديو..." class="w-full rounded-[16px] border border-zinc-200 p-4 text-[14px] bg-zinc-50"></textarea>
@@ -366,6 +377,17 @@
         اختيار فيديو
         <input type="file" accept="video/*" class="hidden" onchange="handleDraftVideo(this)" />
       </label>
+      <!-- اختيار المستوى والمادة للريلز -->
+      <div id="draft-reel-level-subject-row" style="display:none;" class="mt-3 flex gap-2">
+        <select id="draft-reel-level-select"
+          class="flex-1 rounded-[12px] border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-[13px] font-bold text-zinc-700 focus:border-zinc-900">
+          <option value="">المستوى (اختياري)</option>
+        </select>
+        <select id="draft-reel-subject-select"
+          class="flex-1 rounded-[12px] border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-[13px] font-bold text-zinc-700 focus:border-zinc-900">
+          <option value="">المادة (اختياري)</option>
+        </select>
+      </div>
     </div>
     <button onclick="publishPost()" class="mt-4 h-12 w-full rounded-[16px] bg-zinc-900 text-[15px] font-extrabold text-white">نشر</button>
   </div>
@@ -779,7 +801,73 @@ function loadMorePosts() {
   }, 1500);
 }
 
-// ====================== COMPOSER ======================
+// ====================== تعبئة اختيارات المستوى والمادة في نافذة النشر ======================
+const _ALL_LEVELS = [
+  {id:'1prep',name:'الأولى إعدادي'},{id:'2prep',name:'الثانية إعدادي'},{id:'3prep',name:'الثالثة إعدادي'},
+  {id:'1am',name:'الأولى متوسط'},{id:'2am',name:'الثانية متوسط'},{id:'3am',name:'الثالثة متوسط'},{id:'4am',name:'الرابعة متوسط'},
+  {id:'1as',name:'الأولى ثانوي'},{id:'2as',name:'الثانية ثانوي'},{id:'3as',name:'الثالثة ثانوي'},
+];
+
+function initComposerSelectors() {
+  const myType = _myType();
+  if (myType !== 'student' && myType !== 'teacher') return;
+
+  let myData = {};
+  try { myData = JSON.parse(localStorage.getItem('yadwor-user-data') || '{}'); } catch(e) {}
+  const myLevelId  = (myData.levelId || myData.level || '').trim();
+  const mySubjects = (myData.subjects || []).map(s => ({ name:(s.name||s||'').trim() })).filter(s=>s.name);
+  const mySubject  = (myData.subject || (mySubjects[0]?.name || '')).trim();
+
+  // إظهار صفوف الاختيار
+  ['draft-level-subject-row','draft-reel-level-subject-row'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'flex';
+  });
+
+  // تعبئة قائمة المستويات
+  ['draft-level-select','draft-reel-level-select'].forEach(id=>{
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">المستوى (اختياري)</option>';
+    if (myLevelId) {
+      // للأستاذ والطالب: أضف فقط مستواهم كخيار محدد مسبقاً
+      const levelName = _LEVEL_NAMES[myLevelId] || myLevelId;
+      const opt = document.createElement('option');
+      opt.value = myLevelId;
+      opt.textContent = levelName;
+      opt.selected = true;
+      sel.appendChild(opt);
+    } else {
+      // إذا لا يوجد مستوى محدد — أضف كل المستويات
+      _ALL_LEVELS.forEach(l=>{
+        const opt = document.createElement('option');
+        opt.value = l.id; opt.textContent = l.name;
+        sel.appendChild(opt);
+      });
+    }
+  });
+
+  // تعبئة قائمة المواد
+  ['draft-subject-select','draft-reel-subject-select'].forEach(id=>{
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">المادة (اختياري)</option>';
+    const subjects = mySubjects.length ? mySubjects : (mySubject ? [{name:mySubject}] : []);
+    subjects.forEach(s=>{
+      const opt = document.createElement('option');
+      opt.value = s.name; opt.textContent = s.name;
+      if (subjects.length === 1) opt.selected = true; // اختر تلقائياً إذا مادة واحدة
+      sel.appendChild(opt);
+    });
+  });
+}
+
+function openPostModal() {
+  document.getElementById('post-modal').classList.remove('hidden');
+  setTimeout(initComposerSelectors, 50);
+}
+
+// ====================== END SELECTORS ======================
 function setComposerMode(mode) {
   state.composerMode = mode;
   document.getElementById('composer-post-btn').className = `rounded-[12px] px-4 py-3 text-[13px] font-bold ${mode==='post'?'bg-zinc-900 text-white':'bg-zinc-100 text-zinc-700'}`;
@@ -909,6 +997,10 @@ async function publishPost() {
     document.getElementById('reel-progress-bar').style.width='100%';
     document.getElementById('reel-progress-text').textContent='100%';
 
+    // جلب المستوى والمادة المختارة من نافذة النشر
+    const reelLevelId = (document.getElementById('draft-reel-level-select')?.value || '').trim();
+    const reelSubject = (document.getElementById('draft-reel-subject-select')?.value || '').trim();
+
     // الريلز يحمل بيانات صاحبه مدمجة — uid هو المرجع الوحيد
     const newReel = {
       id:          'post_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
@@ -928,6 +1020,8 @@ async function publishPost() {
       video:       videoUrl,
       images:      [],
       thumbnail:   thumbUrl,
+      levelId:     reelLevelId,
+      subject:     reelSubject,
       likedBy: {}, savedBy: {}, commentCount: 0, viewCount: 0,
       likes: 0, comments: 0, shares: 0, editCount: 0
     };
@@ -938,6 +1032,11 @@ async function publishPost() {
       document.getElementById('draft-text-reel').value='';
       document.getElementById('draft-hashtags').value='';
       document.getElementById('draft-video-preview').innerHTML='';
+      // إعادة تعيين اختيارات المستوى والمادة للريلز
+      const reelLvlSel = document.getElementById('draft-reel-level-select');
+      const reelSubSel = document.getElementById('draft-reel-subject-select');
+      if (reelLvlSel) reelLvlSel.selectedIndex = 0;
+      if (reelSubSel) reelSubSel.selectedIndex = 0;
       state.composerMode='post';
       createPost(newReel);
       window.location.href='reels.html';
@@ -964,6 +1063,10 @@ async function publishPost() {
     }
   } catch(e) { console.warn('Image upload failed:', e); finalImages = state.draftImages||[]; }
 
+  // جلب المستوى والمادة المختارة
+  const postLevelId = (document.getElementById('draft-level-select')?.value || '').trim();
+  const postSubject = (document.getElementById('draft-subject-select')?.value || '').trim();
+
   // المنشور يحمل بيانات صاحبه مدمجة — uid هو المرجع الوحيد
   const newPost = {
     id:          'post_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
@@ -981,6 +1084,8 @@ async function publishPost() {
     content:     text || 'منشور جديد',
     type:        finalImages.length ? 'gallery' : 'text',
     images:      finalImages,
+    levelId:     postLevelId,
+    subject:     postSubject,
     likedBy: {}, savedBy: {}, commentCount: 0, viewCount: 0,
     likes: 0, comments: 0, shares: 0, editCount: 0
   };
@@ -990,11 +1095,27 @@ async function publishPost() {
   state.draftImages=[]; state.draftImageFiles=[];
   document.getElementById('draft-images-preview').innerHTML='';
   const imgInput=document.getElementById('draft-image-input'); if(imgInput)imgInput.value='';
+  // إعادة تعيين اختيارات المستوى والمادة
+  const lvlSel = document.getElementById('draft-level-select');
+  const subSel = document.getElementById('draft-subject-select');
+  if (lvlSel) lvlSel.selectedIndex = 0;
+  if (subSel) subSel.selectedIndex = 0;
   state.composerMode='post';
   createPost(newPost);
   uploadingToast.classList.remove('show');
   showToast('تم نشر المنشور بنجاح');
 }
+
+
+// ====================== ملاحظة للمطور: منطق فلترة الريلز ======================
+// عند الضغط على "مستوى" في الصفحة الرئيسية والانتقال لصفحة الريلز:
+// يجب أن تقرأ reels.html من localStorage القيمة:
+//   const feedFilter = localStorage.getItem('yadwor-feed-filter'); // 'all' أو 'level'
+// ثم تصفي الريلزات بنفس منطق applyFilter أعلاه:
+//   - نفس المستوى (levelId)
+//   - الأستاذ: نفس المستوى + مواد الطالب
+//   - المؤسسات: مؤسسة المستخدم فقط
+// ============================================================================
 
 // Init
 renderHome();
