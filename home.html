@@ -694,28 +694,28 @@ function applyFilter(filter) {
       }
 
       // ===== فلتر مؤسستي (طالب / أستاذ) =====
-      // يظهر فقط المنشورات التي نشرتها المؤسسة التي انضم إليها المستخدم
+      // منشورات المؤسسة تُنشر بـ uid الخاص بها
+      // myData.institutionUid = uid المؤسسة التي انضم إليها المستخدم
       if (filter === 'institution') {
-        if (!myInstId) return false; // المستخدم لم ينضم لأي مؤسسة
-        // صاحب المنشور يجب أن يكون مؤسسة
-        if (!isInst) return false;
-        // uid الناشر يجب أن يطابق institutionUid الخاص بالمستخدم
+        if (!myInstId) return false; // لم ينضم لأي مؤسسة
+        if (!isInst) return false;   // الناشر ليس مؤسسة
+        // uid الناشر (المؤسسة) = institutionUid المحفوظ عند المستخدم
         const publisherUid = (p.uid || '').trim();
-        return publisherUid === myInstId || postInstId === myInstId;
+        return publisherUid === myInstId;
       }
 
       // ===== فلتر أساتذتي (طالب / مؤسسة) =====
       if (filter === 'teachers') {
         if (!isTeacher) return false;
         if (myType === 'student') {
-          // الأستاذ يجب أن يكون في نفس المؤسسة أو نفس المستوى+المادة
+          // أستاذ في نفس المؤسسة أو نفس المستوى
           if (myInstId && postInstId && postInstId !== myInstId) return false;
           if (postLevel && myLevelId && postLevel !== myLevelId) return false;
           return true;
         }
         if (myType === 'institution') {
-          // أساتذة انضموا لهذه المؤسسة
-          return postInstId === myInstId || (p.institutionUid === myInstId);
+          // أساتذة انضموا لهذه المؤسسة — institutionUid في بياناتهم = uid المؤسسة (myUid)
+          return (p.institutionUid || p.institutionId || '') === myUid;
         }
         return false;
       }
@@ -724,13 +724,14 @@ function applyFilter(filter) {
       if (filter === 'students') {
         if (!isStudent) return false;
         if (myType === 'teacher') {
-          // التلميذ في نفس المؤسسة أو نفس المستوى
+          // طالب في نفس المؤسسة أو نفس المستوى
           if (myInstId && postInstId && postInstId !== myInstId) return false;
           if (postLevel && myLevelId && postLevel !== myLevelId) return false;
           return true;
         }
         if (myType === 'institution') {
-          return postInstId === myInstId || (p.institutionUid === myInstId);
+          // طلاب انضموا لهذه المؤسسة — institutionUid في بياناتهم = uid المؤسسة (myUid)
+          return (p.institutionUid || p.institutionId || '') === myUid;
         }
         return false;
       }
