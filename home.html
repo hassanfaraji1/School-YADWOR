@@ -349,14 +349,23 @@
     </div>
     <div id="post-composer-area">
       <textarea id="draft-text" rows="4" placeholder="اكتب شيئاً جميلاً للنشر..." class="w-full rounded-[16px] border border-zinc-200 p-4 text-[14px] focus:border-zinc-900 bg-zinc-50"></textarea>
-      <!-- منطقة معاينة الصور — تظهر هنا مباشرة بعد الاختيار -->
-      <div id="draft-images-preview" class="mt-2 grid grid-cols-2 gap-2"></div>
+      <!-- معاينة الصور — مربعات صغيرة -->
+      <div id="draft-images-preview" class="mt-2 flex flex-wrap gap-2"></div>
       <label class="mt-3 flex cursor-pointer items-center gap-2 text-[13px] font-bold text-zinc-600">
         <div class="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100"><svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
         إضافة صورة
         <input type="file" id="draft-image-input" accept="image/*" multiple class="hidden" onchange="handleDraftImages(this)" />
       </label>
-      <!-- اختيار المستوى والمادة — يظهر للأستاذ والطالب فقط -->
+      <!-- Checkbox: استهداف مستوى تعليمي -->
+      <label id="draft-level-toggle-row" style="display:none;" class="mt-3 flex items-center gap-3 cursor-pointer select-none">
+        <div class="relative">
+          <input type="checkbox" id="draft-target-level-check" class="sr-only peer" onchange="toggleDraftLevelRows()">
+          <div class="w-10 h-5 rounded-full bg-zinc-200 peer-checked:bg-zinc-900 transition-colors"></div>
+          <div class="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-white shadow transition-all peer-checked:translate-x-[-20px]"></div>
+        </div>
+        <span class="text-[13px] font-bold text-zinc-700">استهداف مستوى تعليمي</span>
+      </label>
+      <!-- اختيار المستوى والمادة — يظهر للأستاذ والطالب فقط عند تفعيل الـ toggle -->
       <div id="draft-level-subject-row" style="display:none;" class="mt-3 flex gap-2">
         <select id="draft-level-select"
           class="flex-1 rounded-[12px] border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-[13px] font-bold text-zinc-700 focus:border-zinc-900">
@@ -371,11 +380,21 @@
     <div id="reel-composer-area" style="display:none">
       <textarea id="draft-text-reel" rows="3" placeholder="اكتب وصف الفيديو..." class="w-full rounded-[16px] border border-zinc-200 p-4 text-[14px] bg-zinc-50"></textarea>
       <input id="draft-hashtags" placeholder="#الوسوم" class="mt-2 w-full rounded-[14px] border border-zinc-200 px-4 py-3 text-[13px] bg-zinc-50" />
+      <!-- معاينة الفيديو — مربع صغير -->
       <div id="draft-video-preview" class="mt-2"></div>
       <label class="mt-3 flex cursor-pointer items-center gap-2 text-[13px] font-bold text-zinc-600">
         <div class="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100"><svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
         اختيار فيديو
         <input type="file" accept="video/*" class="hidden" onchange="handleDraftVideo(this)" />
+      </label>
+      <!-- Checkbox للريلز -->
+      <label id="draft-reel-level-toggle-row" style="display:none;" class="mt-3 flex items-center gap-3 cursor-pointer select-none">
+        <div class="relative">
+          <input type="checkbox" id="draft-reel-target-level-check" class="sr-only peer" onchange="toggleDraftReelLevelRows()">
+          <div class="w-10 h-5 rounded-full bg-zinc-200 peer-checked:bg-zinc-900 transition-colors"></div>
+          <div class="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-white shadow transition-all peer-checked:translate-x-[-20px]"></div>
+        </div>
+        <span class="text-[13px] font-bold text-zinc-700">استهداف مستوى تعليمي</span>
       </label>
       <!-- اختيار المستوى والمادة للريلز -->
       <div id="draft-reel-level-subject-row" style="display:none;" class="mt-3 flex gap-2">
@@ -801,6 +820,17 @@ function loadMorePosts() {
   }, 1500);
 }
 
+function toggleDraftLevelRows() {
+  const checked = document.getElementById('draft-target-level-check')?.checked;
+  const row = document.getElementById('draft-level-subject-row');
+  if (row) row.style.display = checked ? 'flex' : 'none';
+}
+function toggleDraftReelLevelRows() {
+  const checked = document.getElementById('draft-reel-target-level-check')?.checked;
+  const row = document.getElementById('draft-reel-level-subject-row');
+  if (row) row.style.display = checked ? 'flex' : 'none';
+}
+
 // ====================== تعبئة اختيارات المستوى والمادة في نافذة النشر ======================
 const _ALL_LEVELS = [
   {id:'1prep',name:'الأولى إعدادي'},{id:'2prep',name:'الثانية إعدادي'},{id:'3prep',name:'الثالثة إعدادي'},
@@ -818,11 +848,20 @@ function initComposerSelectors() {
   const mySubjects = (myData.subjects || []).map(s => ({ name:(s.name||s||'').trim() })).filter(s=>s.name);
   const mySubject  = (myData.subject || (mySubjects[0]?.name || '')).trim();
 
-  // إظهار صفوف الاختيار
-  ['draft-level-subject-row','draft-reel-level-subject-row'].forEach(id=>{
+  // إظهار صفوف الـ Toggle فقط (الـ selects تظهر عند التفعيل)
+  ['draft-level-toggle-row','draft-reel-level-toggle-row'].forEach(id=>{
     const el = document.getElementById(id);
     if (el) el.style.display = 'flex';
   });
+  // إخفاء صفوف الاختيار في البداية وإعادة تعيين الـ checkbox
+  ['draft-level-subject-row','draft-reel-level-subject-row'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  const chk1 = document.getElementById('draft-target-level-check');
+  const chk2 = document.getElementById('draft-reel-target-level-check');
+  if (chk1) chk1.checked = false;
+  if (chk2) chk2.checked = false;
 
   // تعبئة قائمة المستويات
   ['draft-level-select','draft-reel-level-select'].forEach(id=>{
@@ -896,21 +935,23 @@ function handleDraftImages(input) {
       if (!state.draftImages) state.draftImages = [];
       state.draftImages[i] = e.target.result;
 
-      // إنشاء عنصر المعاينة
+      // إنشاء عنصر المعاينة — مربع صغير 80×80
       const div = document.createElement('div');
-      div.className = 'overflow-hidden rounded-[10px] border border-zinc-200 relative';
-      div.style.height = '96px';
+      div.className = 'relative overflow-hidden rounded-[10px] border border-zinc-200 flex-shrink-0';
+      div.style.cssText = 'width:80px;height:80px;';
 
       const img = document.createElement('img');
       img.src = e.target.result;
       img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
 
-      const sizeLabel = document.createElement('div');
-      sizeLabel.className = 'absolute bottom-1 left-1 bg-black/50 rounded px-1 text-[9px] text-white';
-      sizeLabel.textContent = (file.size / 1024).toFixed(0) + 'KB';
+      // زر حذف الصورة
+      const delBtn = document.createElement('button');
+      delBtn.style.cssText = 'position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.6);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+      delBtn.innerHTML = '<svg viewBox="0 0 24 24" style="width:10px;height:10px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+      delBtn.onclick = function(e) { e.stopPropagation(); div.remove(); };
 
       div.appendChild(img);
-      div.appendChild(sizeLabel);
+      div.appendChild(delBtn);
       preview.appendChild(div);
     };
     reader.readAsDataURL(file);
