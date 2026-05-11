@@ -709,10 +709,6 @@ function renderPostCard(p) {
           <svg viewBox="0 0 24 24" class="h-[18px] w-[18px] fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           ${commCount}
         </button>
-        <span class="flex items-center gap-1.5 text-[13px] font-bold text-zinc-400">
-          <svg viewBox="0 0 24 24" class="h-[18px] w-[18px] fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          ${viewCount}
-        </span>
       </div>
       <div class="flex items-center gap-2">
         <button onclick="sharePost('${p.id}')" class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-zinc-100 text-zinc-400">
@@ -919,21 +915,91 @@ async function confirmDelete() {
 // ============================================================
 // Image viewer
 // ============================================================
-let _ivImages = [], _ivIdx = 0;
+let _ivImages = [], _ivIdx = 0, _ivTouchX = 0;
+
 function openImageViewer(imgs, idx) {
-  _ivImages = imgs; _ivIdx = idx || 0;
-  const viewer = document.getElementById('image-viewer');
-  if (!viewer) return;
-  viewer.classList.remove('hidden');
-  _updateViewer();
+  _ivImages = Array.isArray(imgs) ? imgs : [imgs];
+  _ivIdx = idx || 0;
+  // إزالة أي viewer قديم
+  document.getElementById('_iv-overlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = '_iv-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#000;display:flex;flex-direction:column;font-family:Tajawal,sans-serif;direction:rtl;touch-action:pan-y;';
+
+  overlay.innerHTML = `
+    <!-- هيدر -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;position:absolute;top:0;left:0;right:0;z-index:2;">
+      <button onclick="closeImageViewer()" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.12);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+      <span id="_iv-counter" style="font-size:14px;font-weight:700;color:rgba(255,255,255,0.8);">${_ivIdx+1} / ${_ivImages.length}</span>
+      <div style="width:36px;"></div>
+    </div>
+    <!-- الصورة الرئيسية -->
+    <div id="_iv-img-wrap" style="flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:56px 0 72px;">
+      <img id="_iv-img" src="${_ivImages[_ivIdx]}" style="max-width:100%;max-height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;transition:opacity 0.15s;" />
+    </div>
+    <!-- نقاط المؤشر -->
+    <div id="_iv-dots" style="display:flex;justify-content:center;gap:6px;padding-bottom:28px;position:absolute;bottom:0;left:0;right:0;"></div>
+    <!-- أسهم (للشاشات الكبيرة) -->
+    ${_ivImages.length > 1 ? `
+    <button onclick="prevIVImage()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3;">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+    <button onclick="nextIVImage()" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3;">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>` : ''}`;
+
+  // إنشاء نقاط المؤشر
+  function _buildDots() {
+    const dotsEl = overlay.querySelector('#_iv-dots');
+    if (!dotsEl || _ivImages.length <= 1) return;
+    dotsEl.innerHTML = _ivImages.map((_, i) =>
+      `<div style="width:${i===_ivIdx?'20px':'7px'};height:7px;border-radius:4px;background:${i===_ivIdx?'#fff':'rgba(255,255,255,0.35)'};transition:all 0.2s;"></div>`
+    ).join('');
+  }
+
+  // تحديث الصورة
+  function _updateIV() {
+    const img = overlay.querySelector('#_iv-img');
+    const counter = overlay.querySelector('#_iv-counter');
+    if (img) { img.style.opacity='0'; setTimeout(()=>{ img.src=_ivImages[_ivIdx]; img.style.opacity='1'; },100); }
+    if (counter) counter.textContent = (_ivIdx+1) + ' / ' + _ivImages.length;
+    _buildDots();
+  }
+
+  // السحب باللمس
+  overlay.addEventListener('touchstart', e => { _ivTouchX = e.touches[0].clientX; }, {passive:true});
+  overlay.addEventListener('touchend', e => {
+    const diff = _ivTouchX - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 40) {
+      if (diff > 0) { _ivIdx = (_ivIdx+1) % _ivImages.length; }
+      else          { _ivIdx = (_ivIdx-1+_ivImages.length) % _ivImages.length; }
+      _updateIV();
+    }
+  }, {passive:true});
+
+  // إغلاق بالضغط على الخلفية
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeImageViewer(); });
+
+  document.body.appendChild(overlay);
+  _buildDots();
+
+  // حفظ دوال التنقل للأزرار
+  window._updateIVFn = _updateIV;
 }
-function closeImageViewer() { document.getElementById('image-viewer')?.classList.add('hidden'); }
-function _updateViewer() {
-  document.getElementById('image-viewer-img').src = _ivImages[_ivIdx];
-  document.getElementById('image-viewer-counter').textContent = (_ivIdx + 1) + ' / ' + _ivImages.length;
+
+function closeImageViewer() { document.getElementById('_iv-overlay')?.remove(); }
+
+function prevIVImage() {
+  _ivIdx = (_ivIdx - 1 + _ivImages.length) % _ivImages.length;
+  if (window._updateIVFn) window._updateIVFn();
 }
-function prevImage() { _ivIdx = (_ivIdx - 1 + _ivImages.length) % _ivImages.length; _updateViewer(); }
-function nextImage() { _ivIdx = (_ivIdx + 1) % _ivImages.length; _updateViewer(); }
+function nextIVImage() {
+  _ivIdx = (_ivIdx + 1) % _ivImages.length;
+  if (window._updateIVFn) window._updateIVFn();
+}
 
 // ============================================================
 // Comments modal
