@@ -658,21 +658,26 @@ function renderPostCard(p) {
 
   // صور متعددة
   let mediaHtml = '';
+  const postImgsKey = 'pimgs_' + p.id;
   if (p.images && p.images.length) {
+    // نخزن مصفوفة الصور بمعرف المنشور لتجنب مشاكل JSON في onclick
     if (p.images.length === 1) {
-      mediaHtml = `<div class="mt-3 overflow-hidden rounded-[16px] cursor-pointer" onclick="openImageViewer(${JSON.stringify(p.images)},0)">
+      mediaHtml = `<div class="mt-3 overflow-hidden rounded-[16px] cursor-pointer" onclick="_openIVByKey('${postImgsKey}',0)">
         <img src="${p.images[0]}" class="w-full object-cover rounded-[16px]" style="max-height:260px;" loading="lazy" />
       </div>`;
     } else {
-      const cols = p.images.length === 2 ? 'grid-cols-2' : 'grid-cols-2';
+      const cols = 'grid-cols-2';
       mediaHtml = `<div class="mt-3 grid ${cols} gap-1.5 rounded-[16px] overflow-hidden">
         ${p.images.slice(0,4).map((img, i) => `
-          <div class="relative overflow-hidden rounded-[10px] cursor-pointer ${p.images.length === 3 && i === 0 ? 'col-span-2' : ''}" onclick="openImageViewer(${JSON.stringify(p.images)},${i})" style="padding-top:${p.images.length === 3 && i === 0 ? '55' : '75'}%;">
+          <div class="relative overflow-hidden rounded-[10px] cursor-pointer ${p.images.length === 3 && i === 0 ? 'col-span-2' : ''}" onclick="_openIVByKey('${postImgsKey}',${i})" style="padding-top:${p.images.length === 3 && i === 0 ? '55' : '75'}%;">
             <img src="${img}" class="absolute inset-0 w-full h-full object-cover" loading="lazy" />
             ${p.images.length > 4 && i === 3 ? `<div class="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-[22px] font-extrabold">+${p.images.length - 4}</div>` : ''}
           </div>`).join('')}
       </div>`;
     }
+    // تسجيل الصور في مخزن مؤقت
+    window._ivStore = window._ivStore || {};
+    window._ivStore[postImgsKey] = p.images;
   }
 
   return `
@@ -915,6 +920,13 @@ async function confirmDelete() {
 // ============================================================
 // Image viewer
 // ============================================================
+// دالة مساعدة: تفتح المعرض من المخزن المؤقت بدلاً من JSON في onclick
+function _openIVByKey(key, idx) {
+  const imgs = (window._ivStore && window._ivStore[key]) || [];
+  if (!imgs.length) return;
+  openImageViewer(imgs, idx);
+}
+
 let _ivImages = [], _ivIdx = 0, _ivTouchX = 0;
 
 function openImageViewer(imgs, idx) {
