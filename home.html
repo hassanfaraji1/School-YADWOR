@@ -573,13 +573,13 @@ function selectFilter(filter) {
   setFeedFilter(filter);
 }
 
-// خريطة الفلاتر حسب نوع الحساب
+// خريطة الفلاتر حسب نوع الحساب — المؤثر لا يظهر له زر فلترة
 const _FILTER_OPTIONS = {
   student:     [{id:'all',label:'الكل'},{id:'level',label:'مستواي'},{id:'teachers',label:'أساتذتي'},{id:'institution',label:'مؤسستي'}],
   teacher:     [{id:'all',label:'الكل'},{id:'level',label:'مستواي'},{id:'students',label:'تلاميذي'},{id:'institution',label:'مؤسستي'}],
   institution: [{id:'all',label:'الكل'},{id:'teachers',label:'أساتذتي'},{id:'students',label:'تلاميذي'}],
-  influencer:  [{id:'all',label:'الكل'},{id:'level',label:'مستواي'}],
-  default:     [{id:'all',label:'الكل'}],
+  influencer:  [], // المؤثر لا يظهر له زر فلترة
+  default:     [],
 };
 
 function _getFilterOptions() {
@@ -588,12 +588,15 @@ function _getFilterOptions() {
 }
 
 function initFilterBar() {
+  const myType = _myType();
+  const opts = _getFilterOptions();
+
+  // المؤثر والحسابات بدون خيارات — لا يظهر لهم زر الفلترة
+  if (!opts || opts.length === 0) return;
+
   let myData = {};
   try { myData = JSON.parse(localStorage.getItem('yadwor-user-data') || '{}'); } catch(e) {}
   _myLevelId = (myData.levelId || myData.level || '').trim();
-
-  const opts = _getFilterOptions();
-  if (!opts.length || (opts.length === 1 && opts[0].id === 'all')) return; // لا داعي للزر
 
   // إظهار زر الفلترة
   const headerBtn = document.getElementById('header-filter-btn');
@@ -691,10 +694,14 @@ function applyFilter(filter) {
       }
 
       // ===== فلتر مؤسستي (طالب / أستاذ) =====
+      // يظهر فقط المنشورات التي نشرتها المؤسسة التي انضم إليها المستخدم
       if (filter === 'institution') {
+        if (!myInstId) return false; // المستخدم لم ينضم لأي مؤسسة
+        // صاحب المنشور يجب أن يكون مؤسسة
         if (!isInst) return false;
-        if (!myInstId || !postInstId) return false;
-        return postInstId === myInstId;
+        // uid الناشر يجب أن يطابق institutionUid الخاص بالمستخدم
+        const publisherUid = (p.uid || '').trim();
+        return publisherUid === myInstId || postInstId === myInstId;
       }
 
       // ===== فلتر أساتذتي (طالب / مؤسسة) =====
@@ -839,7 +846,8 @@ const _ALL_LEVELS = [
 
 function initComposerSelectors() {
   const myType = _myType();
-  // يظهر لجميع الحسابات (طالب، أستاذ، مؤسسة، مؤثر)
+  // المؤثر لا يرى خيار استهداف المستوى
+  const showLevelToggle = (myType === 'student' || myType === 'teacher' || myType === 'institution');
 
   let myData = {};
   try { myData = JSON.parse(localStorage.getItem('yadwor-user-data') || '{}'); } catch(e) {}
@@ -847,10 +855,10 @@ function initComposerSelectors() {
   const mySubjects = (myData.subjects || []).map(s => ({ name:(s.name||s||'').trim() })).filter(s=>s.name);
   const mySubject  = (myData.subject || (mySubjects[0]?.name || '')).trim();
 
-  // إظهار صفوف الـ Toggle فقط (الـ selects تظهر عند التفعيل)
+  // إظهار/إخفاء صفوف الـ Toggle
   ['draft-level-toggle-row','draft-reel-level-toggle-row'].forEach(id=>{
     const el = document.getElementById(id);
-    if (el) el.style.display = 'flex';
+    if (el) el.style.display = showLevelToggle ? 'flex' : 'none';
   });
   // إخفاء صفوف الاختيار في البداية وإعادة تعيين الـ checkbox
   ['draft-level-subject-row','draft-reel-level-subject-row'].forEach(id=>{
