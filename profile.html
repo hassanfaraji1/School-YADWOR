@@ -141,6 +141,11 @@
       <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
       <span>نتائج الاختبارات</span>
     </a>
+    <!-- زر نشر كتاب — يظهر للأستاذ والمؤسسة -->
+    <button onclick="closeSidebar();openBookModal();" id="sidebar-publish-book-link" class="flex w-full items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold" style="display:none;">
+      <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <span>نشر كتاب / ورقة</span>
+    </button>
     <button onclick="doLogout()" class="flex w-full items-center justify-between px-4 py-3.5 rounded-2xl hover:bg-zinc-100 text-[15px] font-bold text-red-600">
       <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
       <span>تسجيل الخروج</span>
@@ -518,7 +523,8 @@ function updateSidebarButtons() {
   if(exercisesLink) exercisesLink.style.display = (state.profileType === 'teacher' || state.profileType === 'institution') ? 'flex' : 'none';
   const resultsLink = document.getElementById('sidebar-results-link');
   if(resultsLink) resultsLink.style.display = (state.profileType === 'teacher' || state.profileType === 'institution') ? 'flex' : 'none';
-  const joinCount = document.getElementById('sidebar-join-count');
+  const publishBookLink = document.getElementById('sidebar-publish-book-link');
+  if(publishBookLink) publishBookLink.style.display = (state.profileType === 'teacher' || state.profileType === 'institution') ? 'flex' : 'none';
   if(joinCount) {
     const pending = state.joinRequests.filter(r=>r.status==='pending').length;
     joinCount.textContent = pending > 0 ? `طلبات الانضمام (${pending})` : 'طلبات الانضمام';
@@ -1213,12 +1219,12 @@ function renderProfileTabContent() {
     const name = r.fullName || 'مستخدم';
     const sub  = r.role === 'teacher' ? (r.subjects?.map(s=>s.name||s).join('، ')||'') : (r.levelName||'');
     return `<div onclick="window.location.href='${navUrl}'" class="flex items-center gap-3 rounded-[16px] border border-zinc-100 bg-white p-3 shadow-sm hover:shadow-md transition cursor-pointer">
-      <div class="relative h-11 w-11 shrink-0 rounded-full overflow-hidden bg-indigo-100">
+      <div class="relative shrink-0 rounded-full overflow-hidden bg-indigo-100" style="width:44px;height:44px;min-width:44px;">
         ${avatarSrc
-          ? `<img src="${avatarSrc}" class="h-11 w-11 rounded-full object-cover absolute inset-0 w-full h-full"
+          ? `<img src="${avatarSrc}" style="width:44px;height:44px;object-fit:cover;display:block;border-radius:50%;"
               onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
-             <div class="absolute inset-0 hidden items-center justify-center rounded-full bg-indigo-500 text-white text-[15px] font-extrabold">${name.charAt(0).toUpperCase()}</div>`
-          : `<div class="absolute inset-0 flex items-center justify-center rounded-full bg-indigo-500 text-white text-[15px] font-extrabold">${name.charAt(0).toUpperCase()}</div>`
+             <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:none;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:800;">${name.charAt(0).toUpperCase()}</div>`
+          : `<div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:800;">${name.charAt(0).toUpperCase()}</div>`
         }
       </div>
       <div class="flex-1 min-w-0">
@@ -1425,8 +1431,29 @@ function renderProfileTabContent() {
 
   // ── أستاذ: كتبه ──
   if(t==='teacher' && tab==='books') {
-    const books=[{title:"كتاب الرياضيات الكامل",subject:"الرياضيات",kind:"كتاب",image:"https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=900&auto=format&fit=crop"},{title:"فرض محروس رقم 1",subject:"الرياضيات",kind:"فرض",image:"https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=900&auto=format&fit=crop"},{title:"ملخص النهايات",subject:"الرياضيات",kind:"ملخص",image:"https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=900&auto=format&fit=crop"},{title:"كتاب الفيزياء المبسط",subject:"الفيزياء",kind:"كتاب",image:"https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=900&auto=format&fit=crop"}];
-    return `<div class="grid grid-cols-3 gap-2">${books.map(b=>`<div class="relative h-40 overflow-hidden rounded-[12px] border border-zinc-200"><div class="shimmer absolute inset-0"></div><img src="${b.image}" class="h-full w-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" /><div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-[2]"></div><div class="absolute inset-x-0 bottom-0 p-2 text-white z-[3]"><div class="mb-1 flex items-center justify-between gap-1"><span class="rounded-full bg-white/15 px-2 py-1 text-[9px] font-bold">${b.kind}</span><span class="rounded-full bg-violet-500/90 px-2 py-1 text-[9px] font-bold">${b.subject}</span></div><h3 class="line-clamp-2 text-[12px] font-extrabold leading-5">${b.title}</h3></div></div>`).join('')}</div>`;
+    const books=[
+      {title:"كتاب الرياضيات الكامل",subject:"الرياضيات",kind:"كتاب",image:"https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=900&auto=format&fit=crop",date:"2024-09-01"},
+      {title:"فرض محروس رقم 1",subject:"الرياضيات",kind:"فرض",image:"https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=900&auto=format&fit=crop",date:"2024-10-15"},
+      {title:"ملخص النهايات",subject:"الرياضيات",kind:"ملخص",image:"https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=900&auto=format&fit=crop",date:"2024-11-20"},
+      {title:"كتاب الفيزياء المبسط",subject:"الفيزياء",kind:"كتاب",image:"https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=900&auto=format&fit=crop",date:"2024-12-05"}
+    ];
+    function _fmtBookDate(d){try{const dt=new Date(d);return dt.toLocaleDateString('ar-MA',{day:'numeric',month:'short',year:'numeric'});}catch(e){return d||'';}}
+    return `<div class="grid grid-cols-3 gap-2">${books.map(b=>`
+      <div class="flex flex-col gap-1">
+        <span class="text-[9px] text-zinc-400 font-medium text-center">${_fmtBookDate(b.date)}</span>
+        <div class="relative overflow-hidden rounded-[12px] border border-zinc-200" style="aspect-ratio:3/4;">
+          <div class="shimmer absolute inset-0"></div>
+          <img src="${b.image}" class="h-full w-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-[2]"></div>
+          <div class="absolute inset-x-0 bottom-0 p-1.5 text-white z-[3]">
+            <div class="mb-1 flex flex-wrap items-center gap-1">
+              <span class="rounded-full bg-white/15 px-1.5 py-0.5 text-[8px] font-bold">${b.kind}</span>
+              <span class="rounded-full bg-violet-500/90 px-1.5 py-0.5 text-[8px] font-bold">${b.subject}</span>
+            </div>
+            <h3 class="line-clamp-2 text-[10px] font-extrabold leading-4">${b.title}</h3>
+          </div>
+        </div>
+      </div>`).join('')}</div>`;
   }
 
   // ── تلميذ: أساتذته ──
@@ -2550,8 +2577,28 @@ function renderVisitorTabContent(tabId, vPosts) {
     <div class="vmg">${mediaItems.map((item,i)=>`<div class="vmg-i" onclick="openImageViewer(${item.postId},${item.idx})"><img src="${item.url}" /></div>`).join('')}</div>`;
   }
   if(tabId === 'books') {
-    const books=[{title:"كتاب الرياضيات الكامل",subject:"الرياضيات",kind:"كتاب",image:"https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=900&auto=format&fit=crop"},{title:"فرض محروس رقم 1",subject:"الرياضيات",kind:"فرض",image:"https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=900&auto=format&fit=crop"},{title:"ملخص النهايات",subject:"الرياضيات",kind:"ملخص",image:"https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=900&auto=format&fit=crop"}];
-    return `<div class="grid grid-cols-3 gap-2">${books.map(b=>`<div class="relative h-40 overflow-hidden rounded-[12px] border border-zinc-200"><div class="shimmer absolute inset-0"></div><img src="${b.image}" class="h-full w-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" /><div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-[2]"></div><div class="absolute inset-x-0 bottom-0 p-2 text-white z-[3]"><div class="mb-1 flex items-center justify-between gap-1"><span class="rounded-full bg-white/15 px-2 py-1 text-[9px] font-bold">${b.kind}</span><span class="rounded-full bg-violet-500/90 px-2 py-1 text-[9px] font-bold">${b.subject}</span></div><h3 class="line-clamp-2 text-[12px] font-extrabold leading-5">${b.title}</h3></div></div>`).join('')}</div>`;
+    const books=[
+      {title:"كتاب الرياضيات الكامل",subject:"الرياضيات",kind:"كتاب",image:"https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=900&auto=format&fit=crop",date:"2024-09-01"},
+      {title:"فرض محروس رقم 1",subject:"الرياضيات",kind:"فرض",image:"https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=900&auto=format&fit=crop",date:"2024-10-15"},
+      {title:"ملخص النهايات",subject:"الرياضيات",kind:"ملخص",image:"https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=900&auto=format&fit=crop",date:"2024-11-20"}
+    ];
+    function _fmtBD(d){try{const dt=new Date(d);return dt.toLocaleDateString('ar-MA',{day:'numeric',month:'short',year:'numeric'});}catch(e){return d||'';}}
+    return `<div class="grid grid-cols-3 gap-2">${books.map(b=>`
+      <div class="flex flex-col gap-1">
+        <span class="text-[9px] text-zinc-400 font-medium text-center">${_fmtBD(b.date)}</span>
+        <div class="relative overflow-hidden rounded-[12px] border border-zinc-200" style="aspect-ratio:3/4;">
+          <div class="shimmer absolute inset-0"></div>
+          <img src="${b.image}" class="h-full w-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-[2]"></div>
+          <div class="absolute inset-x-0 bottom-0 p-1.5 text-white z-[3]">
+            <div class="mb-1 flex flex-wrap gap-1">
+              <span class="rounded-full bg-white/15 px-1.5 py-0.5 text-[8px] font-bold">${b.kind}</span>
+              <span class="rounded-full bg-violet-500/90 px-1.5 py-0.5 text-[8px] font-bold">${b.subject}</span>
+            </div>
+            <h3 class="line-clamp-2 text-[10px] font-extrabold leading-4">${b.title}</h3>
+          </div>
+        </div>
+      </div>`).join('')}</div>`;
   }
   if(tabId === 'teachers') {
     // إذا كان الملف المُزار مؤسسة: نعرض أساتذتها
@@ -2675,6 +2722,48 @@ function renderVisitorTabContent(tabId, vPosts) {
       </div>`).join('')}</div>`;
   }
   if(tabId === 'students') {
+    const vAccountType = _visitorProfile ? (_visitorProfile.accountType || _visitorProfile.type || 'user') : 'user';
+
+    // ── زائر يرى تلاميذ مؤسسة ──
+    if (vAccountType === 'institution') {
+      const vInstId = _visitorUid || _visitorUsername;
+      const gridIdIS = 'visitor-inst-students-grid';
+      setTimeout(async () => {
+        const containerIS = document.getElementById(gridIdIS);
+        if (!containerIS) return;
+        // جلب جميع طلبات الانضمام المقبولة لهذه المؤسسة من Firebase
+        let instStudents = [];
+        try {
+          const jrSnap = await _pDb().ref('joinRequests/' + vInstId).once('value');
+          const jrData = jrSnap.val();
+          if (jrData) {
+            instStudents = Object.values(jrData).filter(r => r && r.status === 'accepted' && r.role === 'student');
+          }
+        } catch(e) {}
+        // fallback: state.joinRequests
+        if (!instStudents.length) {
+          instStudents = (state.joinRequests||[]).filter(r =>
+            r.status === 'accepted' && r.role === 'student' &&
+            (r.institutionUid === vInstId || r.institutionId === vInstId)
+          );
+        }
+        if (!instStudents.length) {
+          containerIS.innerHTML = emptyState('لم ينضم أي تلميذ بعد');
+          return;
+        }
+        setTimeout(() => enrichAvatarsFromFirebase(instStudents, gridIdIS), 100);
+        containerIS.innerHTML = instStudents.map(r => personCard(r)).join('');
+      }, 0);
+      return `<div id="${gridIdIS}" class="grid gap-2">${[1,2,3].map(()=>`
+        <div class="flex items-center gap-3 rounded-[16px] bg-white border border-zinc-100 p-3">
+          <div class="shimmer h-11 w-11 rounded-full shrink-0"></div>
+          <div class="flex-1 space-y-1.5">
+            <div class="shimmer h-3.5 w-28 rounded-full"></div>
+            <div class="shimmer h-3 w-20 rounded-full"></div>
+          </div>
+        </div>`).join('')}</div>`;
+    }
+
     // إذا كان الملف المُزار هو أستاذ: نعرض تلاميذه المطابقين له
     const vId = _visitorUid || _visitorUsername;
     const gridIdVS = 'visitor-students-grid';
@@ -3138,5 +3227,126 @@ async function syncJoinRequestsFromFirebase() {
 })();
 </script>
 <script src="floating-room.js"></script>
-</body>
-</html>
+<!-- ===== BOOK PUBLISH MODAL ===== -->
+<div id="book-modal" class="hidden fixed inset-0 z-[80] flex items-end justify-center" style="direction:rtl;">
+  <div class="absolute inset-0 bg-black/50" onclick="closeBookModal()"></div>
+  <div class="relative w-full max-w-[500px] rounded-t-[28px] bg-white p-5 pb-8 shadow-2xl z-[1]" style="max-height:90vh;overflow-y:auto;">
+    <div class="mb-4 flex items-center justify-between">
+      <h2 class="text-[16px] font-extrabold text-zinc-900">نشر كتاب / ورقة</h2>
+      <button onclick="closeBookModal()" class="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-600">
+        <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <!-- صورة الغلاف -->
+    <label class="block mb-3 cursor-pointer">
+      <div id="book-cover-preview" class="w-full h-36 rounded-[16px] border-2 border-dashed border-zinc-200 bg-zinc-50 flex flex-col items-center justify-center gap-2 text-zinc-400 overflow-hidden">
+        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-current" stroke-width="1.5" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span class="text-[12px] font-bold">اضغط لإضافة صورة الغلاف</span>
+      </div>
+      <input type="file" accept="image/*" class="hidden" onchange="previewBookCover(this)" id="book-cover-input" />
+    </label>
+    <!-- اسم الكتاب -->
+    <input id="book-title-input" type="text" placeholder="اسم الكتاب أو الورقة *" maxlength="80"
+      class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px] font-bold text-zinc-800 mb-3 focus:border-zinc-900 outline-none" />
+    <!-- نوع المحتوى -->
+    <div class="flex gap-2 mb-3 flex-wrap">
+      <span class="text-[12px] font-bold text-zinc-500 self-center ml-1">النوع:</span>
+      <button onclick="selectBookKind(this,'كتاب')" class="book-kind-btn rounded-full px-3 py-1.5 text-[12px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-600">كتاب</button>
+      <button onclick="selectBookKind(this,'فرض')" class="book-kind-btn rounded-full px-3 py-1.5 text-[12px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-600">فرض</button>
+      <button onclick="selectBookKind(this,'ملخص')" class="book-kind-btn rounded-full px-3 py-1.5 text-[12px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-600">ملخص</button>
+      <button onclick="selectBookKind(this,'ورقة عمل')" class="book-kind-btn rounded-full px-3 py-1.5 text-[12px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-600">ورقة عمل</button>
+      <button onclick="selectBookKind(this,'دروس')" class="book-kind-btn rounded-full px-3 py-1.5 text-[12px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-600">دروس</button>
+    </div>
+    <!-- المادة (اختياري) -->
+    <input id="book-subject-input" type="text" placeholder="المادة الدراسية (اختياري)" maxlength="40"
+      class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[13px] text-zinc-700 mb-3 focus:border-zinc-900 outline-none" />
+    <!-- وصف مختصر -->
+    <textarea id="book-desc-input" rows="3" placeholder="وصف مختصر (اختياري)" maxlength="300"
+      class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[13px] text-zinc-700 mb-4 focus:border-zinc-900 outline-none resize-none"></textarea>
+    <!-- زر النشر -->
+    <button onclick="publishBook()" class="w-full rounded-[14px] bg-zinc-900 py-3.5 text-[14px] font-extrabold text-white hover:bg-zinc-700 transition-colors">
+      نشر
+    </button>
+  </div>
+</div>
+
+<script>
+let _selectedBookKind = '';
+let _bookCoverFile = null;
+
+function openBookModal() {
+  document.getElementById('book-modal').classList.remove('hidden');
+  _selectedBookKind = '';
+  _bookCoverFile = null;
+  document.getElementById('book-title-input').value = '';
+  document.getElementById('book-subject-input').value = '';
+  document.getElementById('book-desc-input').value = '';
+  document.getElementById('book-cover-preview').innerHTML = `
+    <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-current" stroke-width="1.5" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+    <span class="text-[12px] font-bold">اضغط لإضافة صورة الغلاف</span>`;
+  document.querySelectorAll('.book-kind-btn').forEach(b => {
+    b.style.background=''; b.style.color=''; b.style.borderColor='';
+  });
+}
+function closeBookModal() { document.getElementById('book-modal').classList.add('hidden'); }
+
+function previewBookCover(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  _bookCoverFile = file;
+  const url = URL.createObjectURL(file);
+  const prev = document.getElementById('book-cover-preview');
+  prev.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:14px;" />`;
+}
+
+function selectBookKind(btn, kind) {
+  _selectedBookKind = kind;
+  document.querySelectorAll('.book-kind-btn').forEach(b => {
+    b.style.background = ''; b.style.color = '#52525b'; b.style.borderColor = '';
+  });
+  btn.style.background = '#18181b'; btn.style.color = '#fff'; btn.style.borderColor = '#18181b';
+}
+
+async function publishBook() {
+  const title   = document.getElementById('book-title-input').value.trim();
+  const subject = document.getElementById('book-subject-input').value.trim();
+  const desc    = document.getElementById('book-desc-input').value.trim();
+  if (!title) { if(typeof showToast==='function') showToast('أدخل اسم الكتاب'); return; }
+
+  let coverUrl = '';
+  if (_bookCoverFile) {
+    try {
+      const fd = new FormData();
+      fd.append('file', _bookCoverFile);
+      fd.append('upload_preset', typeof CLOUDINARY_PRESET!=='undefined' ? CLOUDINARY_PRESET : 'yadwor_preset');
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${typeof CLOUDINARY_CLOUD!=='undefined'?CLOUDINARY_CLOUD:'yadwor'}/image/upload`, {method:'POST',body:fd});
+      const data = await res.json();
+      coverUrl = data.secure_url || '';
+    } catch(e) {}
+  }
+
+  const myUid = localStorage.getItem('yadwor-uid') || '';
+  let myData = {};
+  try { myData = JSON.parse(localStorage.getItem('yadwor-user-data')||'{}'); } catch(e) {}
+  const instId = myData.institutionUid || myData.institutionId || '';
+
+  const bookObj = {
+    id: 'book_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    title, subject, desc,
+    kind: _selectedBookKind || 'كتاب',
+    image: coverUrl,
+    uid: myUid,
+    institutionUid: instId,
+    publishedAt: Date.now(),
+  };
+
+  try {
+    const db = firebase.database();
+    await db.ref('books/' + bookObj.id).set(bookObj);
+    closeBookModal();
+    if(typeof showToast==='function') showToast('تم نشر الكتاب بنجاح ✓');
+  } catch(e) {
+    if(typeof showToast==='function') showToast('تعذر النشر، تحقق من الاتصال');
+  }
+}
+</script>
