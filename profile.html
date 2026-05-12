@@ -1430,29 +1430,46 @@ function renderProfileTabContent() {
   }
 
   // ── أستاذ: كتبه ──
-  if(t==='teacher' && tab==='books') {
-    const books=[
-      {title:"كتاب الرياضيات الكامل",subject:"الرياضيات",kind:"كتاب",image:"https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=900&auto=format&fit=crop",date:"2024-09-01"},
-      {title:"فرض محروس رقم 1",subject:"الرياضيات",kind:"فرض",image:"https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=900&auto=format&fit=crop",date:"2024-10-15"},
-      {title:"ملخص النهايات",subject:"الرياضيات",kind:"ملخص",image:"https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=900&auto=format&fit=crop",date:"2024-11-20"},
-      {title:"كتاب الفيزياء المبسط",subject:"الفيزياء",kind:"كتاب",image:"https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=900&auto=format&fit=crop",date:"2024-12-05"}
-    ];
-    function _fmtBookDate(d){try{const dt=new Date(d);return dt.toLocaleDateString('ar-MA',{day:'numeric',month:'short',year:'numeric'});}catch(e){return d||'';}}
-    return `<div class="grid grid-cols-3 gap-2">${books.map(b=>`
+  if((t==='teacher' || t==='institution') && tab==='books') {
+    const myUid = localStorage.getItem('yadwor-uid') || '';
+    const gridId = 'my-books-grid';
+    setTimeout(async () => {
+      const container = document.getElementById(gridId);
+      if (!container) return;
+      let books = [];
+      try {
+        const snap = await firebase.database().ref('books').orderByChild('uid').equalTo(myUid).once('value');
+        const data = snap.val();
+        if (data) books = Object.values(data).sort((a,b) => (b.publishedAt||0) - (a.publishedAt||0));
+      } catch(e) {}
+      // كتب أساتذة المؤسسة إن كان الحساب مؤسسة
+      if (t === 'institution') {
+        try {
+          const jrSnap = await firebase.database().ref('joinRequests/' + myUid).once('value');
+          const jrData = jrSnap.val();
+          if (jrData) {
+            const teacherUids = Object.values(jrData)
+              .filter(r => r && r.status === 'accepted' && r.role === 'teacher')
+              .map(r => r.uid || r.userId).filter(Boolean);
+            for (const tUid of teacherUids) {
+              const tSnap = await firebase.database().ref('books').orderByChild('uid').equalTo(tUid).once('value');
+              const tData = tSnap.val();
+              if (tData) books = books.concat(Object.values(tData));
+            }
+            books.sort((a,b) => (b.publishedAt||0) - (a.publishedAt||0));
+          }
+        } catch(e) {}
+      }
+      if (!books.length) {
+        container.innerHTML = emptyState('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>', 'لا توجد كتب بعد — انشر أول كتاب');
+        return;
+      }
+      container.innerHTML = _renderBooksGrid(books, true);
+    }, 0);
+    return `<div id="${gridId}" class="grid grid-cols-3 gap-2">${[1,2,3,4,5,6].map(()=>`
       <div class="flex flex-col gap-1">
-        <span class="text-[9px] text-zinc-400 font-medium text-center">${_fmtBookDate(b.date)}</span>
-        <div class="relative overflow-hidden rounded-[12px] border border-zinc-200" style="aspect-ratio:3/4;">
-          <div class="shimmer absolute inset-0"></div>
-          <img src="${b.image}" class="h-full w-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
-          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-[2]"></div>
-          <div class="absolute inset-x-0 bottom-0 p-1.5 text-white z-[3]">
-            <div class="mb-1 flex flex-wrap items-center gap-1">
-              <span class="rounded-full bg-white/15 px-1.5 py-0.5 text-[8px] font-bold">${b.kind}</span>
-              <span class="rounded-full bg-violet-500/90 px-1.5 py-0.5 text-[8px] font-bold">${b.subject}</span>
-            </div>
-            <h3 class="line-clamp-2 text-[10px] font-extrabold leading-4">${b.title}</h3>
-          </div>
-        </div>
+        <div class="shimmer h-2.5 w-12 rounded-full mx-auto"></div>
+        <div class="shimmer rounded-[12px]" style="aspect-ratio:3/4;"></div>
       </div>`).join('')}</div>`;
   }
 
@@ -2577,27 +2594,47 @@ function renderVisitorTabContent(tabId, vPosts) {
     <div class="vmg">${mediaItems.map((item,i)=>`<div class="vmg-i" onclick="openImageViewer(${item.postId},${item.idx})"><img src="${item.url}" /></div>`).join('')}</div>`;
   }
   if(tabId === 'books') {
-    const books=[
-      {title:"كتاب الرياضيات الكامل",subject:"الرياضيات",kind:"كتاب",image:"https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=900&auto=format&fit=crop",date:"2024-09-01"},
-      {title:"فرض محروس رقم 1",subject:"الرياضيات",kind:"فرض",image:"https://images.unsplash.com/photo-1516979187457-637abb4f9353?w=900&auto=format&fit=crop",date:"2024-10-15"},
-      {title:"ملخص النهايات",subject:"الرياضيات",kind:"ملخص",image:"https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=900&auto=format&fit=crop",date:"2024-11-20"}
-    ];
-    function _fmtBD(d){try{const dt=new Date(d);return dt.toLocaleDateString('ar-MA',{day:'numeric',month:'short',year:'numeric'});}catch(e){return d||'';}}
-    return `<div class="grid grid-cols-3 gap-2">${books.map(b=>`
+    const vUid = _visitorUid;
+    const vAccountType = _visitorProfile ? (_visitorProfile.accountType || _visitorProfile.type || '') : '';
+    const gridIdVB = 'visitor-books-grid';
+    setTimeout(async () => {
+      const container = document.getElementById(gridIdVB);
+      if (!container) return;
+      let books = [];
+      try {
+        const snap = await firebase.database().ref('books').orderByChild('uid').equalTo(vUid).once('value');
+        const data = snap.val();
+        if (data) books = Object.values(data).sort((a,b) => (b.publishedAt||0) - (a.publishedAt||0));
+      } catch(e) {}
+      // للمؤسسة: أضف كتب أساتذتها
+      if (vAccountType === 'institution') {
+        try {
+          const jrSnap = await firebase.database().ref('joinRequests/' + vUid).once('value');
+          const jrData = jrSnap.val();
+          if (jrData) {
+            const teacherUids = Object.values(jrData)
+              .filter(r => r && r.status === 'accepted' && r.role === 'teacher')
+              .map(r => r.uid || r.userId).filter(Boolean);
+            for (const tUid of teacherUids) {
+              const tSnap = await firebase.database().ref('books').orderByChild('uid').equalTo(tUid).once('value');
+              const tData = tSnap.val();
+              if (tData) books = books.concat(Object.values(tData));
+            }
+            books.sort((a,b) => (b.publishedAt||0) - (a.publishedAt||0));
+          }
+        } catch(e) {}
+      }
+      if (!books.length) {
+        container.innerHTML = emptyState('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>', 'لا توجد كتب بعد');
+        return;
+      }
+      // الزائر لا يملك خيار التعديل
+      container.innerHTML = _renderBooksGrid(books, false);
+    }, 0);
+    return `<div id="${gridIdVB}" class="grid grid-cols-3 gap-2">${[1,2,3].map(()=>`
       <div class="flex flex-col gap-1">
-        <span class="text-[9px] text-zinc-400 font-medium text-center">${_fmtBD(b.date)}</span>
-        <div class="relative overflow-hidden rounded-[12px] border border-zinc-200" style="aspect-ratio:3/4;">
-          <div class="shimmer absolute inset-0"></div>
-          <img src="${b.image}" class="h-full w-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
-          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent z-[2]"></div>
-          <div class="absolute inset-x-0 bottom-0 p-1.5 text-white z-[3]">
-            <div class="mb-1 flex flex-wrap gap-1">
-              <span class="rounded-full bg-white/15 px-1.5 py-0.5 text-[8px] font-bold">${b.kind}</span>
-              <span class="rounded-full bg-violet-500/90 px-1.5 py-0.5 text-[8px] font-bold">${b.subject}</span>
-            </div>
-            <h3 class="line-clamp-2 text-[10px] font-extrabold leading-4">${b.title}</h3>
-          </div>
-        </div>
+        <div class="shimmer h-2.5 w-12 rounded-full mx-auto"></div>
+        <div class="shimmer rounded-[12px]" style="aspect-ratio:3/4;"></div>
       </div>`).join('')}</div>`;
   }
   if(tabId === 'teachers') {
@@ -3227,84 +3264,184 @@ async function syncJoinRequestsFromFirebase() {
 })();
 </script>
 <script src="floating-room.js"></script>
-<!-- ===== BOOK PUBLISH MODAL ===== -->
+<!-- ===== BOOK SYSTEM ===== -->
+
+<!-- نافذة نشر / تعديل الكتاب -->
 <div id="book-modal" class="hidden fixed inset-0 z-[80] flex items-end justify-center" style="direction:rtl;">
   <div class="absolute inset-0 bg-black/50" onclick="closeBookModal()"></div>
-  <div class="relative w-full max-w-[500px] rounded-t-[28px] bg-white p-5 pb-8 shadow-2xl z-[1]" style="max-height:90vh;overflow-y:auto;">
+  <div class="relative w-full max-w-[500px] rounded-t-[28px] bg-white p-5 pb-8 shadow-2xl z-[1]" style="max-height:92vh;overflow-y:auto;">
     <div class="mb-4 flex items-center justify-between">
-      <h2 class="text-[16px] font-extrabold text-zinc-900">نشر كتاب / ورقة</h2>
+      <h2 id="book-modal-title" class="text-[16px] font-extrabold text-zinc-900">نشر كتاب / ورقة</h2>
       <button onclick="closeBookModal()" class="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-600">
         <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
     </div>
     <!-- صورة الغلاف -->
     <label class="block mb-3 cursor-pointer">
-      <div id="book-cover-preview" class="w-full h-36 rounded-[16px] border-2 border-dashed border-zinc-200 bg-zinc-50 flex flex-col items-center justify-center gap-2 text-zinc-400 overflow-hidden">
-        <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-current" stroke-width="1.5" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        <span class="text-[12px] font-bold">اضغط لإضافة صورة الغلاف</span>
+      <div id="book-cover-preview" class="w-full h-32 rounded-[14px] border-2 border-dashed border-zinc-200 bg-zinc-50 flex flex-col items-center justify-center gap-2 text-zinc-400 overflow-hidden">
+        <svg viewBox="0 0 24 24" class="h-7 w-7 fill-none stroke-current" stroke-width="1.5" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span class="text-[11px] font-bold">اضغط لإضافة صورة الغلاف</span>
       </div>
       <input type="file" accept="image/*" class="hidden" onchange="previewBookCover(this)" id="book-cover-input" />
+    </label>
+    <!-- ملف PDF -->
+    <label id="book-pdf-label" class="block mb-3 cursor-pointer">
+      <div id="book-pdf-preview" class="w-full rounded-[12px] border border-dashed border-zinc-200 bg-zinc-50 px-4 py-3 flex items-center gap-3 text-zinc-500">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 shrink-0 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span id="book-pdf-name" class="text-[12px] font-bold">اختر ملف PDF</span>
+      </div>
+      <input type="file" accept="application/pdf" class="hidden" onchange="previewBookPdf(this)" id="book-pdf-input" />
     </label>
     <!-- اسم الكتاب -->
     <input id="book-title-input" type="text" placeholder="اسم الكتاب أو الورقة *" maxlength="80"
       class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[14px] font-bold text-zinc-800 mb-3 focus:border-zinc-900 outline-none" />
     <!-- نوع المحتوى -->
-    <div class="flex gap-2 mb-3 flex-wrap">
-      <span class="text-[12px] font-bold text-zinc-500 self-center ml-1">النوع:</span>
-      <button onclick="selectBookKind(this,'كتاب')" class="book-kind-btn rounded-full px-3 py-1.5 text-[12px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-600">كتاب</button>
-      <button onclick="selectBookKind(this,'فرض')" class="book-kind-btn rounded-full px-3 py-1.5 text-[12px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-600">فرض</button>
-      <button onclick="selectBookKind(this,'ملخص')" class="book-kind-btn rounded-full px-3 py-1.5 text-[12px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-600">ملخص</button>
-      <button onclick="selectBookKind(this,'ورقة عمل')" class="book-kind-btn rounded-full px-3 py-1.5 text-[12px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-600">ورقة عمل</button>
-      <button onclick="selectBookKind(this,'دروس')" class="book-kind-btn rounded-full px-3 py-1.5 text-[12px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-600">دروس</button>
+    <div class="flex gap-2 mb-3 flex-wrap items-center">
+      <span class="text-[11px] font-bold text-zinc-500">النوع:</span>
+      <button onclick="selectBookKind(this,'كتاب')"       class="book-kind-btn rounded-full px-3 py-1 text-[11px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-600">كتاب</button>
+      <button onclick="selectBookKind(this,'فرض')"        class="book-kind-btn rounded-full px-3 py-1 text-[11px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-600">فرض</button>
+      <button onclick="selectBookKind(this,'ملخص')"       class="book-kind-btn rounded-full px-3 py-1 text-[11px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-600">ملخص</button>
+      <button onclick="selectBookKind(this,'ورقة عمل')"   class="book-kind-btn rounded-full px-3 py-1 text-[11px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-600">ورقة عمل</button>
+      <button onclick="selectBookKind(this,'دروس')"       class="book-kind-btn rounded-full px-3 py-1 text-[11px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-600">دروس</button>
     </div>
-    <!-- المادة (اختياري) -->
+    <!-- المادة -->
     <input id="book-subject-input" type="text" placeholder="المادة الدراسية (اختياري)" maxlength="40"
-      class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[13px] text-zinc-700 mb-3 focus:border-zinc-900 outline-none" />
-    <!-- وصف مختصر -->
-    <textarea id="book-desc-input" rows="3" placeholder="وصف مختصر (اختياري)" maxlength="300"
-      class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[13px] text-zinc-700 mb-4 focus:border-zinc-900 outline-none resize-none"></textarea>
-    <!-- زر النشر -->
-    <button onclick="publishBook()" class="w-full rounded-[14px] bg-zinc-900 py-3.5 text-[14px] font-extrabold text-white hover:bg-zinc-700 transition-colors">
-      نشر
+      class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[13px] text-zinc-700 mb-3 outline-none" />
+    <!-- الجمهور -->
+    <div class="mb-3 flex gap-2 items-center flex-wrap">
+      <span class="text-[11px] font-bold text-zinc-500">يظهر لـ:</span>
+      <button onclick="selectBookAudience(this,'all')"       class="book-aud-btn rounded-full px-3 py-1 text-[11px] font-bold border border-zinc-900 bg-zinc-900 text-white" data-aud="all">الجميع</button>
+      <button onclick="selectBookAudience(this,'members')"   class="book-aud-btn rounded-full px-3 py-1 text-[11px] font-bold border border-zinc-200 bg-zinc-50 text-zinc-600" data-aud="members">تلاميذ المؤسسة فقط</button>
+    </div>
+    <!-- وصف -->
+    <textarea id="book-desc-input" rows="2" placeholder="وصف مختصر (اختياري)" maxlength="300"
+      class="w-full rounded-[12px] border border-zinc-200 bg-zinc-50 px-4 py-3 text-[13px] text-zinc-700 mb-4 outline-none resize-none"></textarea>
+    <div id="book-upload-progress" class="hidden mb-3 text-[12px] font-bold text-violet-600 text-center">جاري الرفع...</div>
+    <button onclick="publishBook()" id="book-submit-btn" class="w-full rounded-[14px] bg-zinc-900 py-3.5 text-[14px] font-extrabold text-white hover:bg-zinc-700 transition-colors">نشر</button>
+  </div>
+</div>
+
+<!-- نافذة قراءة PDF مع تقليب الصفحات -->
+<div id="book-reader-modal" class="hidden fixed inset-0 z-[90] bg-zinc-900 flex flex-col" style="direction:ltr;">
+  <div class="flex items-center justify-between px-4 py-3 shrink-0" style="background:rgba(0,0,0,0.7);">
+    <button onclick="closeBookReader()" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+      <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;"><path d="M18 6 6 18M6 6l12 12"/></svg>
     </button>
+    <span id="reader-title" style="color:#fff;font-size:13px;font-weight:700;font-family:Tajawal,sans-serif;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+    <span id="reader-page-info" style="color:rgba(255,255,255,0.6);font-size:12px;font-weight:700;font-family:Tajawal,sans-serif;"></span>
+  </div>
+  <!-- منطقة القراءة -->
+  <div id="reader-pages-container" style="flex:1;overflow:hidden;position:relative;touch-action:none;"></div>
+  <!-- أزرار التنقل -->
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:rgba(0,0,0,0.5);">
+    <button onclick="readerNextPage()" style="padding:8px 20px;border-radius:20px;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:13px;font-weight:700;font-family:Tajawal,sans-serif;cursor:pointer;">التالي ›</button>
+    <div id="reader-dots" style="display:flex;gap:5px;"></div>
+    <button onclick="readerPrevPage()" style="padding:8px 20px;border-radius:20px;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:13px;font-weight:700;font-family:Tajawal,sans-serif;cursor:pointer;">‹ السابق</button>
   </div>
 </div>
 
 <script>
+// ==================== BOOKS HELPERS ====================
+function _fmtBookDate(d) {
+  try { return new Date(d||0).toLocaleDateString('ar-MA',{day:'numeric',month:'short',year:'numeric'}); } catch(e) { return ''; }
+}
+
+function _renderBooksGrid(books, isOwner) {
+  return `<div class="grid grid-cols-3 gap-2">${books.map(b => `
+    <div class="flex flex-col gap-1">
+      <span class="text-[9px] text-zinc-400 font-medium text-center">${_fmtBookDate(b.publishedAt)}</span>
+      <div class="relative overflow-hidden rounded-[12px] border border-zinc-200 cursor-pointer group" style="aspect-ratio:3/4;"
+           onclick="openBookReader('${b.id}','${(b.title||'').replace(/'/g,'&#39;')}','${b.pdfUrl||''}')">
+        ${b.image
+          ? `<img src="${b.image}" class="h-full w-full object-cover z-[1] relative" />`
+          : `<div class="h-full w-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center z-[1] relative"><svg viewBox="0 0 24 24" style="width:32px;height:32px;fill:none;stroke:rgba(255,255,255,0.7);stroke-width:1.5;stroke-linecap:round;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>`
+        }
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent z-[2]"></div>
+        <div class="absolute inset-x-0 bottom-0 p-1.5 text-white z-[3]">
+          <div class="mb-0.5 flex flex-wrap gap-1">
+            ${b.kind ? `<span class="rounded-full bg-white/15 px-1.5 py-0.5 text-[8px] font-bold">${b.kind}</span>` : ''}
+            ${b.subject ? `<span class="rounded-full bg-violet-500/90 px-1.5 py-0.5 text-[8px] font-bold">${b.subject}</span>` : ''}
+          </div>
+          <h3 class="line-clamp-2 text-[9px] font-extrabold leading-3.5">${b.title||'بدون عنوان'}</h3>
+        </div>
+        ${isOwner ? `
+        <div class="absolute top-1.5 left-1.5 z-[4] hidden group-hover:flex gap-1">
+          <button onclick="event.stopPropagation();openEditBook('${b.id}')"
+            style="width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,0.6);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+            <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button onclick="event.stopPropagation();deleteBook('${b.id}')"
+            style="width:26px;height:26px;border-radius:50%;background:rgba(220,38,38,0.8);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+            <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+          </button>
+        </div>` : ''}
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+// ==================== BOOK MODAL ====================
 let _selectedBookKind = '';
+let _selectedBookAudience = 'all';
 let _bookCoverFile = null;
+let _bookPdfFile = null;
+let _editingBookId = null;
 
 function openBookModal() {
+  _editingBookId = null;
+  document.getElementById('book-modal-title').textContent = 'نشر كتاب / ورقة';
+  document.getElementById('book-submit-btn').textContent = 'نشر';
+  _resetBookModal();
   document.getElementById('book-modal').classList.remove('hidden');
+}
+
+function _resetBookModal() {
   _selectedBookKind = '';
+  _selectedBookAudience = 'all';
   _bookCoverFile = null;
+  _bookPdfFile = null;
   document.getElementById('book-title-input').value = '';
   document.getElementById('book-subject-input').value = '';
   document.getElementById('book-desc-input').value = '';
+  document.getElementById('book-pdf-name').textContent = 'اختر ملف PDF';
   document.getElementById('book-cover-preview').innerHTML = `
-    <svg viewBox="0 0 24 24" class="h-8 w-8 fill-none stroke-current" stroke-width="1.5" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-    <span class="text-[12px] font-bold">اضغط لإضافة صورة الغلاف</span>`;
-  document.querySelectorAll('.book-kind-btn').forEach(b => {
-    b.style.background=''; b.style.color=''; b.style.borderColor='';
+    <svg viewBox="0 0 24 24" class="h-7 w-7 fill-none stroke-current" stroke-width="1.5" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+    <span class="text-[11px] font-bold">اضغط لإضافة صورة الغلاف</span>`;
+  document.querySelectorAll('.book-kind-btn').forEach(b => { b.style.background=''; b.style.color=''; b.style.borderColor=''; });
+  document.querySelectorAll('.book-aud-btn').forEach(b => {
+    const isAll = b.dataset.aud === 'all';
+    b.style.background = isAll ? '#18181b' : ''; b.style.color = isAll ? '#fff' : '#52525b';
+    b.style.borderColor = isAll ? '#18181b' : '';
   });
+  document.getElementById('book-upload-progress').classList.add('hidden');
 }
-function closeBookModal() { document.getElementById('book-modal').classList.add('hidden'); }
+
+function closeBookModal() { document.getElementById('book-modal').classList.add('hidden'); _editingBookId = null; }
 
 function previewBookCover(input) {
   const file = input.files?.[0];
   if (!file) return;
   _bookCoverFile = file;
   const url = URL.createObjectURL(file);
-  const prev = document.getElementById('book-cover-preview');
-  prev.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:14px;" />`;
+  document.getElementById('book-cover-preview').innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:12px;" />`;
+}
+
+function previewBookPdf(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  _bookPdfFile = file;
+  document.getElementById('book-pdf-name').textContent = file.name + ' (' + (file.size/1024/1024).toFixed(1) + 'MB)';
 }
 
 function selectBookKind(btn, kind) {
   _selectedBookKind = kind;
-  document.querySelectorAll('.book-kind-btn').forEach(b => {
-    b.style.background = ''; b.style.color = '#52525b'; b.style.borderColor = '';
-  });
-  btn.style.background = '#18181b'; btn.style.color = '#fff'; btn.style.borderColor = '#18181b';
+  document.querySelectorAll('.book-kind-btn').forEach(b => { b.style.background=''; b.style.color='#52525b'; b.style.borderColor=''; });
+  btn.style.background='#18181b'; btn.style.color='#fff'; btn.style.borderColor='#18181b';
+}
+
+function selectBookAudience(btn, aud) {
+  _selectedBookAudience = aud;
+  document.querySelectorAll('.book-aud-btn').forEach(b => { b.style.background=''; b.style.color='#52525b'; b.style.borderColor=''; });
+  btn.style.background='#18181b'; btn.style.color='#fff'; btn.style.borderColor='#18181b';
 }
 
 async function publishBook() {
@@ -3313,40 +3450,245 @@ async function publishBook() {
   const desc    = document.getElementById('book-desc-input').value.trim();
   if (!title) { if(typeof showToast==='function') showToast('أدخل اسم الكتاب'); return; }
 
-  let coverUrl = '';
+  const progressEl = document.getElementById('book-upload-progress');
+  const submitBtn  = document.getElementById('book-submit-btn');
+  progressEl.classList.remove('hidden');
+  submitBtn.disabled = true; submitBtn.textContent = 'جاري الرفع...';
+
+  let coverUrl = _editingBookId ? (document.getElementById('book-cover-preview').querySelector('img')?.src || '') : '';
+  let pdfUrl   = '';
+
+  // رفع صورة الغلاف
   if (_bookCoverFile) {
     try {
       const fd = new FormData();
       fd.append('file', _bookCoverFile);
-      fd.append('upload_preset', typeof CLOUDINARY_PRESET!=='undefined' ? CLOUDINARY_PRESET : 'yadwor_preset');
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${typeof CLOUDINARY_CLOUD!=='undefined'?CLOUDINARY_CLOUD:'yadwor'}/image/upload`, {method:'POST',body:fd});
+      fd.append('upload_preset', 'my_app_upload');
+      const res = await fetch('https://api.cloudinary.com/v1_1/dlujoziwz/image/upload', {method:'POST',body:fd});
       const data = await res.json();
       coverUrl = data.secure_url || '';
+    } catch(e) {}
+  }
+
+  // رفع PDF
+  if (_bookPdfFile) {
+    try {
+      const fd = new FormData();
+      fd.append('file', _bookPdfFile);
+      fd.append('upload_preset', 'my_app_upload');
+      const res = await fetch('https://api.cloudinary.com/v1_1/dlujoziwz/raw/upload', {method:'POST',body:fd});
+      const data = await res.json();
+      pdfUrl = data.secure_url || '';
     } catch(e) {}
   }
 
   const myUid = localStorage.getItem('yadwor-uid') || '';
   let myData = {};
   try { myData = JSON.parse(localStorage.getItem('yadwor-user-data')||'{}'); } catch(e) {}
-  const instId = myData.institutionUid || myData.institutionId || '';
 
+  const bookId = _editingBookId || ('book_' + Date.now() + '_' + Math.random().toString(36).slice(2,6));
   const bookObj = {
-    id: 'book_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    id: bookId,
     title, subject, desc,
     kind: _selectedBookKind || 'كتاب',
+    audience: _selectedBookAudience,
     image: coverUrl,
+    pdfUrl: pdfUrl || (await _getExistingPdfUrl(bookId)),
     uid: myUid,
-    institutionUid: instId,
-    publishedAt: Date.now(),
+    institutionUid: myData.institutionUid || myData.institutionId || '',
+    publishedAt: _editingBookId ? undefined : Date.now(),
   };
+  if (!bookObj.publishedAt) delete bookObj.publishedAt;
 
   try {
-    const db = firebase.database();
-    await db.ref('books/' + bookObj.id).set(bookObj);
+    if (_editingBookId) {
+      await firebase.database().ref('books/' + bookId).update(bookObj);
+    } else {
+      bookObj.publishedAt = Date.now();
+      await firebase.database().ref('books/' + bookId).set(bookObj);
+    }
     closeBookModal();
-    if(typeof showToast==='function') showToast('تم نشر الكتاب بنجاح ✓');
+    if(typeof showToast==='function') showToast(_editingBookId ? 'تم التعديل بنجاح ✓' : 'تم النشر بنجاح ✓');
+    // إعادة تحميل tab الكتب
+    setTimeout(() => { const btn = document.querySelector('[data-tab="books"]'); if(btn) btn.click(); }, 400);
   } catch(e) {
-    if(typeof showToast==='function') showToast('تعذر النشر، تحقق من الاتصال');
+    if(typeof showToast==='function') showToast('حدث خطأ، تحقق من الاتصال');
   }
+  progressEl.classList.add('hidden');
+  submitBtn.disabled = false; submitBtn.textContent = _editingBookId ? 'حفظ التعديلات' : 'نشر';
+}
+
+async function _getExistingPdfUrl(bookId) {
+  if (!bookId) return '';
+  try {
+    const snap = await firebase.database().ref('books/' + bookId + '/pdfUrl').once('value');
+    return snap.val() || '';
+  } catch(e) { return ''; }
+}
+
+async function openEditBook(bookId) {
+  _editingBookId = bookId;
+  document.getElementById('book-modal-title').textContent = 'تعديل الكتاب';
+  document.getElementById('book-submit-btn').textContent = 'حفظ التعديلات';
+  _resetBookModal();
+  try {
+    const snap = await firebase.database().ref('books/' + bookId).once('value');
+    const b = snap.val();
+    if (!b) return;
+    document.getElementById('book-title-input').value   = b.title   || '';
+    document.getElementById('book-subject-input').value = b.subject || '';
+    document.getElementById('book-desc-input').value    = b.desc    || '';
+    if (b.image) {
+      document.getElementById('book-cover-preview').innerHTML = `<img src="${b.image}" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:12px;" />`;
+    }
+    if (b.pdfUrl) {
+      document.getElementById('book-pdf-name').textContent = 'PDF موجود — اختر جديداً للاستبدال';
+    }
+    if (b.kind) {
+      document.querySelectorAll('.book-kind-btn').forEach(btn => {
+        if(btn.textContent.trim()===b.kind) selectBookKind(btn,b.kind);
+      });
+    }
+    if (b.audience) {
+      document.querySelectorAll('.book-aud-btn').forEach(btn => {
+        if(btn.dataset.aud===b.audience) selectBookAudience(btn,b.audience);
+      });
+    }
+  } catch(e) {}
+  document.getElementById('book-modal').classList.remove('hidden');
+}
+
+async function deleteBook(bookId) {
+  if (!confirm('هل تريد حذف هذا الكتاب نهائياً؟')) return;
+  try {
+    await firebase.database().ref('books/' + bookId).remove();
+    if(typeof showToast==='function') showToast('تم الحذف');
+    setTimeout(() => { const btn = document.querySelector('[data-tab="books"]'); if(btn) btn.click(); }, 300);
+  } catch(e) { if(typeof showToast==='function') showToast('تعذر الحذف'); }
+}
+
+// ==================== PDF READER ====================
+let _readerPages = [], _readerPageIdx = 0, _readerPdfDoc = null;
+let _readerTouchX = 0, _readerTouchY = 0;
+
+async function openBookReader(bookId, title, pdfUrl) {
+  if (!pdfUrl) {
+    // محاولة جلب من Firebase
+    try {
+      const snap = await firebase.database().ref('books/' + bookId + '/pdfUrl').once('value');
+      pdfUrl = snap.val() || '';
+    } catch(e) {}
+  }
+  if (!pdfUrl) {
+    if(typeof showToast==='function') showToast('لا يوجد ملف PDF لهذا الكتاب');
+    return;
+  }
+
+  document.getElementById('reader-title').textContent = title || '';
+  document.getElementById('book-reader-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+
+  const container = document.getElementById('reader-pages-container');
+  container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.6);font-size:14px;font-family:Tajawal,sans-serif;">جاري تحميل الكتاب...</div>`;
+
+  // تحميل PDF.js من CDN
+  if (!window.pdfjsLib) {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    document.head.appendChild(script);
+    await new Promise(res => { script.onload = res; });
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  try {
+    _readerPdfDoc = await pdfjsLib.getDocument({ url: pdfUrl, disableRange: false }).promise;
+    _readerPages = [];
+    _readerPageIdx = 0;
+    const total = _readerPdfDoc.numPages;
+
+    // pre-render الصفحة الأولى فوراً
+    await _renderReaderPage(0);
+    _updateReaderUI();
+
+    // السحب باللمس
+    container.addEventListener('touchstart', e => { _readerTouchX = e.touches[0].clientX; _readerTouchY = e.touches[0].clientY; }, {passive:true});
+    container.addEventListener('touchend', e => {
+      const dx = _readerTouchX - e.changedTouches[0].clientX;
+      const dy = Math.abs(_readerTouchY - e.changedTouches[0].clientY);
+      if (Math.abs(dx) > 40 && dy < 60) {
+        dx > 0 ? readerNextPage() : readerPrevPage();
+      }
+    }, {passive:true});
+
+  } catch(e) {
+    container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#f87171;font-size:14px;font-family:Tajawal,sans-serif;">تعذر تحميل الملف</div>`;
+  }
+}
+
+async function _renderReaderPage(idx) {
+  const container = document.getElementById('reader-pages-container');
+  if (!_readerPdfDoc) return;
+  const total = _readerPdfDoc.numPages;
+  if (idx < 0 || idx >= total) return;
+
+  // إنشاء canvas
+  const page = await _readerPdfDoc.getPage(idx + 1);
+  const viewport = page.getViewport({ scale: window.devicePixelRatio || 1.5 });
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  await page.render({ canvasContext: ctx, viewport }).promise;
+
+  // تأثير قلب الورقة
+  container.style.perspective = '1200px';
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = `width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1c1c1e;`;
+  canvas.style.cssText = `max-width:100%;max-height:100%;object-fit:contain;box-shadow:0 8px 40px rgba(0,0,0,0.6);border-radius:4px;`;
+  // منع تحميل PDF
+  canvas.oncontextmenu = e => e.preventDefault();
+  wrapper.appendChild(canvas);
+
+  // أنيميشن قلب الورقة
+  wrapper.style.animation = 'none';
+  const flip = document.createElement('style');
+  flip.textContent = `@keyframes pageFlip{0%{transform:rotateY(-90deg);opacity:0}100%{transform:rotateY(0deg);opacity:1}}`;
+  if (!document.getElementById('pageFlipStyle')) { flip.id='pageFlipStyle'; document.head.appendChild(flip); }
+  wrapper.style.cssText += 'transform-origin:right center;animation:pageFlip 0.35s ease-out;';
+
+  container.innerHTML = '';
+  container.appendChild(wrapper);
+}
+
+function _updateReaderUI() {
+  const total = _readerPdfDoc ? _readerPdfDoc.numPages : 1;
+  document.getElementById('reader-page-info').textContent = `${_readerPageIdx + 1} / ${total}`;
+  const dots = document.getElementById('reader-dots');
+  const show = Math.min(total, 7);
+  dots.innerHTML = Array.from({length:show}).map((_,i)=>`
+    <div style="width:${i===_readerPageIdx%show?'18px':'6px'};height:6px;border-radius:3px;background:${i===_readerPageIdx%show?'#fff':'rgba(255,255,255,0.3)'};transition:all 0.2s;"></div>`).join('');
+}
+
+async function readerNextPage() {
+  if (!_readerPdfDoc) return;
+  if (_readerPageIdx < _readerPdfDoc.numPages - 1) {
+    _readerPageIdx++;
+    await _renderReaderPage(_readerPageIdx);
+    _updateReaderUI();
+  }
+}
+async function readerPrevPage() {
+  if (_readerPageIdx > 0) {
+    _readerPageIdx--;
+    await _renderReaderPage(_readerPageIdx);
+    _updateReaderUI();
+  }
+}
+function closeBookReader() {
+  document.getElementById('book-reader-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+  _readerPdfDoc = null; _readerPages = []; _readerPageIdx = 0;
 }
 </script>
