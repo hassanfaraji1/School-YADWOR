@@ -1104,7 +1104,28 @@ function getProfileTabs() {
   const myInstUid = localStorage.getItem('yadwor-uid') || '';
   const acceptedTeachers = (state.joinRequests||[]).filter(r=>r.role==='teacher'&&r.status==='accepted'&&(r.institutionUid===myInstUid||r.institutionId===myInstUid)).length;
   const acceptedStudents = (state.joinRequests||[]).filter(r=>r.role==='student'&&r.status==='accepted'&&(r.institutionUid===myInstUid||r.institutionId===myInstUid)).length;
-  if(state.profileType==='institution') return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'teachers',label:'الأساتذة',count:acceptedTeachers},{id:'students',label:'التلاميذ',count:acceptedStudents},{id:'books',label:'الكتب',count:0}];
+  if(state.profileType==='institution') {
+    // جلب عدد الكتب async وتحديث DOM
+    (async () => {
+      try {
+        const snap = await firebase.database().ref('books').orderByChild('uid').equalTo(myUid).once('value');
+        let cnt = snap.val() ? Object.keys(snap.val()).length : 0;
+        // + كتب الأساتذة المنضمين
+        const jrSnap = await firebase.database().ref('joinRequests/' + myUid).once('value');
+        const jrData = jrSnap.val();
+        if (jrData) {
+          const tUids = Object.values(jrData).filter(r=>r&&r.status==='accepted'&&r.role==='teacher').map(r=>r.uid||r.userId).filter(Boolean);
+          for (const tUid of tUids) {
+            const tSnap = await firebase.database().ref('books').orderByChild('uid').equalTo(tUid).once('value');
+            if (tSnap.val()) cnt += Object.keys(tSnap.val()).length;
+          }
+        }
+        const tabEl = document.getElementById('ptab-books');
+        if (tabEl) { const spans = tabEl.querySelectorAll('span:not(.absolute)'); if(spans.length>=2) spans[1].textContent = cnt; }
+      } catch(e) {}
+    })();
+    return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'teachers',label:'الأساتذة',count:acceptedTeachers},{id:'students',label:'التلاميذ',count:acceptedStudents},{id:'books',label:'الكتب',count:0}];
+  }
   if(state.profileType==='teacher') {
     // حساب عدد تلاميذ الأستاذ باستخدام isStudentMatchingTeacher
     const allReqsForT = state.joinRequests || JSON.parse(localStorage.getItem('yadwor-join-requests') || '[]');
@@ -1139,6 +1160,15 @@ function getProfileTabs() {
         } catch(e) {}
       })();
     }
+    // جلب عدد الكتب async
+    (async () => {
+      try {
+        const snap = await firebase.database().ref('books').orderByChild('uid').equalTo(myUid).once('value');
+        const cnt = snap.val() ? Object.keys(snap.val()).length : 0;
+        const tabEl = document.getElementById('ptab-books');
+        if (tabEl) { const spans = tabEl.querySelectorAll('span:not(.absolute)'); if(spans.length>=2) spans[1].textContent = cnt; }
+      } catch(e) {}
+    })();
     return [{id:'posts',label:'المنشورات',count:myPosts.length},{id:'students',label:'تلاميذي',count:myStudentsCount},{id:'books',label:'الكتب',count:0}];
   }
   if(state.profileType==='student') {
@@ -3347,37 +3377,50 @@ function _fmtBookDate(d) {
 }
 
 function _renderBooksGrid(books, isOwner) {
-  return `<div class="grid grid-cols-3 gap-2">${books.map(b => `
-    <div class="flex flex-col gap-1">
-      <span class="text-[9px] text-zinc-400 font-medium text-center leading-tight">${_fmtBookDate(b.publishedAt)}</span>
-      <div class="relative overflow-hidden rounded-[12px] border border-zinc-200 cursor-pointer group bg-zinc-100"
-           style="height:160px;"
-           onclick="openBookReader('${b.id}','${(b.title||'').replace(/'/g,'&#39;')}','${b.pdfUrl||''}')">
-        ${b.image
-          ? `<img src="${b.image}" style="width:100%;height:100%;object-fit:cover;display:block;position:absolute;inset:0;" />`
-          : `<div style="position:absolute;inset:0;background:linear-gradient(135deg,#7c3aed,#4f46e5);display:flex;align-items:center;justify-content:center;"><svg viewBox="0 0 24 24" style="width:36px;height:36px;fill:none;stroke:rgba(255,255,255,0.6);stroke-width:1.5;stroke-linecap:round;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>`
-        }
-        <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.82) 0%,rgba(0,0,0,0.15) 55%,transparent 100%);"></div>
-        <div style="position:absolute;inset-inline:0;bottom:0;padding:6px 6px 7px;color:#fff;">
-          <div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:3px;">
-            ${b.kind    ? `<span style="background:rgba(255,255,255,0.18);border-radius:20px;padding:1px 6px;font-size:8px;font-weight:700;font-family:Tajawal,sans-serif;">${b.kind}</span>` : ''}
-            ${b.subject ? `<span style="background:rgba(139,92,246,0.85);border-radius:20px;padding:1px 6px;font-size:8px;font-weight:700;font-family:Tajawal,sans-serif;">${b.subject}</span>` : ''}
+  return `
+  <style>
+    .books-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .book-card  { display:flex; flex-direction:column; gap:4px; }
+    .book-cover { position:relative; height:0; padding-bottom:140%; overflow:hidden; border-radius:12px; border:1px solid #e4e4e7; cursor:pointer; background:#f4f4f5; }
+    .book-cover img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+    .book-cover .no-img { position:absolute; inset:0; background:linear-gradient(135deg,#7c3aed,#4f46e5); display:flex; align-items:center; justify-content:center; }
+    .book-cover .overlay { position:absolute; inset:0; background:linear-gradient(to top,rgba(0,0,0,0.85) 0%,rgba(0,0,0,0.15) 55%,transparent 100%); }
+    .book-cover .info { position:absolute; inset-inline:0; bottom:0; padding:6px; color:#fff; font-family:Tajawal,sans-serif; }
+    .book-cover .tags { display:flex; flex-wrap:wrap; gap:2px; margin-bottom:3px; }
+    .book-cover .tag { border-radius:20px; padding:1px 5px; font-size:8px; font-weight:700; }
+    .book-cover .tag-kind { background:rgba(255,255,255,0.2); }
+    .book-cover .tag-sub  { background:rgba(139,92,246,0.9); }
+    .book-cover .btitle { font-size:10px; font-weight:800; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .book-cover .edit-btns { position:absolute; top:6px; left:6px; display:none; gap:4px; }
+    .book-cover:hover .edit-btns { display:flex; }
+    .book-cover .ebtn { width:24px; height:24px; border-radius:50%; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+    .book-date { font-size:9px; color:#a1a1aa; font-weight:600; text-align:center; font-family:Tajawal,sans-serif; }
+    @keyframes pageFlip { 0%{transform:rotateY(-80deg) scaleX(0.7);opacity:0} 100%{transform:rotateY(0deg) scaleX(1);opacity:1} }
+  </style>
+  <div class="books-grid">${books.map(b => `
+    <div class="book-card">
+      <span class="book-date">${_fmtBookDate(b.publishedAt)}</span>
+      <div class="book-cover" onclick="openBookReader('${b.id}','${(b.title||'').replace(/'/g,"&#39;")}','${b.pdfUrl||''}')">
+        ${b.image ? `<img src="${b.image}" loading="lazy" />` : `<div class="no-img"><svg viewBox="0 0 24 24" style="width:30px;height:30px;fill:none;stroke:rgba(255,255,255,0.6);stroke-width:1.5;stroke-linecap:round;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>`}
+        <div class="overlay"></div>
+        <div class="info">
+          <div class="tags">
+            ${b.kind    ? `<span class="tag tag-kind">${b.kind}</span>` : ''}
+            ${b.subject ? `<span class="tag tag-sub">${b.subject}</span>` : ''}
           </div>
-          <div style="font-size:10px;font-weight:800;font-family:Tajawal,sans-serif;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${b.title||'بدون عنوان'}</div>
+          <div class="btitle">${b.title||'بدون عنوان'}</div>
         </div>
-        ${isOwner ? `
-        <div class="absolute top-1.5 left-1.5 z-[4] hidden group-hover:flex gap-1">
-          <button onclick="event.stopPropagation();openEditBook('${b.id}')"
-            style="width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,0.65);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+        ${isOwner ? `<div class="edit-btns">
+          <button class="ebtn" style="background:rgba(0,0,0,0.65);" onclick="event.stopPropagation();openEditBook('${b.id}')">
             <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
-          <button onclick="event.stopPropagation();deleteBook('${b.id}')"
-            style="width:24px;height:24px;border-radius:50%;background:rgba(220,38,38,0.8);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+          <button class="ebtn" style="background:rgba(220,38,38,0.8);" onclick="event.stopPropagation();deleteBook('${b.id}')">
             <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
           </button>
         </div>` : ''}
       </div>
-    </div>`).join('')}</div>`;
+    </div>`).join('')}
+  </div>`;
 }
 
 // ==================== BOOK MODAL ====================
@@ -3576,7 +3619,6 @@ let _readerTouchX = 0, _readerTouchY = 0;
 
 async function openBookReader(bookId, title, pdfUrl) {
   if (!pdfUrl) {
-    // محاولة جلب من Firebase
     try {
       const snap = await firebase.database().ref('books/' + bookId + '/pdfUrl').once('value');
       pdfUrl = snap.val() || '';
@@ -3592,132 +3634,193 @@ async function openBookReader(bookId, title, pdfUrl) {
   document.body.style.overflow = 'hidden';
 
   const container = document.getElementById('reader-pages-container');
-  container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.6);font-size:14px;font-family:Tajawal,sans-serif;">جاري تحميل الكتاب...</div>`;
+  container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.6);font-size:14px;font-family:Tajawal,sans-serif;flex-direction:column;gap:12px;">
+    <div style="width:36px;height:36px;border:3px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+    <span>جاري التحميل...</span>
+  </div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>`;
 
-  // تحميل PDF.js من CDN
-  if (!window.pdfjsLib) {
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-    document.head.appendChild(script);
-    await new Promise(res => { script.onload = res; });
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  _readerPageIdx = 0;
+  _readerPages = [];
+
+  // ===== الطريقة 1: تحويل Cloudinary PDF إلى صور =====
+  if (pdfUrl.includes('cloudinary.com')) {
+    try {
+      // استخراج public_id من URL
+      const urlParts = pdfUrl.split('/upload/');
+      if (urlParts.length === 2) {
+        const cloudBase = urlParts[0] + '/upload/';
+        const publicIdWithExt = urlParts[1];
+        const publicId = publicIdWithExt.replace(/\.[^/.]+$/, '');
+
+        // توليد URL صورة لكل صفحة (Cloudinary يحول PDF إلى صور)
+        // الصفحة الأولى للتحقق من العدد
+        const testPage1 = cloudBase + 'pg_1,f_jpg,q_auto,w_800/' + publicId + '.jpg';
+        const testPage2 = cloudBase + 'pg_2,f_jpg,q_auto,w_800/' + publicId + '.jpg';
+
+        // تحميل الصفحة الأولى للتحقق
+        const firstImg = new Image();
+        firstImg.crossOrigin = 'anonymous';
+
+        await new Promise((resolve, reject) => {
+          firstImg.onload = resolve;
+          firstImg.onerror = reject;
+          firstImg.src = testPage1;
+          setTimeout(reject, 8000);
+        });
+
+        // نجح! جمع الصفحات المتاحة
+        _readerPages = [];
+        let page = 1;
+        while (page <= 50) { // حد أقصى 50 صفحة
+          const pageUrl = cloudBase + `pg_${page},f_jpg,q_auto,w_800/` + publicId + '.jpg';
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          const ok = await new Promise(res => {
+            img.onload = () => res(true);
+            img.onerror = () => res(false);
+            img.src = pageUrl;
+            setTimeout(() => res(false), 5000);
+          });
+          if (!ok) break;
+          _readerPages.push(pageUrl);
+          page++;
+        }
+
+        if (_readerPages.length > 0) {
+          _showReaderPage(0);
+          return;
+        }
+      }
+    } catch(e) {}
   }
 
+  // ===== الطريقة 2: PDF.js مع إعدادات CORS =====
   try {
-    // إضافة fl_attachment:false لـ Cloudinary لمنع CORS
-    let loadUrl = pdfUrl;
-    if (pdfUrl.includes('cloudinary.com')) {
-      // استخدام fl_sanitize وإضافة CORS header عبر تعديل URL
-      loadUrl = pdfUrl.replace('/upload/', '/upload/fl_attachment:false/');
+    if (!window.pdfjsLib) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
 
     _readerPdfDoc = await pdfjsLib.getDocument({
-      url: loadUrl,
+      url: pdfUrl,
       withCredentials: false,
-      cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
-      cMapPacked: true,
       disableRange: true,
       disableStream: true,
+      cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+      cMapPacked: true,
     }).promise;
-    _readerPages = [];
-    _readerPageIdx = 0;
-    const total = _readerPdfDoc.numPages;
 
-    // pre-render الصفحة الأولى فوراً
-    await _renderReaderPage(0);
-    _updateReaderUI();
+    _readerPages = Array.from({length: _readerPdfDoc.numPages}, (_, i) => i);
+    await _renderPdfJsPage(0);
+    return;
 
-    // السحب باللمس
-    container.addEventListener('touchstart', e => { _readerTouchX = e.touches[0].clientX; _readerTouchY = e.touches[0].clientY; }, {passive:true});
-    container.addEventListener('touchend', e => {
-      const dx = _readerTouchX - e.changedTouches[0].clientX;
-      const dy = Math.abs(_readerTouchY - e.changedTouches[0].clientY);
-      if (Math.abs(dx) > 40 && dy < 60) {
-        dx > 0 ? readerNextPage() : readerPrevPage();
-      }
-    }, {passive:true});
+  } catch(e) {}
 
-  } catch(e) {
-    console.error('PDF load error:', e);
-    // Fallback: استخدام Google Docs Viewer لعرض PDF
-    container.innerHTML = `
-      <div style="width:100%;height:100%;display:flex;flex-direction:column;">
-        <iframe
-          src="https://docs.google.com/viewer?url=${encodeURIComponent(pdfUrl)}&embedded=true"
-          style="flex:1;width:100%;border:none;background:#fff;"
-          allow="fullscreen"
-          onload="document.getElementById('reader-page-info').textContent=''"
-        ></iframe>
-      </div>`;
-    document.getElementById('reader-page-info').textContent = 'جاري التحميل...';
-    document.getElementById('reader-dots').innerHTML = '';
-  }
+  // ===== الطريقة 3: iframe مباشر كـ fallback أخير =====
+  container.innerHTML = `
+    <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;">
+      <svg viewBox="0 0 24 24" style="width:48px;height:48px;fill:none;stroke:rgba(255,255,255,0.4);stroke-width:1.5;stroke-linecap:round;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <p style="color:rgba(255,255,255,0.6);font-size:14px;font-family:Tajawal,sans-serif;text-align:center;">تعذر عرض الملف مباشرة<br><span style="font-size:12px;opacity:0.7;">يمكنك فتحه في متصفح خارجي</span></p>
+      <a href="${pdfUrl}" target="_blank" style="padding:10px 24px;background:#6366f1;border-radius:20px;color:#fff;font-size:13px;font-weight:700;font-family:Tajawal,sans-serif;text-decoration:none;">فتح الملف</a>
+    </div>`;
+  document.getElementById('reader-page-info').textContent = '';
+  document.getElementById('reader-dots').innerHTML = '';
 }
 
-async function _renderReaderPage(idx) {
+function _showReaderPage(idx) {
+  _readerPageIdx = idx;
   const container = document.getElementById('reader-pages-container');
-  if (!_readerPdfDoc) return;
-  const total = _readerPdfDoc.numPages;
-  if (idx < 0 || idx >= total) return;
+  const total = _readerPages.length;
+  const url = _readerPages[idx];
 
-  // إنشاء canvas
+  container.innerHTML = `
+    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1a1a1a;overflow:hidden;">
+      <img src="${url}" style="max-width:100%;max-height:100%;object-fit:contain;box-shadow:0 8px 40px rgba(0,0,0,0.8);animation:pageFlip 0.3s ease-out;"
+        oncontextmenu="return false;" ondragstart="return false;" />
+    </div>`;
+
+  document.getElementById('reader-page-info').textContent = `${idx + 1} / ${total}`;
+  const dots = document.getElementById('reader-dots');
+  const show = Math.min(total, 7);
+  dots.innerHTML = Array.from({length: show}).map((_,i) => `
+    <div style="width:${i===idx%show?'18px':'6px'};height:6px;border-radius:3px;background:${i===idx%show?'#fff':'rgba(255,255,255,0.3)'};transition:all 0.2s;"></div>`).join('');
+}
+
+async function _renderPdfJsPage(idx) {
+  const container = document.getElementById('reader-pages-container');
+  if (!_readerPdfDoc || idx < 0 || idx >= _readerPdfDoc.numPages) return;
+
   const page = await _readerPdfDoc.getPage(idx + 1);
-  const viewport = page.getViewport({ scale: window.devicePixelRatio || 1.5 });
+  const scale = Math.min(container.clientWidth / page.getViewport({scale:1}).width, 2);
+  const viewport = page.getViewport({scale});
+
   const canvas = document.createElement('canvas');
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  await page.render({ canvasContext: ctx, viewport }).promise;
+  await page.render({canvasContext: ctx, viewport}).promise;
 
-  // تأثير قلب الورقة
-  container.style.perspective = '1200px';
-  const wrapper = document.createElement('div');
-  wrapper.style.cssText = `width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1c1c1e;`;
-  canvas.style.cssText = `max-width:100%;max-height:100%;object-fit:contain;box-shadow:0 8px 40px rgba(0,0,0,0.6);border-radius:4px;`;
-  // منع تحميل PDF
+  canvas.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;box-shadow:0 8px 40px rgba(0,0,0,0.6);animation:pageFlip 0.3s ease-out;';
   canvas.oncontextmenu = e => e.preventDefault();
-  wrapper.appendChild(canvas);
 
-  // أنيميشن قلب الورقة
-  wrapper.style.animation = 'none';
-  const flip = document.createElement('style');
-  flip.textContent = `@keyframes pageFlip{0%{transform:rotateY(-90deg);opacity:0}100%{transform:rotateY(0deg);opacity:1}}`;
-  if (!document.getElementById('pageFlipStyle')) { flip.id='pageFlipStyle'; document.head.appendChild(flip); }
-  wrapper.style.cssText += 'transform-origin:right center;animation:pageFlip 0.35s ease-out;';
-
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1a1a1a;overflow:hidden;';
+  wrap.appendChild(canvas);
   container.innerHTML = '';
-  container.appendChild(wrapper);
+  container.appendChild(wrap);
+
+  _readerPageIdx = idx;
+  document.getElementById('reader-page-info').textContent = `${idx + 1} / ${_readerPdfDoc.numPages}`;
 }
 
-function _updateReaderUI() {
-  const total = _readerPdfDoc ? _readerPdfDoc.numPages : 1;
-  document.getElementById('reader-page-info').textContent = `${_readerPageIdx + 1} / ${total}`;
-  const dots = document.getElementById('reader-dots');
-  const show = Math.min(total, 7);
-  dots.innerHTML = Array.from({length:show}).map((_,i)=>`
-    <div style="width:${i===_readerPageIdx%show?'18px':'6px'};height:6px;border-radius:3px;background:${i===_readerPageIdx%show?'#fff':'rgba(255,255,255,0.3)'};transition:all 0.2s;"></div>`).join('');
-}
+// دوال قديمة محذوفة — تم استبدالها بـ _showReaderPage و _renderPdfJsPage
 
 async function readerNextPage() {
-  if (!_readerPdfDoc) return;
-  if (_readerPageIdx < _readerPdfDoc.numPages - 1) {
+  const total = _readerPdfDoc ? _readerPdfDoc.numPages : _readerPages.length;
+  if (_readerPageIdx < total - 1) {
     _readerPageIdx++;
-    await _renderReaderPage(_readerPageIdx);
-    _updateReaderUI();
+    if (_readerPdfDoc) await _renderPdfJsPage(_readerPageIdx);
+    else _showReaderPage(_readerPageIdx);
   }
 }
+
 async function readerPrevPage() {
   if (_readerPageIdx > 0) {
     _readerPageIdx--;
-    await _renderReaderPage(_readerPageIdx);
-    _updateReaderUI();
+    if (_readerPdfDoc) await _renderPdfJsPage(_readerPageIdx);
+    else _showReaderPage(_readerPageIdx);
   }
 }
+
 function closeBookReader() {
   document.getElementById('book-reader-modal').classList.add('hidden');
   document.body.style.overflow = '';
-  _readerPdfDoc = null; _readerPages = []; _readerPageIdx = 0;
+  _readerPdfDoc = null;
+  _readerPages = [];
+  _readerPageIdx = 0;
+  document.getElementById('reader-pages-container').innerHTML = '';
 }
+
+// السحب باللمس — يُضاف مرة واحدة على النافذة
+document.getElementById('reader-pages-container')?.addEventListener('touchstart', e => {
+  _readerTouchX = e.touches[0].clientX;
+  _readerTouchY = e.touches[0].clientY;
+}, {passive:true});
+
+document.getElementById('reader-pages-container')?.addEventListener('touchend', e => {
+  const dx = _readerTouchX - e.changedTouches[0].clientX;
+  const dy = Math.abs(_readerTouchY - e.changedTouches[0].clientY);
+  if (Math.abs(dx) > 40 && dy < 60) {
+    dx > 0 ? readerNextPage() : readerPrevPage();
+  }
+}, {passive:true});
 </script>
