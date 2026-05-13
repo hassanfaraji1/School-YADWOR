@@ -774,7 +774,6 @@ function _renderVisitorProfile(vp, vPosts) {
                 <img src="${vAvatar}" class="h-full w-full rounded-full object-cover relative z-[1]"
                   onload="this.previousElementSibling&&this.previousElementSibling.remove()"
                   onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(vp.name||_visitorUsername||'U')}&background=e4e6eb&color=555&size=200';var e=this.previousElementSibling;if(e)e.remove();" />
-                ${vp.verified ? `<div class="absolute bottom-0.5 left-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 ring-2 ring-white z-[3]"><svg viewBox="0 0 24 24" class="h-3 w-3 fill-white"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>` : ''}
               </div>
             </div>
           </div>
@@ -845,6 +844,37 @@ function _renderMyProfile(myPosts) {
   // ── مزامنة profileType من localStorage أولاً ──
   state.profileType        = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || state.profileType || 'influencer';
   state.settingsAccountType = state.profileType;
+
+  // ── عرض shimmer أثناء تحميل البيانات من Firebase ──
+  const profileContent = document.getElementById('profile-content');
+  if (profileContent && !profileContent.innerHTML.trim()) {
+    profileContent.innerHTML = `
+    <div>
+      <div class="profile-cover-wrap shimmer"></div>
+      <div class="relative z-[5] -mt-10 px-3">
+        <div class="absolute z-[20]" style="top:-36px; right:12px;">
+          <div class="flex items-end justify-end gap-2">
+            <div class="shimmer h-[72px] w-[72px] rounded-full"></div>
+          </div>
+        </div>
+        <div class="rounded-[22px] bg-white border border-zinc-200/60 pt-12 pb-4 px-4 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
+          <div class="shimmer h-6 w-40 rounded-full mb-3"></div>
+          <div class="shimmer h-4 w-28 rounded-full mb-4"></div>
+          <div class="grid grid-cols-3 gap-2 mb-3">
+            <div class="shimmer h-8 rounded-full"></div>
+            <div class="shimmer h-8 rounded-full"></div>
+            <div class="shimmer h-8 rounded-full"></div>
+          </div>
+          <div class="grid grid-cols-4 gap-1">
+            <div class="shimmer h-10 rounded-xl"></div>
+            <div class="shimmer h-10 rounded-xl"></div>
+            <div class="shimmer h-10 rounded-xl"></div>
+            <div class="shimmer h-10 rounded-xl"></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
 
   // ── جلب بيانات المستخدم من Firebase لضمان عرض الاسم الصحيح ──
   if (myUid) {
@@ -1034,7 +1064,6 @@ function _doRenderMyProfile(myPosts, _fbUserData) {
                 <img src="${prof.avatar}" class="h-full w-full rounded-full object-cover relative z-[1]"
                   onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
               </div>
-              ${prof.verified ? `<div class="absolute bottom-0.5 left-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 ring-2 ring-white z-[3]"><svg viewBox="0 0 24 24" class="h-3 w-3 fill-white"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>` : ''}
             </div>
           </div>
         </div>
