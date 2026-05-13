@@ -1284,7 +1284,7 @@
     <!-- شريط التحكم -->
     <div id="ctrl">
         <button class="cc" id="spkBtn" onclick="toggleSpk()" title="صوت"><i class="fas fa-volume-up" id="spkIco" style="color:#636e72"></i></button>
-        <button class="cc" id="mcBtn"  onclick="toggleMic()" title="مايك"><i class="fas fa-microphone-slash" id="mcIco" style="color:#ff4757"></i></button>
+        <button class="cc" id="mcBtn"  onclick="toggleMic()" title="مايك" style="display:none;"><i class="fas fa-microphone-slash" id="mcIco" style="color:#ff4757"></i></button>
         <button class="cc" onclick="openEmojiPicker()" title="إيموجي">
             <svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px;color:#f39c12">
                 <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm-4-10a1 1 0 0 1 2 0 2 2 0 0 0 4 0 1 1 0 0 1 2 0 4 4 0 0 1-8 0zm-1.5-3.5a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0zm8 0a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0z"/>
@@ -1345,8 +1345,8 @@
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
             متابعة
         </button>
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            </span>
+        <button id="pmQueueBtn" style="display:none;position:relative;border:none;border-radius:12px;padding:8px 16px;font-family:'Tajawal',sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:none;align-items:center;gap:6px;transition:all .2s;">
+            <span id="pmQueueIcon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="8,12 11,15 16,9"/></svg></span>
             <span id="pmQueueLabel">تفعيل الطابور</span>
             <span id="pmQueueDot" style="position:absolute;top:-4px;left:-4px;width:10px;height:10px;background:#e53935;border-radius:50%;display:none;"></span>
         </button>
@@ -1911,6 +1911,9 @@
                 mc.onclick = e => { e.stopPropagation(); toggleMic(); };
                 mc.innerHTML = micOn ? '<i class="fas fa-microphone" style="font-size:7px"></i>' : '<i class="fas fa-microphone-slash" style="font-size:7px"></i>';
                 sb.appendChild(mc);
+                // إظهار زر المايك في شريط التحكم لأن المستخدم جالس
+                var mcBtnEl2 = document.getElementById('mcBtn');
+                if (mcBtnEl2) mcBtnEl2.style.display = '';
             } else {
                 // بادج المايك لغير المستخدم - يُظهر حالة المايك
                 if (data.micOn !== undefined) {
@@ -1964,6 +1967,12 @@
                 handUp = false;
                 // أعِد التسجيل كمشاهد بعد القيام من المقعد
                 db.ref('rooms/' + roomId + '/viewers/' + me.uid).set({ name: me.name, avatar: me.avatar || '', ts: Date.now() });
+                // إخفاء زر المايك وإطفاء المايك عند القيام من المقعد
+                if (micOn) { micOn = false; if (localStream) localStream.getAudioTracks().forEach(t => { t.enabled = false; }); }
+                var mcBtnEl = document.getElementById('mcBtn');
+                if (mcBtnEl) mcBtnEl.style.display = 'none';
+                var mcIcoEl = document.getElementById('mcIco');
+                if (mcIcoEl) { mcIcoEl.className = 'fas fa-microphone-slash'; mcIcoEl.style.color = '#ff4757'; }
             } else {
                 // انتقل للمقعد الجديد
                 if (mySeatIdx !== null) {
@@ -1975,6 +1984,11 @@
                 }
                 // هل الطابور مفعّل؟
                 if (window._roomQueueOn) {
+                    // تحقق هل تم حظر الشخص مؤقتاً من الطلب (بعد الإزالة)
+                    if (window._seatRemovedUntil && Date.now() < window._seatRemovedUntil) {
+                        showSnack('لا يمكنك طلب الجلوس الآن. انتظر لحظة', '🚫');
+                        return;
+                    }
                     // تحقق هل لديّ طلب معلّق بالفعل
                     db.ref('rooms/' + roomId + '/queueRequests/' + me.uid).once('value', function(rs) {
                         if (rs.exists()) {
@@ -2007,6 +2021,9 @@
         }
         // تفعيل mic عند الجلوس
         if (localStream) localStream.getAudioTracks().forEach(t => { t.enabled = micOn; });
+        // إظهار زر المايك عند الجلوس
+        var mcBtnEl = document.getElementById('mcBtn');
+        if (mcBtnEl) mcBtnEl.style.display = '';
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -2347,6 +2364,9 @@
             mySeatIdx = 0;
             // ❌ لا نضع onDisconnect().remove() — مقعد المالك يبقى دائماً حتى الضغط على doLeave
             // db.ref('rooms/' + roomId + '/seats/0').onDisconnect().remove();
+            // إظهار زر المايك للمالك (هو دائماً جالس في مقعد 0)
+            var mcBtnOwner = document.getElementById('mcBtn');
+            if (mcBtnOwner) mcBtnOwner.style.display = '';
 
             // فتح الكاميرا فوراً وعرضها في #tv
             const constraints = { video: { facingMode: usingFrontCamera ? 'user' : 'environment' }, audio: { echoCancellation: true, noiseSuppression: true } };
@@ -2577,6 +2597,34 @@
         }
 
         pingNet();
+        // مستمع cameraFlip — يحل مشكلة الشاشة السوداء عند قلب الكاميرا للمشاهدين
+        if (!isOwner) {
+            db.ref('rooms/' + roomId + '/cameraFlip').on('value', function(flipSnap) {
+                if (!flipSnap.exists()) return;
+                var flipData = flipSnap.val();
+                if (!flipData || !flipData.ts) return;
+                // إذا كان الإشعار حديثاً (خلال 10 ثوانٍ)
+                if (Date.now() - flipData.ts > 10000) return;
+                // أعِد بناء اتصال peer مع الأستاذ لاستقبال الـ track الجديد
+                setTimeout(function() {
+                    try {
+                        var tvElF = document.getElementById('tv');
+                        var sidKey = studentRef && studentRef.key ? studentRef.key : null;
+                        if (sidKey) {
+                            db.ref('rooms/' + roomId + '/offers/' + sidKey).once('value', function(offerSnapF) {
+                                if (offerSnapF.exists()) {
+                                    try { createOrganizerPeerAndAnswer(offerSnapF.val()); } catch(e) {}
+                                }
+                            });
+                        }
+                        // إعادة تشغيل الفيديو إذا توقف
+                        if (tvElF && tvElF.paused && tvElF.srcObject) {
+                            tvElF.play().catch(function() {});
+                        }
+                    } catch(e) {}
+                }, 500);
+            });
+        }
         // ── مراقبة إشارة كتم الأستاذ للمستخدم الحالي ──
         if (me && me.uid) {
             db.ref('rooms/' + roomId + '/ownerMuteSignal/' + me.uid).on('value', snap => {
@@ -2624,9 +2672,19 @@
                 if (!data) return;
                 // تم إزالتي من المقعد
                 mySeatIdx = null;
+                // إخفاء زر المايك وإطفاؤه
+                if (micOn) { micOn = false; if (localStream) localStream.getAudioTracks().forEach(t => { t.enabled = false; }); }
+                var mcBtnRm = document.getElementById('mcBtn');
+                if (mcBtnRm) mcBtnRm.style.display = 'none';
+                var mcIcoRm = document.getElementById('mcIco');
+                if (mcIcoRm) { mcIcoRm.className = 'fas fa-microphone-slash'; mcIcoRm.style.color = '#ff4757'; }
                 showSnack('تمت إزالتك من المقعد من قِبل ' + (data.byName || 'المشرف'), '🪑');
+                // إلغاء أي طلب طابور معلّق
+                db.ref('rooms/' + roomId + '/queueRequests/' + me.uid).remove();
                 // نظّف الإشارة
                 db.ref('rooms/' + roomId + '/seatRemoved/' + me.uid).remove();
+                // تسجيل إشارة حظر مؤقت من إعادة الطلب (30 ثانية)
+                window._seatRemovedUntil = Date.now() + 30000;
             });
         }
     }
@@ -3007,6 +3065,24 @@
             if (isOwner) {
                 // مثل ExempleTools: استبدل في كل teacherPeerConns
                 await Promise.all(Object.values(teacherPeerConns).map(e => replaceInPeer(e && e.pc)));
+                // تحديث Firebase لإبلاغ المشاهدين بتغيير الكاميرا (يحل مشكلة الشاشة السوداء)
+                try {
+                    if (db && roomId) {
+                        db.ref('rooms/' + roomId + '/cameraFlip').set({ ts: Date.now(), facing: usingFrontCamera ? 'user' : 'environment' });
+                    }
+                } catch(e) {}
+                // إذا كان الـ overlay مفعّلاً، أطفئه مؤقتاً لإعادة تفعيل الكاميرا الجديدة
+                if (_avOverlayOn) {
+                    _avOverlayOn = false;
+                    var ov2 = document.getElementById('avatarOverlay');
+                    if (ov2) ov2.classList.remove('show');
+                    var tvEl2 = document.getElementById('tv');
+                    if (tvEl2) { tvEl2.srcObject = localStream; tvEl2.muted = true; tvEl2.style.visibility = ''; tvEl2.play().catch(function(){}); }
+                    // إعادة تفعيل الـ overlay بعد ثانية مع الكاميرا الجديدة
+                    setTimeout(function() {
+                        if (!_avOverlayOn) { showAvatarOverlay(); }
+                    }, 1500);
+                }
             } else if (studentPC) {
                 await replaceInPeer(studentPC);
             }
@@ -4661,6 +4737,33 @@
                 try {
                     if (db && roomId) db.ref('rooms/' + roomId + '/ownerHeartbeat').set(Date.now());
                 } catch(e) {}
+                // إعادة تفعيل الكاميرا إذا كانت tracks منتهية (ended)
+                try {
+                    var hasValidVideo = localStream && localStream.getVideoTracks().length > 0 && localStream.getVideoTracks().some(function(t){ return t.readyState !== 'ended'; });
+                    if (!hasValidVideo && !_avOverlayOn) {
+                        var tvElRet = document.getElementById('tv');
+                        var constraintsRet = { video: { facingMode: usingFrontCamera ? 'user' : 'environment' }, audio: { echoCancellation: true, noiseSuppression: true } };
+                        navigator.mediaDevices.getUserMedia(constraintsRet).then(function(retStream) {
+                            localStream = retStream;
+                            localStream.getAudioTracks().forEach(function(t){ t.enabled = micOn; });
+                            if (tvElRet) { tvElRet.srcObject = retStream; tvElRet.muted = true; tvElRet.play().catch(function(){}); }
+                            // استبدل track في peers
+                            var newVT = retStream.getVideoTracks()[0];
+                            var newAT = retStream.getAudioTracks()[0];
+                            for (var retKey in teacherPeerConns) {
+                                var retConn = teacherPeerConns[retKey];
+                                if (retConn && retConn.pc && retConn.pc.signalingState !== 'closed') {
+                                    retConn.pc.getSenders().forEach(function(sender) {
+                                        if (sender.track) {
+                                            if (sender.track.kind === 'video' && newVT) sender.replaceTrack(newVT).catch(function(){});
+                                            else if (sender.track.kind === 'audio' && newAT) sender.replaceTrack(newAT).catch(function(){});
+                                        }
+                                    });
+                                }
+                            }
+                        }).catch(function() {});
+                    }
+                } catch(e) {}
             }
             // ألغِ أي grace period للإخراج عند العودة (مهم للطلاب أيضاً)
             if (__roomNullGraceTO)   { clearTimeout(__roomNullGraceTO);   __roomNullGraceTO   = null; }
@@ -4707,6 +4810,29 @@
                         }
                     });
                 }
+            } catch(e) {}
+
+            // ── إعادة تشغيل الصوت عند العودة من الخلفية ──
+            try {
+                setTimeout(function() {
+                    document.querySelectorAll('audio').forEach(function(a) {
+                        if (a.paused && !a.muted && a.srcObject) {
+                            a.play().catch(function() {});
+                        }
+                    });
+                    var tvEl = document.getElementById('tv');
+                    if (tvEl && tvEl.paused && tvEl.srcObject) {
+                        tvEl.play().catch(function() {});
+                    }
+                    // إعادة تشغيل studentPC إذا كان الاتصال منقطعاً
+                    if (!isOwner && studentPC && (studentPC.iceConnectionState === 'disconnected' || studentPC.iceConnectionState === 'failed')) {
+                        db.ref('rooms/' + roomId + '/offers/' + (studentRef && studentRef.key ? studentRef.key : '')).once('value', function(offerSnap) {
+                            if (offerSnap.exists()) {
+                                try { createOrganizerPeerAndAnswer(offerSnap.val()); } catch(e) {}
+                            }
+                        });
+                    }
+                }, 800);
             } catch(e) {}
         }
     });
