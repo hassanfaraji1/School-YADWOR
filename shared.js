@@ -354,12 +354,13 @@ function getUserPosts(userId, callback) {
     callback([]);
     return;
   }
-  // نجلب منشورات المستخدم عبر index uid
-  db.ref('posts').orderByChild('uid').equalTo(userId).on('value', async snap => {
+  // نجلب منشورات المستخدم عبر index uid — نستخدم once() لضمان استجابة واحدة سريعة
+  db.ref('posts').orderByChild('uid').equalTo(userId).once('value').then(async snap => {
     const data = snap.val();
     if (!data) {
       // fallback: اجلب كل المنشورات وصفّي يدوياً (للمنشورات القديمة بدون uid index)
-      db.ref('posts').limitToLast(100).once('value').then(async allSnap => {
+      try {
+        const allSnap = await db.ref('posts').limitToLast(100).once('value');
         const allData = allSnap.val();
         if (!allData) { callback([]); return; }
         const posts = Object.entries(allData)
@@ -368,7 +369,7 @@ function getUserPosts(userId, callback) {
           .sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
         const enriched = await enrichPostsWithUserData(posts);
         callback(enriched);
-      }).catch(() => callback([]));
+      } catch(e) { callback([]); }
       return;
     }
     const posts = Object.entries(data)
@@ -376,7 +377,7 @@ function getUserPosts(userId, callback) {
       .sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
     const enriched = await enrichPostsWithUserData(posts);
     callback(enriched);
-  });
+  }).catch(() => callback([]));
 }
 
 /**
