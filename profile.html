@@ -64,32 +64,32 @@
 <main id="profile-content" class="mx-auto max-w-[980px] pb-24">
   <div id="profile-shimmer-init">
     <div class="profile-cover-wrap shimmer" style="min-height:150px;"></div>
-    <div class="relative px-3" style="margin-top:-40px;z-index:5;">
-      <div style="display:flex;justify-content:flex-end;align-items:flex-end;gap:8px;margin-bottom:8px;">
-        <div class="shimmer" style="width:72px;height:72px;border-radius:50%;flex-shrink:0;border:3px solid #fff;"></div>
+    <div class="px-3" style="margin-top:-40px;position:relative;z-index:5;">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+        <div class="shimmer" style="width:78px;height:78px;border-radius:50%;border:3px solid #fff;flex-shrink:0;"></div>
       </div>
-      <div class="rounded-[22px] bg-white border border-zinc-200" style="padding:48px 16px 16px;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
-        <div class="shimmer" style="height:22px;width:160px;border-radius:12px;margin-bottom:10px;margin-right:auto;"></div>
-        <div class="shimmer" style="height:16px;width:110px;border-radius:10px;margin-bottom:20px;margin-right:auto;"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
-          <div class="shimmer" style="height:32px;border-radius:20px;"></div>
-          <div class="shimmer" style="height:32px;border-radius:20px;"></div>
-          <div class="shimmer" style="height:32px;border-radius:20px;"></div>
+      <div style="background:#fff;border-radius:22px;border:1px solid #e4e4e7;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
+        <div class="shimmer" style="height:20px;width:55%;border-radius:10px;margin-bottom:10px;margin-right:auto;"></div>
+        <div class="shimmer" style="height:14px;width:35%;border-radius:8px;margin-bottom:20px;margin-right:auto;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+          <div class="shimmer" style="height:32px;border-radius:18px;"></div>
+          <div class="shimmer" style="height:32px;border-radius:18px;"></div>
+          <div class="shimmer" style="height:32px;border-radius:18px;"></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;">
-          <div class="shimmer" style="height:40px;border-radius:10px;"></div>
-          <div class="shimmer" style="height:40px;border-radius:10px;"></div>
-          <div class="shimmer" style="height:40px;border-radius:10px;"></div>
-          <div class="shimmer" style="height:40px;border-radius:10px;"></div>
+          <div class="shimmer" style="height:42px;border-radius:10px;"></div>
+          <div class="shimmer" style="height:42px;border-radius:10px;"></div>
+          <div class="shimmer" style="height:42px;border-radius:10px;"></div>
+          <div class="shimmer" style="height:42px;border-radius:10px;"></div>
         </div>
       </div>
-      <div style="display:flex;gap:0;border-bottom:1px solid #e4e4e7;margin-top:4px;margin-bottom:16px;">
-        <div class="shimmer" style="flex:1;height:48px;border-radius:0;"></div>
-        <div class="shimmer" style="flex:1;height:48px;border-radius:0;opacity:0.5;"></div>
+      <div style="display:flex;border-bottom:1px solid #e4e4e7;margin-top:4px;margin-bottom:16px;">
+        <div class="shimmer" style="flex:1;height:46px;"></div>
+        <div class="shimmer" style="flex:1;height:46px;opacity:0.5;"></div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:12px;">
-        <div class="shimmer" style="height:110px;border-radius:18px;"></div>
-        <div class="shimmer" style="height:110px;border-radius:18px;opacity:0.7;"></div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="shimmer" style="height:100px;border-radius:18px;"></div>
+        <div class="shimmer" style="height:100px;border-radius:18px;opacity:0.6;"></div>
       </div>
     </div>
   </div>
@@ -776,8 +776,6 @@ function _renderVisitorProfile(vp, vPosts) {
       </button>`;
     }
 
-    var _shimInit = document.getElementById('profile-shimmer-init');
-    if (_shimInit) _shimInit.remove();
     document.getElementById('profile-content').innerHTML = `
     <div>
       <div class="profile-cover-wrap">
@@ -880,12 +878,25 @@ function _renderMyProfile(myPosts) {
   state.profileType        = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || state.profileType || 'influencer';
   state.settingsAccountType = state.profileType;
 
+  // ── حذف الـ shimmer الأولي ──
+  var _si = document.getElementById('profile-shimmer-init');
+  if (_si) _si.remove();
+
   // ── جلب بيانات المستخدم من Firebase لضمان عرض الاسم الصحيح ──
+  // أولاً: عرض فوري بما هو متاح في localStorage (بدون انتظار)
+  var _cachedFbUser = null;
+  try {
+    var _cachedStr = localStorage.getItem('yadwor-user-data');
+    if (_cachedStr) _cachedFbUser = JSON.parse(_cachedStr);
+  } catch(e) {}
+  // عرض فوري بالبيانات المحفوظة
+  _doRenderMyProfile(myPosts, _cachedFbUser);
+
+  // ثانياً: تحديث من Firebase في الخلفية وإعادة الرسم إذا تغيرت البيانات
   if (myUid) {
     firebase.database().ref('users/' + myUid).once('value').then(function(snap) {
-      const fbUser = snap.val();
+      var fbUser = snap.val();
       if (fbUser) {
-        // تحديث localStorage من Firebase (مزامنة ثانوية فقط)
         if (fbUser.name || fbUser.displayName) {
           localStorage.setItem('yadwor-settings-name', fbUser.name || fbUser.displayName);
           localStorage.setItem('yadwor-user-name', fbUser.name || fbUser.displayName);
@@ -896,20 +907,17 @@ function _renderMyProfile(myPosts) {
           state.profileType = fbUser.accountType;
         }
         if (fbUser.username) localStorage.setItem('yadwor-username', fbUser.username);
+        try { localStorage.setItem('yadwor-user-data', JSON.stringify(fbUser)); } catch(e) {}
+        // إعادة الرسم فقط إذا تغيرت بيانات جوهرية
+        var hasChanged = !_cachedFbUser ||
+          (_cachedFbUser.name !== fbUser.name) ||
+          (_cachedFbUser.avatar !== fbUser.avatar) ||
+          (_cachedFbUser.accountType !== fbUser.accountType);
+        if (hasChanged) {
+          _doRenderMyProfile(myPosts, fbUser);
+        }
       }
-      // إزالة الـ shimmer الأولي قبل عرض البيانات
-      var shimmerInit = document.getElementById('profile-shimmer-init');
-      if (shimmerInit) shimmerInit.remove();
-      _doRenderMyProfile(myPosts, fbUser || null);
-    }).catch(function() {
-      var shimmerInit = document.getElementById('profile-shimmer-init');
-      if (shimmerInit) shimmerInit.remove();
-      _doRenderMyProfile(myPosts, null);
-    });
-  } else {
-    var shimmerInit = document.getElementById('profile-shimmer-init');
-    if (shimmerInit) shimmerInit.remove();
-    _doRenderMyProfile(myPosts, null);
+    }).catch(function() {});
   }
 }
 
@@ -1031,8 +1039,6 @@ function _doRenderMyProfile(myPosts, _fbUserData) {
           : `<button onclick="openJoinModal()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-2 text-[10px] font-bold text-white" style="background:#f97316;">انضمام</button>`)
       : `<div class="h-8 w-full"></div>`;
 
-  var _shimInit2 = document.getElementById('profile-shimmer-init');
-  if (_shimInit2) _shimInit2.remove();
   document.getElementById('profile-content').innerHTML = `
     <div>
       <!-- Cover photo — مربع 1:1 -->
@@ -3179,7 +3185,7 @@ async function syncJoinRequestsFromFirebase() {
   let myUid      = localStorage.getItem('yadwor-uid')      || '';
   let myUsername = localStorage.getItem('yadwor-username') || '';
 
-  // إذا لم يكن myUid في localStorage، حاول جلبه من Firebase Auth
+  // إذا لم يكن myUid في localStorage، حاول جلبه من Firebase Auth — مع timeout قصير
   if (!myUid && window.firebase && firebase.auth) {
     try {
       await new Promise(resolve => {
@@ -3191,13 +3197,13 @@ async function syncJoinRequestsFromFirebase() {
           unsub();
           resolve();
         });
-        setTimeout(resolve, 3000); // timeout 3 ثوانٍ
+        setTimeout(resolve, 1500); // timeout 1.5 ثانية فقط
       });
     } catch(e) {}
   }
 
-  // مزامنة نوع الحساب من Firebase (قد يكون تغيّر بعد قبول طلب انضمام)
-  await syncAccountTypeFromFirebase();
+  // syncAccountTypeFromFirebase تعمل في الخلفية — لا ننتظرها
+  syncAccountTypeFromFirebase().catch(function(){});
 
   // تحديد هل نعرض ملف شخص آخر أم ملفي أنا
   // القاعدة: إذا وُجد ?uid= في URL وكان مختلفاً عن myUid → زائر
@@ -3251,10 +3257,23 @@ async function syncJoinRequestsFromFirebase() {
     // ملفي أنا — لا يوجد viewing (سواء كان ?uid=myUid أو لا params)
     state._viewingUid      = null;
     state._viewingUsername = null;
-    await syncJoinRequestsFromFirebase();
+    // renderProfile فوراً بدون انتظار — syncJoinRequests تعمل في الخلفية
+    renderProfile();
+    updateSidebarButtons();
+    setTimeout(initCoverSizeControl, 80);
+    updateBellBadgeFromFirebase();
+    syncJoinRequestsFromFirebase().then(function() {
+      // بعد تحميل طلبات الانضمام، أعد رسم الـ tabs فقط إذا كان profileType يستدعيها
+      if (state.profileType === 'institution' || state.profileType === 'teacher' || state.profileType === 'student') {
+        var tabContent = document.getElementById('profile-tab-content');
+        if (tabContent) {
+          tabContent.innerHTML = renderProfileTabContent();
+        }
+      }
+    }).catch(function(){});
+    return;
   }
 
-  renderProfile();
   updateSidebarButtons();
   // تطبيق الحجم المحفوظ للغلاف فور التحميل
   setTimeout(initCoverSizeControl, 80);
