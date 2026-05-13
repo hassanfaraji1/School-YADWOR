@@ -2193,7 +2193,7 @@
                     }
                 }
             } else if (e.track.kind === 'audio') {
-                // الصوت: أنشئ عنصر audio مخصص لضمان التشغيل
+                // الصوت: أنشئ/حدّث عنصر audio مخصص لضمان التشغيل دائماً
                 let ra = document.getElementById('studentRemoteAudio');
                 if (!ra) {
                     ra = document.createElement('audio');
@@ -2202,17 +2202,21 @@
                     ra.playsInline = true;
                     document.body.appendChild(ra);
                 }
-                // إذا لم يكن TV يحمل الصوت بشكل مضمون، ضعه في عنصر مخصص
-                if (tv.srcObject && tv.srcObject.getAudioTracks && tv.srcObject.getAudioTracks().length > 0) {
-                    // الصوت موجود في stream الفيديو
-                    tv.muted = !spkOn;
-                } else {
-                    ra.srcObject = e.streams[0];
-                    ra.muted = !spkOn;
-                    const tryPlayAudio = function(n) {
-                        ra.play().catch(function() { if (n < 5) setTimeout(function() { tryPlayAudio(n+1); }, 800); });
-                    };
-                    tryPlayAudio(1);
+                ra.srcObject = e.streams[0];
+                ra.muted = !spkOn;
+                // محاولات متعددة لتشغيل الصوت
+                const tryPlayRa = function(n) {
+                    ra.play().catch(function() {
+                        if (n < 8) setTimeout(function() { tryPlayRa(n + 1); }, 500);
+                    });
+                };
+                tryPlayRa(1);
+                // تأكد أن #tv يشير لنفس stream وصوته مفعّل
+                if (tv && tv.srcObject) {
+                    var audioTracks = tv.srcObject.getAudioTracks ? tv.srcObject.getAudioTracks() : [];
+                    if (audioTracks.length > 0) {
+                        tv.muted = !spkOn;
+                    }
                 }
             }
         };
@@ -3273,15 +3277,20 @@
             const mb = document.getElementById('pmOwnerMuteBtn');
             if (mb) {
                 if (typeof seatIdx === 'number') {
+                    // إظهار الزر
+                    mb.style.display = 'flex';
                     // تحقق من حالة الكتم الحالية
                     db.ref('rooms/' + roomId + '/seats/' + seatIdx + '/ownerMuted').once('value', snap => {
                         if (snap.val() === true) {
                             mb.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> رفع الكتم`;
+                            mb.style.background = '#e8f5e9'; mb.style.color = '#27ae60';
                         } else {
                             mb.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> كتم المايك`;
+                            mb.style.background = '#fff3e0'; mb.style.color = '#e67e22';
                         }
                     });
                 } else {
+                    mb.style.display = 'none';
                 }
             }
         } else {
@@ -4349,8 +4358,35 @@
                 }
             }
         } else {
-            // Track غير جاهز بعد، انتظر وأعد المحاولة
-            setTimeout(() => handleSpotlightChange(spotlightData), 1500);
+            // Track غير جاهز بعد — استمع على ontrack مباشرة لإمساك الـ track عند وصوله
+            if (!conn._spotWaiting) {
+                conn._spotWaiting = true;
+                conn._spotRetries = (conn._spotRetries || 0) + 1;
+                if (conn._spotRetries <= 10) {
+                    // استمع على الـ PC مباشرة للـ track الجديد
+                    const origOntrack = conn.pc.ontrack;
+                    conn.pc.ontrack = function(e) {
+                        // نادِ المعالج الأصلي أولاً
+                        if (typeof origOntrack === 'function') origOntrack.call(conn.pc, e);
+                        if (e.track && e.track.kind === 'video') {
+                            conn._spotWaiting = false;
+                            conn.pc.ontrack = origOntrack; // استعد المعالج الأصلي
+                            // أعِد محاولة handleSpotlightChange مع الـ track الجديد
+                            setTimeout(() => handleSpotlightChange(spotlightData), 200);
+                        }
+                    };
+                    // في نفس الوقت استمر بالمحاولة الدورية
+                    setTimeout(() => {
+                        conn._spotWaiting = false;
+                        handleSpotlightChange(spotlightData);
+                    }, 2000);
+                } else {
+                    // وصلنا للحد الأقصى — أظهر على الأقل صوت الأستاذ فقط
+                    conn._spotRetries = 0;
+                    if (backBtn) backBtn.style.display = 'flex';
+                    showSnack('تعذّر إظهار فيديو الشخص حالياً', '⚠️');
+                }
+            }
         }
     }
 
@@ -4740,13 +4776,14 @@
                 // إعادة تفعيل الكاميرا إذا كانت tracks منتهية (ended)
                 try {
                     var hasValidVideo = localStream && localStream.getVideoTracks().length > 0 && localStream.getVideoTracks().some(function(t){ return t.readyState !== 'ended'; });
-                    if (!hasValidVideo && !_avOverlayOn) {
+                    var hasValidAudio = localStream && localStream.getAudioTracks().length > 0 && localStream.getAudioTracks().some(function(t){ return t.readyState !== 'ended'; });
+                    if (!hasValidVideo || !hasValidAudio) {
                         var tvElRet = document.getElementById('tv');
                         var constraintsRet = { video: { facingMode: usingFrontCamera ? 'user' : 'environment' }, audio: { echoCancellation: true, noiseSuppression: true } };
                         navigator.mediaDevices.getUserMedia(constraintsRet).then(function(retStream) {
                             localStream = retStream;
                             localStream.getAudioTracks().forEach(function(t){ t.enabled = micOn; });
-                            if (tvElRet) { tvElRet.srcObject = retStream; tvElRet.muted = true; tvElRet.play().catch(function(){}); }
+                            if (tvElRet && !_avOverlayOn) { tvElRet.srcObject = retStream; tvElRet.muted = true; tvElRet.play().catch(function(){}); }
                             // استبدل track في peers
                             var newVT = retStream.getVideoTracks()[0];
                             var newAT = retStream.getAudioTracks()[0];
@@ -4761,7 +4798,31 @@
                                     });
                                 }
                             }
-                        }).catch(function() {});
+                        }).catch(function() {
+                            // إعادة الصوت فقط إذا فشل الفيديو
+                            navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }).then(function(aStream) {
+                                var newAT2 = aStream.getAudioTracks()[0];
+                                if (newAT2 && localStream) {
+                                    var oldATs = localStream.getAudioTracks();
+                                    oldATs.forEach(function(t){ localStream.removeTrack(t); t.stop(); });
+                                    localStream.addTrack(newAT2);
+                                    newAT2.enabled = micOn;
+                                    _replaceAudioTrackInPeers(newAT2);
+                                }
+                            }).catch(function(){});
+                        });
+                    } else {
+                        // الـ tracks سليمة — فقط تأكد من إعادة إرسال الصوت
+                        var existingAT = localStream.getAudioTracks()[0];
+                        if (existingAT) {
+                            existingAT.enabled = micOn;
+                            _ensureAudioTrackInPeers(existingAT);
+                        }
+                        // أعِد تشغيل #tv للأستاذ
+                        var tvOwn = document.getElementById('tv');
+                        if (tvOwn && tvOwn.srcObject && tvOwn.paused) {
+                            tvOwn.play().catch(function(){});
+                        }
                     }
                 } catch(e) {}
             }
@@ -4812,27 +4873,67 @@
                 }
             } catch(e) {}
 
-            // ── إعادة تشغيل الصوت عند العودة من الخلفية ──
+            // ── إعادة تشغيل الصوت والفيديو عند العودة من الخلفية ──
             try {
                 setTimeout(function() {
+                    // 1) أعِد تشغيل #tv
+                    var tvEl = document.getElementById('tv');
+                    if (tvEl && tvEl.srcObject) {
+                        if (tvEl.paused) tvEl.play().catch(function() {});
+                        tvEl.muted = isOwner ? true : !spkOn;
+                    }
+                    // 2) أعِد تشغيل كل عناصر audio
                     document.querySelectorAll('audio').forEach(function(a) {
-                        if (a.paused && !a.muted && a.srcObject) {
+                        a.muted = !spkOn;
+                        if (a.paused && a.srcObject) {
                             a.play().catch(function() {});
                         }
                     });
-                    var tvEl = document.getElementById('tv');
-                    if (tvEl && tvEl.paused && tvEl.srcObject) {
-                        tvEl.play().catch(function() {});
-                    }
-                    // إعادة تشغيل studentPC إذا كان الاتصال منقطعاً
-                    if (!isOwner && studentPC && (studentPC.iceConnectionState === 'disconnected' || studentPC.iceConnectionState === 'failed')) {
-                        db.ref('rooms/' + roomId + '/offers/' + (studentRef && studentRef.key ? studentRef.key : '')).once('value', function(offerSnap) {
-                            if (offerSnap.exists()) {
-                                try { createOrganizerPeerAndAnswer(offerSnap.val()); } catch(e) {}
-                            }
+                    // 3) تفعيل audio tracks في localStream إذا كان المايك مشغولاً
+                    if (localStream) {
+                        localStream.getAudioTracks().forEach(function(t) {
+                            if (t.readyState !== 'ended') t.enabled = micOn;
                         });
                     }
-                }, 800);
+                    // 4) إذا كان studentPC موجوداً وحالته سيئة — أعِد بناءه
+                    if (!isOwner && studentRef && studentRef.key) {
+                        var pcState = studentPC ? studentPC.iceConnectionState : 'closed';
+                        if (!studentPC || pcState === 'failed' || pcState === 'closed' || pcState === 'disconnected') {
+                            db.ref('rooms/' + roomId + '/offers/' + studentRef.key).once('value', function(offerSnap) {
+                                if (offerSnap.exists()) {
+                                    try { createOrganizerPeerAndAnswer(offerSnap.val()); } catch(e) {}
+                                }
+                            });
+                        } else {
+                            // الاتصال موجود — تأكد من تشغيل الـ audio streams
+                            var sra = document.getElementById('studentRemoteAudio');
+                            if (sra && sra.srcObject && sra.paused) {
+                                sra.muted = !spkOn;
+                                sra.play().catch(function() {});
+                            }
+                            // تحقق إضافي: هل يصلنا صوت فعلاً؟
+                            if (studentPC && studentPC.getReceivers) {
+                                studentPC.getReceivers().forEach(function(receiver) {
+                                    if (receiver.track && receiver.track.kind === 'audio') {
+                                        receiver.track.enabled = true;
+                                    }
+                                });
+                            }
+                        }
+                    }
+                    // 5) الأستاذ: تأكد من أن audio peers لا تزال تعمل
+                    if (isOwner) {
+                        for (var k in teacherPeerConns) {
+                            var conn = teacherPeerConns[k];
+                            if (conn && conn.audioEl) {
+                                conn.audioEl.muted = !spkOn;
+                                if (conn.audioEl.paused && conn.audioEl.srcObject) {
+                                    conn.audioEl.play().catch(function() {});
+                                }
+                            }
+                        }
+                    }
+                }, 600);
             } catch(e) {}
         }
     });
