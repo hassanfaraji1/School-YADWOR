@@ -602,16 +602,14 @@ async function enrichAvatarsFromFirebase(members, containerId) {
 
 function renderProfile() {
   // ── إذا كنا نعرض ملف شخص آخر (زائر) ──
-  // نتحقق من _viewingUid أو _viewingUsername — أي منهما كافٍ
-  if ((_visitorUid || state._viewingUsername) && _visitorProfile) {
+  if ((_visitorUid || _visitorUsername || state._viewingUsername) && _visitorProfile) {
     const vp = _visitorProfile;
-    // جلب منشورات الزائر بـ uid دائماً (الأدق) — ثم username كـ fallback
-    const targetUid = _visitorUid || state._viewingUid || '';
+    // استخدام uid من profile المُجلب كمصدر أول دائماً
+    const targetUid = (vp && vp.uid) || _visitorUid || state._viewingUid || '';
+    // تحديث state بـ uid الحقيقي
+    if (targetUid) state._viewingUid = targetUid;
     getUserPosts(targetUid, function(vPosts) {
-      // تخزين منشورات الزائر في state.posts حتى تعمل getVisitorPosts بشكل صحيح
       if (targetUid) {
-        state._viewingUid = targetUid;
-        // دمج منشورات الزائر في state.posts (بدون تكرار)
         vPosts.forEach(p => {
           const idx = state.posts.findIndex(sp => sp.id === p.id);
           if (idx === -1) state.posts.push(p);
