@@ -10,171 +10,1145 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <script>
   if (!firebase.apps.length) {
     firebase.initializeApp({
       apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
-      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com"
+      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com",
+      storageBucket: "a-comment-5a3e5.appspot.com"
     });
   }
 </script>
 <style>
-  * { box-sizing: border-box; }
-  body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
-  input:focus { outline: none; }
-  .shimmer { animation: shimmer 1.5s infinite; background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%); background-size: 200% 100%; }
-  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-  .truncate { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+* { box-sizing: border-box; }
+body {
+  font-family: 'Tajawal', system-ui, sans-serif;
+  background: #f5f4f2;
+  color: #18181b;
+  overflow-x: hidden;
+}
+input:focus, textarea:focus { outline: none; }
+
+/* ── شيمر ── */
+.shimmer { animation: shimmer 1.5s infinite; background: linear-gradient(90deg,#ebebeb 25%,#d8d8d8 50%,#ebebeb 75%); background-size: 200% 100%; }
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.truncate { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* ── Toast ── */
+#toast {
+  position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:#18181b; color:#fff; padding:10px 20px; border-radius:20px;
+  font-size:13px; font-weight:700; opacity:0; pointer-events:none;
+  transition:all .25s; z-index:9999; white-space:nowrap;
+}
+#toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ── قائمة المحادثات ── */
+.chat-item {
+  display:flex; align-items:center; gap:12px;
+  background:#fff; border-radius:18px;
+  padding:12px 14px; cursor:pointer;
+  transition:background .15s;
+  border:1px solid rgba(0,0,0,0.06);
+  position:relative;
+}
+.chat-item:active { background:#f4f4f5; }
+.chat-item.unread .chat-last-msg { font-weight:800; color:#18181b; }
+.chat-item.unread .chat-name { font-weight:900; }
+.unread-dot {
+  width:9px; height:9px; border-radius:50%;
+  background:#18181b; flex-shrink:0;
+}
+.unread-badge {
+  background:#18181b; color:#fff; border-radius:20px;
+  font-size:11px; font-weight:800; padding:1px 7px; min-width:20px;
+  text-align:center; flex-shrink:0;
+}
+
+/* ── شاشة الدردشة ── */
+#messages-chat-view {
+  position:fixed; inset:0; z-index:100;
+  display:flex; flex-direction:column;
+  background:#f5f4f2;
+  transform:translateX(100%);
+  transition:transform .28s cubic-bezier(.4,0,.2,1);
+}
+#messages-chat-view.open { transform:translateX(0); }
+
+/* ── فقاعات الرسائل ── */
+.bubble-wrap { display:flex; margin-bottom:4px; }
+.bubble-wrap.mine  { justify-content:flex-start; }
+.bubble-wrap.other { justify-content:flex-end; }
+
+.bubble {
+  max-width:75%; padding:10px 14px; font-size:14px; line-height:1.55;
+  position:relative; word-break:break-word;
+}
+.bubble.mine  { background:#18181b; color:#fff; border-radius:18px 18px 18px 4px; }
+.bubble.other { background:#fff; color:#18181b; border-radius:18px 18px 4px 18px;
+  box-shadow:0 1px 4px rgba(0,0,0,.08); }
+
+.bubble .msg-time { font-size:10px; opacity:.55; margin-top:4px; display:block; }
+.bubble.mine .msg-time { text-align:left; }
+.bubble.other .msg-time { text-align:right; }
+
+/* رد مقتبس */
+.reply-preview {
+  background:rgba(255,255,255,.15); border-radius:8px; padding:6px 10px;
+  margin-bottom:6px; border-right:3px solid rgba(255,255,255,.5);
+  font-size:12px; opacity:.9;
+}
+.bubble.other .reply-preview {
+  background:rgba(0,0,0,.06); border-right-color:rgba(0,0,0,.3);
+}
+
+/* صورة في الرسالة */
+.bubble img.msg-img {
+  max-width:220px; border-radius:12px; display:block; cursor:pointer;
+}
+
+/* صوت في الرسالة */
+.audio-player {
+  display:flex; align-items:center; gap:8px;
+  background:rgba(255,255,255,.12); border-radius:12px; padding:8px 12px;
+  min-width:180px;
+}
+.bubble.other .audio-player { background:rgba(0,0,0,.06); }
+.audio-bar { flex:1; height:3px; background:rgba(255,255,255,.3); border-radius:2px; cursor:pointer; }
+.bubble.other .audio-bar { background:rgba(0,0,0,.2); }
+.audio-fill { height:100%; width:0%; background:#fff; border-radius:2px; transition:width .1s; }
+.bubble.other .audio-fill { background:#18181b; }
+
+/* Context menu */
+#ctx-menu {
+  position:fixed; z-index:9998;
+  background:#fff; border-radius:16px;
+  box-shadow:0 8px 40px rgba(0,0,0,.18);
+  padding:6px; min-width:180px;
+  display:none;
+  animation:fadeIn .15s ease;
+}
+@keyframes fadeIn { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
+.ctx-item {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 14px; border-radius:10px;
+  font-size:13px; font-weight:700; cursor:pointer;
+  transition:background .1s;
+}
+.ctx-item:hover { background:#f4f4f5; }
+.ctx-item.danger { color:#dc2626; }
+
+/* شريط الإدخال */
+#input-bar {
+  display:flex; align-items:flex-end; gap:8px;
+  background:#fff; border-top:1px solid rgba(0,0,0,.07);
+  padding:10px 12px 14px;
+}
+.input-inner {
+  flex:1; display:flex; align-items:flex-end; gap:6px;
+  background:#f4f4f5; border-radius:22px; padding:8px 14px;
+}
+#chat-input {
+  flex:1; background:transparent; font-family:'Tajawal',sans-serif;
+  font-size:14px; resize:none; max-height:100px; line-height:1.5;
+  overflow-y:auto;
+}
+.send-btn {
+  width:38px; height:38px; border-radius:50%;
+  background:#18181b; color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; cursor:pointer; transition:transform .1s;
+}
+.send-btn:active { transform:scale(.92); }
+.icon-btn {
+  width:36px; height:36px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; color:#71717a; flex-shrink:0;
+  transition:background .15s;
+}
+.icon-btn:active { background:#f4f4f5; }
+
+/* شريط الرد */
+#reply-bar {
+  display:none; align-items:center; gap:10px;
+  background:#f0efed; padding:10px 14px;
+  border-top:1px solid rgba(0,0,0,.06);
+}
+#reply-bar.visible { display:flex; }
+
+/* تسجيل الصوت */
+#rec-bar {
+  display:none; align-items:center; gap:10px;
+  background:#fff; border-top:1px solid rgba(0,0,0,.07);
+  padding:12px 16px 16px;
+}
+#rec-bar.visible { display:flex; }
+.rec-pulse {
+  width:10px; height:10px; border-radius:50%;
+  background:#dc2626; animation:pulse 1s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+
+/* Bottom sheet */
+#bottom-sheet-overlay {
+  position:fixed; inset:0; z-index:200;
+  background:rgba(0,0,0,.4); display:none;
+  align-items:flex-end;
+}
+#bottom-sheet-overlay.open { display:flex; }
+#bottom-sheet {
+  width:100%; background:#fff; border-radius:24px 24px 0 0;
+  padding:16px 0 32px; transform:translateY(100%);
+  transition:transform .3s cubic-bezier(.4,0,.2,1);
+}
+#bottom-sheet-overlay.open #bottom-sheet { transform:translateY(0); }
+.sheet-item {
+  display:flex; align-items:center; gap:14px;
+  padding:14px 20px; font-size:15px; font-weight:700;
+  cursor:pointer; transition:background .1s;
+}
+.sheet-item:active { background:#f4f4f5; }
+.sheet-icon {
+  width:40px; height:40px; border-radius:12px;
+  background:#f4f4f5; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+
+/* إعدادات ── Modal */
+#settings-modal {
+  position:fixed; inset:0; z-index:300; background:rgba(0,0,0,.45);
+  display:none; align-items:flex-end;
+}
+#settings-modal.open { display:flex; }
+#settings-sheet {
+  width:100%; background:#fff; border-radius:24px 24px 0 0;
+  padding:20px 0 36px; max-height:85vh; overflow-y:auto;
+  transform:translateY(100%);
+  transition:transform .3s cubic-bezier(.4,0,.2,1);
+}
+#settings-modal.open #settings-sheet { transform:translateY(0); }
+.settings-section-title {
+  font-size:11px; font-weight:800; color:#a1a1aa;
+  text-transform:uppercase; letter-spacing:.06em;
+  padding:8px 20px 4px;
+}
+
+/* لائحة المحظورين */
+.blocked-item {
+  display:flex; align-items:center; gap:12px;
+  padding:12px 20px; border-bottom:1px solid #f4f4f5;
+}
+
+/* صورة كاملة */
+#img-viewer {
+  position:fixed; inset:0; z-index:400;
+  background:rgba(0,0,0,.92); display:none;
+  align-items:center; justify-content:center;
+}
+#img-viewer.open { display:flex; }
+#img-viewer img { max-width:95vw; max-height:90vh; border-radius:12px; }
+
+/* رد / إعادة توجيه progress */
+.upload-progress {
+  height:2px; background:#e4e4e7; border-radius:1px; overflow:hidden; margin-top:6px;
+}
+.upload-bar { height:100%; background:#18181b; width:0%; transition:width .2s; border-radius:1px; }
+
+/* بادج في قائمة المحادثات – علامة "جديد" */
+.new-tag {
+  font-size:10px; font-weight:800; color:#18181b;
+  background:#fbbf24; border-radius:6px; padding:2px 7px;
+}
 </style>
 </head>
 <body>
 
-<!-- MESSAGES LIST VIEW -->
+<!-- ═══════════════════════════════════════════
+     قائمة المحادثات
+═══════════════════════════════════════════ -->
 <div id="messages-list-view">
-  <header class="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/95 backdrop-blur-xl">
-    <div class="mx-auto flex h-11 max-w-[1100px] items-center justify-between px-3">
+
+  <!-- هيدر -->
+  <header class="sticky top-0 z-40 border-b border-zinc-200/60 bg-white/95 backdrop-blur-xl">
+    <div class="mx-auto flex h-12 max-w-[760px] items-center justify-between px-4">
       <a href="home.html" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
-        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
       </a>
-      <h1 class="text-[15px] font-extrabold tracking-tight">الرسائل</h1>
-      <div class="h-9 w-9"></div>
+      <h1 class="text-[16px] font-extrabold tracking-tight">الرسائل</h1>
+      <!-- زر الإعدادات -->
+      <button onclick="openSettings()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100 relative">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span id="blocked-dot" style="display:none" class="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-white"></span>
+      </button>
     </div>
   </header>
-  <main id="chats-list" class="mx-auto max-w-[760px] px-4 py-4 space-y-2 pb-24"></main>
+
+  <!-- قائمة المحادثات -->
+  <main id="chats-list" class="mx-auto max-w-[760px] px-3 py-3 space-y-2 pb-28"></main>
 </div>
 
-<!-- CHAT VIEW (hidden by default) -->
-<div id="messages-chat-view" style="display:none" class="flex flex-col min-h-screen bg-white">
-  <header class="sticky top-0 z-30 flex items-center gap-3 border-b border-zinc-200 bg-white px-4 py-3">
-    <button onclick="closeChatView()" class="text-zinc-900">
-      <svg viewBox="0 0 24 24" class="h-7 w-7 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
-    </button>
-    <div class="relative h-10 w-10 rounded-full overflow-hidden">
-      <div class="shimmer absolute inset-0"></div>
-      <img id="chat-avatar" src="" alt="" class="h-10 w-10 rounded-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
-    </div>
-    <div>
-      <h3 id="chat-name" class="text-[14px] font-extrabold"></h3>
-      <p class="text-[12px] text-zinc-500">محادثة مباشرة</p>
+
+<!-- ═══════════════════════════════════════════
+     شاشة الدردشة
+═══════════════════════════════════════════ -->
+<div id="messages-chat-view">
+
+  <!-- هيدر الدردشة -->
+  <header class="sticky top-0 z-30 bg-white border-b border-zinc-100 shadow-sm">
+    <div class="flex items-center gap-3 px-3 py-2.5">
+      <button onclick="closeChatView()" class="h-9 w-9 flex items-center justify-center rounded-full hover:bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div id="chat-header-avatar-wrap" class="relative h-10 w-10 rounded-full overflow-hidden shrink-0">
+        <div class="shimmer absolute inset-0"></div>
+        <img id="chat-avatar" src="" alt="" class="h-10 w-10 rounded-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
+      </div>
+      <div class="flex-1 min-w-0">
+        <h3 id="chat-name" class="text-[14px] font-extrabold truncate"></h3>
+        <p id="chat-status" class="text-[11px] text-zinc-400">محادثة مباشرة</p>
+      </div>
+      <!-- قائمة الدردشة 3 نقاط -->
+      <button onclick="openChatMenu()" class="h-9 w-9 flex items-center justify-center rounded-full hover:bg-zinc-100">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-current" stroke-width="0"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+      </button>
     </div>
   </header>
-  <div id="chat-messages" class="flex-1 space-y-3 px-4 py-4 pb-24"></div>
-  <div class="border-t border-zinc-200 bg-white p-3 sticky bottom-0">
-    <div class="flex items-center gap-2 rounded-[14px] bg-zinc-100 p-2">
-      <input id="chat-input" placeholder="اكتب رسالتك..." class="w-full bg-transparent px-2 text-[14px]" onkeydown="if(event.key==='Enter')sendMessage()" />
-      <button onclick="sendMessage()" class="rounded-[12px] bg-zinc-900 px-4 py-2 text-[13px] font-bold text-white">إرسال</button>
+
+  <!-- منطقة الرسائل -->
+  <div id="chat-messages" class="flex-1 overflow-y-auto px-3 py-3 pb-4 space-y-1" style="min-height:0"></div>
+
+  <!-- شريط الرد على رسالة -->
+  <div id="reply-bar">
+    <div class="flex-1 min-w-0">
+      <p class="text-[11px] font-bold text-zinc-500 mb-0.5">ردّاً على:</p>
+      <p id="reply-preview-text" class="text-[13px] text-zinc-700 truncate"></p>
+    </div>
+    <button onclick="cancelReply()" class="shrink-0 text-zinc-400">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+
+  <!-- شريط تسجيل الصوت -->
+  <div id="rec-bar">
+    <div class="rec-pulse"></div>
+    <span id="rec-timer" class="text-[14px] font-bold">0:00</span>
+    <div class="flex-1"></div>
+    <button onclick="cancelRecording()" class="icon-btn">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+    <button onclick="stopAndSendAudio()" class="send-btn">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current stroke-white" stroke-width="2.2" stroke-linecap="round"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg>
+    </button>
+  </div>
+
+  <!-- شريط الإدخال -->
+  <div id="input-bar">
+    <!-- زر المرفقات -->
+    <button onclick="openAttachSheet()" class="icon-btn" title="مرفق">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.2-9.19a4 4 0 0 1 5.66 5.65l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+    </button>
+    <!-- حقل النص -->
+    <div class="input-inner">
+      <textarea id="chat-input" rows="1" placeholder="اكتب رسالتك…"
+        oninput="autoResize(this)"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"></textarea>
+    </div>
+    <!-- زر الميكروفون / الإرسال -->
+    <button id="mic-or-send-btn" onclick="handleMicOrSend()" class="send-btn">
+      <svg id="mic-icon" viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current stroke-white" stroke-width="2.2" stroke-linecap="round">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/>
+      </svg>
+      <svg id="send-icon" viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current stroke-white hidden" stroke-width="2.2" stroke-linecap="round">
+        <path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/>
+      </svg>
+    </button>
+  </div>
+
+</div>
+
+
+<!-- ═══════════════════════════════════════════
+     Context Menu (ضغط مطوّل)
+═══════════════════════════════════════════ -->
+<div id="ctx-menu">
+  <div class="ctx-item" onclick="ctxReply()">
+    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3M13 21l-4-4 4-4M9 17h8a2 2 0 0 0 2-2v-5"/></svg>
+    رد على الرسالة
+  </div>
+  <div class="ctx-item" onclick="ctxCopy()">
+    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    نسخ النص
+  </div>
+  <div class="ctx-item danger" onclick="ctxDeleteForMe()">
+    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+    حذف من عندي
+  </div>
+  <div id="ctx-delete-both" class="ctx-item danger" onclick="ctxDeleteForBoth()">
+    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+    حذف للجميع
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     Bottom Sheet – مرفقات
+═══════════════════════════════════════════ -->
+<div id="bottom-sheet-overlay" onclick="closeAttachSheet(event)">
+  <div id="bottom-sheet">
+    <div class="w-10 h-1 bg-zinc-200 rounded-full mx-auto mb-4"></div>
+    <p class="text-[13px] font-bold text-zinc-400 px-5 mb-2">إرسال مرفق</p>
+
+    <div class="sheet-item" onclick="triggerImagePick()">
+      <div class="sheet-icon">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      </div>
+      صورة من المعرض
+    </div>
+    <div class="sheet-item" onclick="triggerCameraPick()">
+      <div class="sheet-icon">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </div>
+      التقاط صورة
+    </div>
+    <!-- Input مخفية للصور -->
+    <input type="file" id="img-picker" accept="image/*" style="display:none" onchange="handleImagePicked(event)" />
+    <input type="file" id="cam-picker" accept="image/*" capture="environment" style="display:none" onchange="handleImagePicked(event)" />
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     Modal إعدادات
+═══════════════════════════════════════════ -->
+<div id="settings-modal" onclick="closeSettingsModal(event)">
+  <div id="settings-sheet">
+    <div class="w-10 h-1 bg-zinc-200 rounded-full mx-auto mb-4"></div>
+    <h2 class="text-[16px] font-extrabold px-5 mb-2">إعدادات الرسائل</h2>
+
+    <p class="settings-section-title">عام</p>
+    <div class="sheet-item" onclick="clearAllChats()">
+      <div class="sheet-icon">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+      </div>
+      مسح كل المحادثات
+    </div>
+
+    <p class="settings-section-title mt-2">المحظورون</p>
+    <div id="blocked-list-wrap">
+      <div id="blocked-empty" class="px-5 py-4 text-[13px] text-zinc-400">لا يوجد محظورون</div>
+      <div id="blocked-list"></div>
     </div>
   </div>
 </div>
 
-<!-- BOTTOM NAV -->
-<nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-[0_-6px_20px_rgba(0,0,0,0.04)]">
+<!-- ═══════════════════════════════════════════
+     عارض الصور الكاملة
+═══════════════════════════════════════════ -->
+<div id="img-viewer" onclick="document.getElementById('img-viewer').classList.remove('open')">
+  <img id="img-viewer-img" src="" alt="" />
+</div>
+
+<!-- ═══════════════════════════════════════════
+     Bottom Sheet – قائمة خيارات الدردشة (3 نقاط)
+═══════════════════════════════════════════ -->
+<div id="chat-menu-overlay" onclick="closeChatMenu(event)" style="position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.4);display:none;align-items:flex-end;">
+  <div id="chat-menu-sheet" style="width:100%;background:#fff;border-radius:24px 24px 0 0;padding:16px 0 32px;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);">
+    <div class="w-10 h-1 bg-zinc-200 rounded-full mx-auto mb-3"></div>
+    <div id="block-toggle-item" class="sheet-item" onclick="toggleBlockCurrentUser()">
+      <div class="sheet-icon" style="background:#fef2f2">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-red-500" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+      </div>
+      <span id="block-toggle-label" class="text-red-600">حظر المستخدم</span>
+    </div>
+    <div class="sheet-item danger" onclick="deleteChatHistory()" style="color:#dc2626">
+      <div class="sheet-icon" style="background:#fef2f2">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-red-500" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+      </div>
+      حذف المحادثة
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- ═══════════════════════════════════════════
+     شريط التنقل
+═══════════════════════════════════════════ -->
+<nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-[0_-6px_20px_rgba(0,0,0,0.04)]">
   <div class="mx-auto grid max-w-[480px] grid-cols-5 px-2 py-2 gap-1">
     <a href="profile.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
-      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>
-      الملف
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>الملف
     </a>
     <a href="messages.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold bg-zinc-900 text-white">
-      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      الرسائل
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>الرسائل
     </a>
     <a href="roomhom.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
-      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
-      الغرف
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>الغرف
     </a>
     <a href="search.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
-      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16"/></svg>
-      البحث
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16"/></svg>البحث
     </a>
     <a href="home.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
-      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>
-      الرئيسية
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>الرئيسية
     </a>
   </div>
 </nav>
 
 <script src="shared.js"></script>
 <script>
-const chats = [
-  { name: "أ. سارة المهدي", avatar: profiles.teacher.avatar, last: "أرسلت لك الملخص الجديد للرياضيات", time: "الآن" },
-  { name: "مؤسسة الريادة للتعليم", avatar: profiles.institution.avatar, last: "تم استقبال طلبك بنجاح", time: "12:30" },
-  { name: "يوسف أمين", avatar: profiles.student.avatar, last: "شكراً أستاذة على التوضيح", time: "أمس" }
-];
+// ════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════
+const myUid  = localStorage.getItem('yadwor-uid') || 'me';
+const myName = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'أنا';
+const myAvatar = localStorage.getItem('yadwor-avatar-preview') || '';
 
-function renderMessages() {
+let activeChat = null;   // { uid, name, avatar }
+let activeMsgId = null;  // للـ context menu
+let replyTo    = null;   // { id, text, senderName }
+let mediaRecorder = null;
+let recChunks  = [];
+let recTimerInterval = null;
+let recSeconds = 0;
+let blockedUsers = JSON.parse(localStorage.getItem('yadwor-blocked') || '[]');
+// { uid, name, avatar }[]
+
+// مخزن المحادثات: { [chatId]: { uid, name, avatar, messages:[], unread:0, lastTs:0 } }
+let chatsStore = JSON.parse(localStorage.getItem('yadwor-chats-store') || '{}');
+function saveChatsStore() {
+  localStorage.setItem('yadwor-chats-store', JSON.stringify(chatsStore));
+}
+function saveBlocked() {
+  localStorage.setItem('yadwor-blocked', JSON.stringify(blockedUsers));
+  updateBlockedDot();
+}
+
+function chatId(uid) { return [myUid, uid].sort().join('_'); }
+
+// ════════════════════════════════════════
+// قائمة المحادثات
+// ════════════════════════════════════════
+function renderChatsList() {
   const list = document.getElementById('chats-list');
-  // Shimmer
+
+  // shimmer
   list.innerHTML = [1,2,3].map(() => `
-    <div class="flex items-center gap-3 rounded-[14px] border border-zinc-200 bg-white px-3 py-3">
-      <div class="shimmer h-12 w-12 rounded-full shrink-0"></div>
+    <div class="flex items-center gap-3 rounded-[18px] border border-zinc-200 bg-white px-3 py-3">
+      <div class="shimmer h-13 w-13 rounded-full shrink-0" style="width:52px;height:52px"></div>
       <div class="flex-1 space-y-2">
-        <div class="flex justify-between">
-          <div class="shimmer h-3.5 w-32 rounded-full"></div>
-          <div class="shimmer h-3 w-10 rounded-full"></div>
-        </div>
+        <div class="flex justify-between"><div class="shimmer h-3.5 w-28 rounded-full"></div><div class="shimmer h-3 w-10 rounded-full"></div></div>
         <div class="shimmer h-3 w-4/5 rounded-full"></div>
       </div>
     </div>`).join('');
 
   setTimeout(() => {
-    list.innerHTML = chats.map(c => `
-      <button onclick="openChatUI('${c.name.replace(/'/g,"\\'")}','${c.avatar}')" class="flex w-full items-center gap-3 rounded-[14px] border border-zinc-200 bg-white px-3 py-3 text-right">
-        <div class="relative h-12 w-12 shrink-0 rounded-full overflow-hidden">
-          <div class="shimmer absolute inset-0"></div>
-          <img src="${c.avatar}" class="h-12 w-12 rounded-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
+    const sorted = Object.values(chatsStore)
+      .filter(c => !isBlocked(c.uid))
+      .sort((a,b)=>(b.lastTs||0)-(a.lastTs||0));
+
+    if (!sorted.length) {
+      list.innerHTML = `<div class="text-center py-16 text-zinc-400 text-[14px] font-bold">لا توجد محادثات بعد</div>`;
+      return;
+    }
+
+    list.innerHTML = sorted.map(c => {
+      const lastMsg = c.messages && c.messages.length ? c.messages[c.messages.length-1] : null;
+      const lastText = lastMsg
+        ? (lastMsg.type === 'image' ? '📷 صورة' : lastMsg.type === 'audio' ? '🎙️ رسالة صوتية' : (lastMsg.text || ''))
+        : '';
+      const timeStr = lastMsg ? formatMsgTime(lastMsg.ts) : '';
+      const unread = c.unread || 0;
+      const isNew = unread > 0;
+
+      return `
+      <div class="chat-item ${isNew?'unread':''}" onclick="openChat('${c.uid}')">
+        <div class="relative shrink-0" style="width:52px;height:52px">
+          <img src="${c.avatar||'https://ui-avatars.com/api/?name='+encodeURIComponent(c.name)+'&background=e4e4e7&color=52525b&size=52'}"
+            onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(c.name)}&background=e4e4e7&color=52525b&size=52'"
+            class="w-full h-full rounded-full object-cover" />
         </div>
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center justify-between gap-2">
-            <h3 class="truncate text-[14px] font-extrabold">${c.name}</h3>
-            <span class="text-[11px] text-zinc-400">${c.time}</span>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2 mb-0.5">
+            <h3 class="chat-name truncate text-[14px] font-bold">${c.name}</h3>
+            <div class="flex items-center gap-1.5 shrink-0">
+              ${isNew ? `<span class="new-tag">جديد</span>` : ''}
+              <span class="text-[11px] text-zinc-400">${timeStr}</span>
+            </div>
           </div>
-          <p class="mt-1 truncate text-[12px] text-zinc-500">${c.last}</p>
+          <div class="flex items-center justify-between gap-2">
+            <p class="chat-last-msg truncate text-[12px] text-zinc-500">${lastText}</p>
+            ${unread > 1 ? `<span class="unread-badge">${unread}</span>` : (isNew ? `<span class="unread-dot"></span>` : '')}
+          </div>
         </div>
-      </button>`).join('');
-  }, 500);
+      </div>`;
+    }).join('');
+  }, 400);
 }
 
-function openChatUI(name, avatar) {
-  state.activeChat = { name, avatar };
-  document.getElementById('chat-avatar').src = avatar;
-  document.getElementById('chat-name').textContent = name;
+function formatMsgTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts), now = new Date();
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString('ar', { hour:'2-digit', minute:'2-digit' });
+  }
+  const diff = Math.floor((now - d) / 86400000);
+  if (diff === 1) return 'أمس';
+  if (diff < 7)  return d.toLocaleDateString('ar', { weekday:'short' });
+  return d.toLocaleDateString('ar', { day:'2-digit', month:'2-digit' });
+}
+
+function formatMsgDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts), now = new Date();
+  if (d.toDateString() === now.toDateString()) return 'اليوم';
+  const diff = Math.floor((now - d) / 86400000);
+  if (diff === 1) return 'أمس';
+  return d.toLocaleDateString('ar', { day:'2-digit', month:'long', year:'numeric' });
+}
+
+function isBlocked(uid) {
+  return blockedUsers.some(u => u.uid === uid);
+}
+
+// ════════════════════════════════════════
+// فتح الدردشة
+// ════════════════════════════════════════
+function openChat(uid) {
+  const cid = chatId(uid);
+  if (!chatsStore[cid]) return;
+  activeChat = { uid, name: chatsStore[cid].name, avatar: chatsStore[cid].avatar };
+
+  // صفّر غير المقروءة
+  chatsStore[cid].unread = 0;
+  saveChatsStore();
+
+  document.getElementById('chat-avatar').src = activeChat.avatar ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(activeChat.name)}&background=e4e4e7&color=52525b&size=52`;
+  document.getElementById('chat-name').textContent = activeChat.name;
+
+  // تحديث زر الحظر
+  updateBlockToggleLabel();
+
   document.getElementById('messages-list-view').style.display = 'none';
-  document.getElementById('messages-chat-view').style.display = 'flex';
   document.getElementById('bottom-nav').style.display = 'none';
+  const chatView = document.getElementById('messages-chat-view');
+  chatView.style.display = 'flex';
+  requestAnimationFrame(() => chatView.classList.add('open'));
+
   renderChatMessages();
 }
+
 function closeChatView() {
-  document.getElementById('messages-list-view').style.display = 'block';
-  document.getElementById('messages-chat-view').style.display = 'none';
-  document.getElementById('bottom-nav').style.display = 'block';
+  const chatView = document.getElementById('messages-chat-view');
+  chatView.classList.remove('open');
+  setTimeout(() => {
+    chatView.style.display = 'none';
+    document.getElementById('messages-list-view').style.display = 'block';
+    document.getElementById('bottom-nav').style.display = 'block';
+    renderChatsList();
+    cancelReply();
+    cancelRecording();
+  }, 280);
 }
+
+// فتح الدردشة من URL params
+function openChatUI(name, avatar, uid) {
+  uid = uid || 'user_' + name.replace(/\s/g,'');
+  const cid = chatId(uid);
+  if (!chatsStore[cid]) {
+    chatsStore[cid] = { uid, name, avatar, messages:[], unread:0, lastTs:0 };
+    saveChatsStore();
+  }
+  openChat(uid);
+}
+
+// ════════════════════════════════════════
+// عرض رسائل الدردشة
+// ════════════════════════════════════════
 function renderChatMessages() {
-  document.getElementById('chat-messages').innerHTML = state.chatMessages.map(m => `
-    <div class="flex ${m.fromMe?'justify-start':'justify-end'}">
-      <div class="max-w-[80%] rounded-[14px] px-4 py-3 text-[14px] ${m.fromMe?'bg-zinc-900 text-white':'bg-zinc-100 text-zinc-800'}">${m.text}</div>
-    </div>`).join('');
+  if (!activeChat) return;
+  const cid = chatId(activeChat.uid);
+  const msgs = (chatsStore[cid] && chatsStore[cid].messages) || [];
+  const container = document.getElementById('chat-messages');
+
+  if (!msgs.length) {
+    container.innerHTML = `<div class="text-center py-8 text-zinc-400 text-[13px]">لا توجد رسائل بعد، ابدأ المحادثة!</div>`;
+    return;
+  }
+
+  let html = '';
+  let lastDateStr = '';
+
+  msgs.forEach((m, idx) => {
+    // فاصل التاريخ
+    const dateStr = formatMsgDate(m.ts);
+    if (dateStr !== lastDateStr) {
+      html += `<div class="flex justify-center my-3">
+        <span class="text-[11px] font-bold text-zinc-400 bg-zinc-100 rounded-full px-3 py-1">${dateStr}</span>
+      </div>`;
+      lastDateStr = dateStr;
+    }
+
+    const isMine = m.from === myUid;
+    const deleted = m.deleted || (isMine ? m.deletedForMe : false);
+
+    html += `<div class="bubble-wrap ${isMine?'mine':'other'}" data-msg-id="${m.id}">
+      <div class="bubble ${isMine?'mine':'other'} ${deleted?'opacity-40 italic':''}"
+        oncontextmenu="showCtxMenu(event,'${m.id}')"
+        ontouchstart="startLongPress(event,'${m.id}')" ontouchend="cancelLongPress()" ontouchmove="cancelLongPress()">
+        ${deleted ? '<span style="font-size:13px">🗑️ تم حذف هذه الرسالة</span>' : buildMsgContent(m)}
+        ${!deleted ? `<span class="msg-time">${formatMsgTime(m.ts)}${isMine ? (m.read ? ' ✓✓' : ' ✓') : ''}</span>` : ''}
+      </div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+  container.scrollTop = container.scrollHeight;
 }
+
+function buildMsgContent(m) {
+  let html = '';
+  // رد مقتبس
+  if (m.replyTo) {
+    html += `<div class="reply-preview">
+      <span style="font-size:11px;font-weight:800;opacity:.7">${m.replyTo.senderName}</span><br>
+      <span>${m.replyTo.text || (m.replyTo.type === 'image' ? '📷 صورة' : '🎙️ صوت')}</span>
+    </div>`;
+  }
+  if (m.type === 'image') {
+    html += `<img class="msg-img" src="${m.url}" onclick="viewImg('${m.url}')" />`;
+  } else if (m.type === 'audio') {
+    html += buildAudioPlayer(m);
+  } else {
+    html += `<span>${escHtml(m.text || '')}</span>`;
+  }
+  return html;
+}
+
+function buildAudioPlayer(m) {
+  const aid = 'aud_' + m.id;
+  return `<div class="audio-player">
+    <button onclick="toggleAudio('${aid}','${m.url}')" style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <svg id="icon_${aid}" viewBox="0 0 24 24" class="h-4 w-4 fill-current" style="color:inherit"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    </button>
+    <div class="audio-bar" id="bar_${aid}" onclick="seekAudio('${aid}',event)">
+      <div class="audio-fill" id="fill_${aid}"></div>
+    </div>
+    <span id="time_${aid}" style="font-size:11px;opacity:.7;white-space:nowrap">0:00</span>
+  </div>`;
+}
+
+// audio players map
+const _audios = {};
+function toggleAudio(aid, url) {
+  if (!_audios[aid]) {
+    _audios[aid] = new Audio(url);
+    _audios[aid].ontimeupdate = () => {
+      const a = _audios[aid];
+      const pct = a.duration ? (a.currentTime / a.duration * 100) : 0;
+      const fillEl = document.getElementById('fill_' + aid);
+      const timeEl = document.getElementById('time_' + aid);
+      if (fillEl) fillEl.style.width = pct + '%';
+      if (timeEl) timeEl.textContent = fmtSec(a.currentTime);
+    };
+    _audios[aid].onended = () => {
+      const iconEl = document.getElementById('icon_' + aid);
+      if (iconEl) iconEl.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+    };
+  }
+  const a = _audios[aid];
+  const iconEl = document.getElementById('icon_' + aid);
+  if (a.paused) {
+    // pause all others
+    Object.keys(_audios).forEach(k => { if (k !== aid && !_audios[k].paused) _audios[k].pause(); });
+    a.play();
+    if (iconEl) iconEl.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+  } else {
+    a.pause();
+    if (iconEl) iconEl.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+  }
+}
+function seekAudio(aid, e) {
+  const a = _audios[aid];
+  if (!a || !a.duration) return;
+  const bar = document.getElementById('bar_' + aid);
+  const rect = bar.getBoundingClientRect();
+  a.currentTime = ((e.clientX - rect.left) / rect.width) * a.duration;
+}
+function fmtSec(s) {
+  s = Math.floor(s||0);
+  return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function viewImg(url) {
+  document.getElementById('img-viewer-img').src = url;
+  document.getElementById('img-viewer').classList.add('open');
+}
+
+// ════════════════════════════════════════
+// إرسال الرسائل
+// ════════════════════════════════════════
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
+
+function handleMicOrSend() {
+  const input = document.getElementById('chat-input');
+  if (input.value.trim()) { sendMessage(); }
+  else { startRecording(); }
+}
+
+function toggleSendIcon() {
+  const input = document.getElementById('chat-input');
+  const mic = document.getElementById('mic-icon');
+  const send = document.getElementById('send-icon');
+  if (input.value.trim()) { mic.classList.add('hidden'); send.classList.remove('hidden'); }
+  else { mic.classList.remove('hidden'); send.classList.add('hidden'); }
+}
+document.getElementById('chat-input').addEventListener('input', toggleSendIcon);
+
 function sendMessage() {
   const input = document.getElementById('chat-input');
-  if(!input.value.trim()) return;
-  state.chatMessages.push({ fromMe: true, text: input.value.trim() });
+  const text = input.value.trim();
+  if (!text || !activeChat) return;
+  if (isBlocked(activeChat.uid)) { showToast('لا يمكنك إرسال رسائل لهذا المستخدم (محظور)'); return; }
+
+  const msg = {
+    id: genId(), from: myUid, type: 'text', text,
+    ts: Date.now(), read: false,
+    replyTo: replyTo ? { ...replyTo } : null
+  };
+  pushMessage(msg);
   input.value = '';
-  renderChatMessages();
-  // Scroll to bottom
-  const msgs = document.getElementById('chat-messages');
-  msgs.scrollTop = msgs.scrollHeight;
+  input.style.height = '';
+  cancelReply();
+  toggleSendIcon();
+
+  // رد تلقائي للعرض (يُحذف في الإنتاج)
+  setTimeout(() => simulateReply(), 1500 + Math.random()*2000);
 }
 
-// Check if coming from a direct chat link
-const urlParams = new URLSearchParams(window.location.search);
-const chatName = urlParams.get('chat');
-const chatAvatar = urlParams.get('avatar');
-if (chatName && chatAvatar) {
-  openChatUI(decodeURIComponent(chatName), decodeURIComponent(chatAvatar));
-} else {
-  renderMessages();
+function pushMessage(msg) {
+  const cid = chatId(activeChat.uid);
+  if (!chatsStore[cid]) chatsStore[cid] = { uid: activeChat.uid, name: activeChat.name, avatar: activeChat.avatar, messages:[], unread:0, lastTs:0 };
+  chatsStore[cid].messages.push(msg);
+  chatsStore[cid].lastTs = msg.ts;
+  if (msg.from !== myUid) chatsStore[cid].unread = (chatsStore[cid].unread || 0) + 1;
+  saveChatsStore();
+  renderChatMessages();
 }
+
+function simulateReply() {
+  if (!activeChat) return;
+  const replies = ['شكراً جزيلاً!', 'حسناً، سأتحقق من ذلك.', 'تمام 👍', 'فهمت، شكراً لك.', 'أوكي، سأرد قريباً.'];
+  const msg = {
+    id: genId(), from: activeChat.uid, type: 'text',
+    text: replies[Math.floor(Math.random()*replies.length)],
+    ts: Date.now(), read: false, replyTo: null
+  };
+  pushMessage(msg);
+}
+
+// ════════════════════════════════════════
+// الرد على رسالة
+// ════════════════════════════════════════
+function setReply(msgId) {
+  const cid = chatId(activeChat.uid);
+  const msgs = chatsStore[cid]?.messages || [];
+  const m = msgs.find(x => x.id === msgId);
+  if (!m) return;
+  replyTo = {
+    id: m.id,
+    text: m.type === 'image' ? '📷 صورة' : (m.type === 'audio' ? '🎙️ صوت' : (m.text || '')),
+    senderName: m.from === myUid ? myName : (activeChat?.name || '')
+  };
+  document.getElementById('reply-preview-text').textContent = replyTo.text;
+  document.getElementById('reply-bar').classList.add('visible');
+  document.getElementById('chat-input').focus();
+}
+function cancelReply() {
+  replyTo = null;
+  document.getElementById('reply-bar').classList.remove('visible');
+}
+
+// ════════════════════════════════════════
+// Context Menu (ضغط مطوّل)
+// ════════════════════════════════════════
+let _lpTimer = null;
+function startLongPress(e, msgId) {
+  _lpTimer = setTimeout(() => showCtxMenu(e, msgId), 600);
+}
+function cancelLongPress() { clearTimeout(_lpTimer); }
+
+function showCtxMenu(e, msgId) {
+  e.preventDefault();
+  activeMsgId = msgId;
+  const cid = chatId(activeChat.uid);
+  const m = (chatsStore[cid]?.messages || []).find(x => x.id === msgId);
+  const isMine = m && m.from === myUid;
+  document.getElementById('ctx-delete-both').style.display = isMine ? 'flex' : 'none';
+  const menu = document.getElementById('ctx-menu');
+  menu.style.display = 'block';
+  const x = Math.min(e.clientX || (e.touches?.[0]?.clientX || 100), window.innerWidth - 190);
+  const y = Math.min(e.clientY || (e.touches?.[0]?.clientY || 100), window.innerHeight - 200);
+  menu.style.left = x + 'px';
+  menu.style.top  = y + 'px';
+  setTimeout(() => document.addEventListener('click', hideCtxMenu, { once:true }), 10);
+}
+function hideCtxMenu() { document.getElementById('ctx-menu').style.display = 'none'; }
+function ctxReply() { hideCtxMenu(); setReply(activeMsgId); }
+function ctxCopy() {
+  const cid = chatId(activeChat.uid);
+  const m = (chatsStore[cid]?.messages || []).find(x => x.id === activeMsgId);
+  if (m?.text) { navigator.clipboard?.writeText(m.text).catch(()=>{}); showToast('تم نسخ الرسالة'); }
+  hideCtxMenu();
+}
+function ctxDeleteForMe() {
+  const cid = chatId(activeChat.uid);
+  const msgs = chatsStore[cid]?.messages || [];
+  const idx = msgs.findIndex(x => x.id === activeMsgId);
+  if (idx !== -1) { msgs[idx].deletedForMe = true; msgs[idx].deleted = true; }
+  saveChatsStore(); renderChatMessages(); hideCtxMenu();
+  showToast('تم حذف الرسالة من عندك');
+}
+function ctxDeleteForBoth() {
+  const cid = chatId(activeChat.uid);
+  const msgs = chatsStore[cid]?.messages || [];
+  const idx = msgs.findIndex(x => x.id === activeMsgId);
+  if (idx !== -1) { msgs[idx].deleted = true; msgs[idx].deletedForBoth = true; }
+  saveChatsStore(); renderChatMessages(); hideCtxMenu();
+  showToast('تم حذف الرسالة للجميع');
+}
+
+// ════════════════════════════════════════
+// تسجيل الصوت
+// ════════════════════════════════════════
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    recChunks = []; recSeconds = 0;
+    mediaRecorder.ondataavailable = e => recChunks.push(e.data);
+    mediaRecorder.start(100);
+
+    document.getElementById('input-bar').style.display = 'none';
+    document.getElementById('rec-bar').classList.add('visible');
+
+    recTimerInterval = setInterval(() => {
+      recSeconds++;
+      document.getElementById('rec-timer').textContent = fmtSec(recSeconds);
+    }, 1000);
+  } catch(e) { showToast('تعذّر الوصول إلى الميكروفون'); }
+}
+function cancelRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  clearInterval(recTimerInterval);
+  document.getElementById('rec-bar').classList.remove('visible');
+  document.getElementById('input-bar').style.display = 'flex';
+  recChunks = [];
+}
+function stopAndSendAudio() {
+  if (!mediaRecorder) return;
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recChunks, { type:'audio/webm' });
+    const url  = URL.createObjectURL(blob);
+    const msg  = { id:genId(), from:myUid, type:'audio', url, ts:Date.now(), read:false, replyTo: replyTo ? {...replyTo} : null };
+    pushMessage(msg);
+    cancelReply();
+  };
+  if (mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  clearInterval(recTimerInterval);
+  document.getElementById('rec-bar').classList.remove('visible');
+  document.getElementById('input-bar').style.display = 'flex';
+}
+
+// ════════════════════════════════════════
+// الصور
+// ════════════════════════════════════════
+function openAttachSheet() { openSheet('bottom-sheet-overlay'); }
+function closeAttachSheet(e) {
+  if (e.target.id === 'bottom-sheet-overlay') closeSheet('bottom-sheet-overlay');
+}
+function triggerImagePick()  { closeSheet('bottom-sheet-overlay'); document.getElementById('img-picker').click(); }
+function triggerCameraPick() { closeSheet('bottom-sheet-overlay'); document.getElementById('cam-picker').click(); }
+
+function handleImagePicked(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const msg = { id:genId(), from:myUid, type:'image', url: ev.target.result, ts:Date.now(), read:false, replyTo: replyTo ? {...replyTo} : null };
+    pushMessage(msg);
+    cancelReply();
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+// ════════════════════════════════════════
+// قائمة خيارات الدردشة (3 نقاط)
+// ════════════════════════════════════════
+function openChatMenu()  { openSheet('chat-menu-overlay'); }
+function closeChatMenu(e) { if (!e || e.target.id === 'chat-menu-overlay') closeSheet('chat-menu-overlay'); }
+
+function updateBlockToggleLabel() {
+  if (!activeChat) return;
+  const blocked = isBlocked(activeChat.uid);
+  document.getElementById('block-toggle-label').textContent = blocked ? 'إلغاء الحظر' : 'حظر المستخدم';
+}
+
+function toggleBlockCurrentUser() {
+  if (!activeChat) return;
+  closeChatMenu();
+  const idx = blockedUsers.findIndex(u => u.uid === activeChat.uid);
+  if (idx !== -1) {
+    blockedUsers.splice(idx, 1);
+    showToast('تم إلغاء الحظر');
+  } else {
+    blockedUsers.push({ uid: activeChat.uid, name: activeChat.name, avatar: activeChat.avatar });
+    showToast('تم حظر المستخدم');
+    setTimeout(() => closeChatView(), 800);
+  }
+  saveBlocked();
+  updateBlockToggleLabel();
+  renderBlockedList();
+}
+
+function deleteChatHistory() {
+  if (!activeChat) return;
+  if (!confirm('هل أنت متأكد من حذف المحادثة؟')) return;
+  const cid = chatId(activeChat.uid);
+  delete chatsStore[cid];
+  saveChatsStore();
+  closeChatMenu();
+  showToast('تم حذف المحادثة');
+  setTimeout(() => closeChatView(), 500);
+}
+
+function clearAllChats() {
+  if (!confirm('هل أنت متأكد من مسح جميع المحادثات؟')) return;
+  chatsStore = {};
+  saveChatsStore();
+  closeSettingsModal();
+  renderChatsList();
+  showToast('تم مسح جميع المحادثات');
+}
+
+// ════════════════════════════════════════
+// إعدادات
+// ════════════════════════════════════════
+function openSettings() { renderBlockedList(); openSheet('settings-modal'); }
+function closeSettingsModal(e) { if (!e || e.target.id === 'settings-modal') closeSheet('settings-modal'); }
+
+function updateBlockedDot() {
+  const dot = document.getElementById('blocked-dot');
+  if (dot) dot.style.display = blockedUsers.length ? 'block' : 'none';
+}
+
+function renderBlockedList() {
+  const list = document.getElementById('blocked-list');
+  const empty = document.getElementById('blocked-empty');
+  if (!blockedUsers.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  list.innerHTML = blockedUsers.map(u => `
+    <div class="blocked-item">
+      <img src="${u.avatar||'https://ui-avatars.com/api/?name='+encodeURIComponent(u.name)+'&background=e4e4e7&color=52525b&size=40'}"
+        class="w-10 h-10 rounded-full object-cover shrink-0" />
+      <div class="flex-1 min-w-0">
+        <p class="font-bold text-[14px] truncate">${u.name}</p>
+        <p class="text-[12px] text-zinc-400">محظور</p>
+      </div>
+      <button onclick="unblockUser('${u.uid}')"
+        class="text-[12px] font-bold text-blue-600 bg-blue-50 rounded-full px-3 py-1.5">إلغاء الحظر</button>
+    </div>`).join('');
+}
+
+function unblockUser(uid) {
+  const idx = blockedUsers.findIndex(u => u.uid === uid);
+  if (idx !== -1) blockedUsers.splice(idx, 1);
+  saveBlocked();
+  renderBlockedList();
+  showToast('تم إلغاء الحظر');
+}
+
+// ════════════════════════════════════════
+// مساعدات Sheets
+// ════════════════════════════════════════
+function openSheet(id) {
+  const overlay = document.getElementById(id);
+  overlay.style.display = 'flex';
+  requestAnimationFrame(() => {
+    const sheet = overlay.querySelector('[id$="-sheet"]') || overlay.children[0];
+    if (sheet) sheet.style.transform = 'translateY(0)';
+  });
+}
+function closeSheet(id) {
+  const overlay = document.getElementById(id);
+  const sheet = overlay.querySelector('[id$="-sheet"]') || overlay.children[0];
+  if (sheet) sheet.style.transform = 'translateY(100%)';
+  setTimeout(() => overlay.style.display = 'none', 300);
+}
+
+// ════════════════════════════════════════
+// auto resize textarea
+// ════════════════════════════════════════
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+// ════════════════════════════════════════
+// Toast
+// ════════════════════════════════════════
+function showToast(msg, dur) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), dur || 2500);
+}
+
+// ════════════════════════════════════════
+// تهيئة عند التحميل
+// ════════════════════════════════════════
+(function init() {
+  // بيانات تجريبية إذا كان المخزن فارغاً
+  if (!Object.keys(chatsStore).length) {
+    const demoChats = [
+      { uid:'user_sara', name:'أ. سارة المهدي', avatar:'https://randomuser.me/api/portraits/women/44.jpg',
+        messages:[
+          { id:genId(), from:'user_sara', type:'text', text:'السلام عليكم، أرسلتُ لك الملخص الجديد للرياضيات 📚', ts: Date.now()-3600000, read:true },
+          { id:genId(), from:myUid, type:'text', text:'وعليكم السلام، شكراً جزيلاً أستاذة!', ts: Date.now()-3540000, read:true }
+        ], unread:1, lastTs: Date.now()-3540000 },
+      { uid:'inst_riyada', name:'مؤسسة الريادة للتعليم', avatar:'https://randomuser.me/api/portraits/men/32.jpg',
+        messages:[
+          { id:genId(), from:'inst_riyada', type:'text', text:'تم استقبال طلبك بنجاح ✅', ts: Date.now()-7200000, read:false }
+        ], unread:1, lastTs: Date.now()-7200000 },
+      { uid:'user_yousef', name:'يوسف أمين', avatar:'https://randomuser.me/api/portraits/men/65.jpg',
+        messages:[
+          { id:genId(), from:'user_yousef', type:'text', text:'شكراً على التوضيح 🙏', ts: Date.now()-86400000, read:true }
+        ], unread:0, lastTs: Date.now()-86400000 }
+    ];
+    demoChats.forEach(c => { chatsStore[chatId(c.uid)] = c; });
+    saveChatsStore();
+  }
+
+  updateBlockedDot();
+
+  // فتح من URL params
+  const params = new URLSearchParams(window.location.search);
+  const pName   = params.get('chat');
+  const pAvatar = params.get('avatar');
+  const pUid    = params.get('uid');
+  if (pName) {
+    openChatUI(decodeURIComponent(pName), decodeURIComponent(pAvatar || ''), pUid ? decodeURIComponent(pUid) : null);
+  } else {
+    renderChatsList();
+  }
+})();
 </script>
-<script src="floating-room.js"></script>
 </body>
 </html>
