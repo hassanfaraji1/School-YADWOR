@@ -878,25 +878,12 @@ function _renderMyProfile(myPosts) {
   state.profileType        = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || state.profileType || 'influencer';
   state.settingsAccountType = state.profileType;
 
-  // ── حذف الـ shimmer الأولي ──
-  var _si = document.getElementById('profile-shimmer-init');
-  if (_si) _si.remove();
-
   // ── جلب بيانات المستخدم من Firebase لضمان عرض الاسم الصحيح ──
-  // أولاً: عرض فوري بما هو متاح في localStorage (بدون انتظار)
-  var _cachedFbUser = null;
-  try {
-    var _cachedStr = localStorage.getItem('yadwor-user-data');
-    if (_cachedStr) _cachedFbUser = JSON.parse(_cachedStr);
-  } catch(e) {}
-  // عرض فوري بالبيانات المحفوظة
-  _doRenderMyProfile(myPosts, _cachedFbUser);
-
-  // ثانياً: تحديث من Firebase في الخلفية وإعادة الرسم إذا تغيرت البيانات
   if (myUid) {
     firebase.database().ref('users/' + myUid).once('value').then(function(snap) {
-      var fbUser = snap.val();
+      const fbUser = snap.val();
       if (fbUser) {
+        // تحديث localStorage من Firebase (مزامنة ثانوية فقط)
         if (fbUser.name || fbUser.displayName) {
           localStorage.setItem('yadwor-settings-name', fbUser.name || fbUser.displayName);
           localStorage.setItem('yadwor-user-name', fbUser.name || fbUser.displayName);
@@ -907,17 +894,13 @@ function _renderMyProfile(myPosts) {
           state.profileType = fbUser.accountType;
         }
         if (fbUser.username) localStorage.setItem('yadwor-username', fbUser.username);
-        try { localStorage.setItem('yadwor-user-data', JSON.stringify(fbUser)); } catch(e) {}
-        // إعادة الرسم فقط إذا تغيرت بيانات جوهرية
-        var hasChanged = !_cachedFbUser ||
-          (_cachedFbUser.name !== fbUser.name) ||
-          (_cachedFbUser.avatar !== fbUser.avatar) ||
-          (_cachedFbUser.accountType !== fbUser.accountType);
-        if (hasChanged) {
-          _doRenderMyProfile(myPosts, fbUser);
-        }
       }
-    }).catch(function() {});
+      _doRenderMyProfile(myPosts, fbUser || null);
+    }).catch(function() {
+      _doRenderMyProfile(myPosts, null);
+    });
+  } else {
+    _doRenderMyProfile(myPosts, null);
   }
 }
 
@@ -925,6 +908,7 @@ function _doRenderMyProfile(myPosts, _fbUserData) {
   // ── جلب البيانات من Firebase أولاً (مررت من _renderMyProfile) ──
   // _fbUserData = البيانات الحقيقية من Firebase
   // localStorage يُستخدم فقط كـ fallback إذا لم تكن Firebase أعادت بيانات
+  const myUid = localStorage.getItem('yadwor-uid') || '';
   const fbU = _fbUserData || {};
   const prof = {
     name:     fbU.name     || fbU.displayName || localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || '',
@@ -1039,6 +1023,8 @@ function _doRenderMyProfile(myPosts, _fbUserData) {
           : `<button onclick="openJoinModal()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-2 text-[10px] font-bold text-white" style="background:#f97316;">انضمام</button>`)
       : `<div class="h-8 w-full"></div>`;
 
+  var _psi = document.getElementById('profile-shimmer-init');
+  if (_psi) _psi.remove();
   document.getElementById('profile-content').innerHTML = `
     <div>
       <!-- Cover photo — مربع 1:1 -->
@@ -3185,7 +3171,7 @@ async function syncJoinRequestsFromFirebase() {
   let myUid      = localStorage.getItem('yadwor-uid')      || '';
   let myUsername = localStorage.getItem('yadwor-username') || '';
 
-  // إذا لم يكن myUid في localStorage، حاول جلبه من Firebase Auth — مع timeout قصير
+  // إذا لم يكن myUid في localStorage، حاول جلبه من Firebase Auth
   if (!myUid && window.firebase && firebase.auth) {
     try {
       await new Promise(resolve => {
@@ -3197,12 +3183,12 @@ async function syncJoinRequestsFromFirebase() {
           unsub();
           resolve();
         });
-        setTimeout(resolve, 1500); // timeout 1.5 ثانية فقط
+        setTimeout(resolve, 3000); // timeout 3 ثوانٍ
       });
     } catch(e) {}
   }
 
-  // syncAccountTypeFromFirebase تعمل في الخلفية — لا ننتظرها
+  // مزامنة نوع الحساب من Firebase في الخلفية — لا ننتظرها
   syncAccountTypeFromFirebase().catch(function(){});
 
   // تحديد هل نعرض ملف شخص آخر أم ملفي أنا
@@ -3257,23 +3243,22 @@ async function syncJoinRequestsFromFirebase() {
     // ملفي أنا — لا يوجد viewing (سواء كان ?uid=myUid أو لا params)
     state._viewingUid      = null;
     state._viewingUsername = null;
-    // renderProfile فوراً بدون انتظار — syncJoinRequests تعمل في الخلفية
+    // عرض فوري بدون انتظار Firebase
     renderProfile();
     updateSidebarButtons();
     setTimeout(initCoverSizeControl, 80);
     updateBellBadgeFromFirebase();
+    // جلب طلبات الانضمام في الخلفية وتحديث tabs بعد الانتهاء
     syncJoinRequestsFromFirebase().then(function() {
-      // بعد تحميل طلبات الانضمام، أعد رسم الـ tabs فقط إذا كان profileType يستدعيها
       if (state.profileType === 'institution' || state.profileType === 'teacher' || state.profileType === 'student') {
-        var tabContent = document.getElementById('profile-tab-content');
-        if (tabContent) {
-          tabContent.innerHTML = renderProfileTabContent();
-        }
+        var tc = document.getElementById('profile-tab-content');
+        if (tc) tc.innerHTML = renderProfileTabContent();
       }
     }).catch(function(){});
     return;
   }
 
+  renderProfile();
   updateSidebarButtons();
   // تطبيق الحجم المحفوظ للغلاف فور التحميل
   setTimeout(initCoverSizeControl, 80);
