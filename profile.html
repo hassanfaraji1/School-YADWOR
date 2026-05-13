@@ -783,7 +783,7 @@ function _renderVisitorProfile(vp, vPosts) {
         <!-- Info card ONLY (no tabs inside) -->
         <div class="rounded-[22px] bg-white border border-zinc-200/60 pt-12 pb-4 px-4 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
           <div class="text-right">
-            <h2 class="text-[20px] font-extrabold mt-1">${vp.name||state._viewingUsername}</h2>
+            <h2 class="text-[20px] font-extrabold mt-1 flex items-center gap-1.5">${vp.name||state._viewingUsername}${vp.verified||vp.isVerified ? `<img src="verify.png" style="width:18px;height:18px;object-fit:contain;flex-shrink:0;" alt="موثق" />` : ''}</h2>
             <div class="mt-1.5 flex items-center gap-2 justify-start">
               <span class="inline-flex items-center gap-1 rounded-full bg-zinc-900 px-2.5 py-1 text-[10px] font-bold text-white">
                 <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="${vTypeIcons}"/></svg>
@@ -1042,7 +1042,7 @@ function _doRenderMyProfile(myPosts, _fbUserData) {
         <!-- Info card ONLY (no tabs inside) -->
         <div class="rounded-[22px] bg-white border border-zinc-200/60 pt-12 pb-4 px-4 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
           <div class="text-right">
-            <h2 class="text-[20px] font-extrabold tracking-tight leading-snug">${displayName}</h2>
+            <h2 class="text-[20px] font-extrabold tracking-tight leading-snug flex items-center gap-1.5">${displayName}${prof.verified||prof.isVerified ? '<img src="verify.png" style="width:18px;height:18px;object-fit:contain;flex-shrink:0;" alt="موثق" />' : ''}</h2>
             <div class="mt-1.5 flex items-center gap-2 justify-start">
               <span onclick="${(state.profileType==='teacher'||state.profileType==='student')?'showInstitutionInfoModal()':''}" class="inline-flex items-center gap-0.5 rounded-full bg-zinc-900 px-2 py-0.5 text-[9px] font-bold text-white ${(state.profileType==='teacher'||state.profileType==='student')?'cursor-pointer active:opacity-80':''}" style="${(state.profileType==='teacher'||state.profileType==='student')?'cursor:pointer;':''}" >
                 <svg viewBox="0 0 24 24" class="h-2.5 w-2.5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="${typeIcons}"/></svg>
@@ -2668,13 +2668,13 @@ function renderVisitorTabContent(tabId, vPosts) {
 
     // ── زائر يرى تلاميذ مؤسسة ──
     if (vAccountType === 'institution') {
-      const vInstId = _visitorUid || _visitorUsername;
+      const vInstId = _visitorUid || _visitorUsername || '';
       const gridIdIS = 'visitor-inst-students-grid';
       setTimeout(async () => {
         const containerIS = document.getElementById(gridIdIS);
         if (!containerIS) return;
-        // جلب جميع طلبات الانضمام المقبولة لهذه المؤسسة من Firebase
         let instStudents = [];
+        // جلب من Firebase أولاً
         try {
           const jrSnap = await _pDb().ref('joinRequests/' + vInstId).once('value');
           const jrData = jrSnap.val();
@@ -2690,19 +2690,23 @@ function renderVisitorTabContent(tabId, vPosts) {
           );
         }
         if (!instStudents.length) {
-          containerIS.innerHTML = emptyState('لم ينضم أي تلميذ بعد');
+          containerIS.innerHTML = emptyState(
+            '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
+            'لم ينضم أي تلميذ بعد'
+          );
           return;
         }
-        setTimeout(() => enrichAvatarsFromFirebase(instStudents, gridIdIS), 100);
         containerIS.innerHTML = instStudents.map(r => personCard(r)).join('');
+        setTimeout(() => enrichAvatarsFromFirebase(instStudents, gridIdIS), 100);
       }, 0);
       return `<div id="${gridIdIS}" class="grid gap-2">${[1,2,3].map(()=>`
-        <div class="flex items-center gap-3 rounded-[16px] bg-white border border-zinc-100 p-3">
-          <div class="shimmer h-11 w-11 rounded-full shrink-0"></div>
-          <div class="flex-1 space-y-1.5">
+        <div class="flex items-center gap-3 rounded-[16px] bg-white border border-zinc-100 p-3 shadow-sm">
+          <div class="shimmer rounded-full shrink-0" style="width:44px;height:44px;min-width:44px;"></div>
+          <div class="flex-1 space-y-2">
             <div class="shimmer h-3.5 w-28 rounded-full"></div>
             <div class="shimmer h-3 w-20 rounded-full"></div>
           </div>
+          <div class="shimmer rounded-full" style="width:32px;height:32px;"></div>
         </div>`).join('')}</div>`;
     }
 
