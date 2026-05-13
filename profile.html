@@ -806,7 +806,7 @@ function _renderVisitorProfile(vp, vPosts) {
                 <img src="${vAvatar}" class="h-full w-full rounded-full object-cover relative z-[1]"
                   onload="this.previousElementSibling&&this.previousElementSibling.remove()"
                   onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(vp.name||_visitorUsername||'U')}&background=e4e6eb&color=555&size=200';var e=this.previousElementSibling;if(e)e.remove();" />
-                ${vp.verified ? `<div class="absolute bottom-0.5 left-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 ring-2 ring-white z-[3]"><svg viewBox="0 0 24 24" class="h-3 w-3 fill-white"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>` : ''}
+
               </div>
             </div>
           </div>
@@ -838,8 +838,8 @@ function _renderVisitorProfile(vp, vPosts) {
             ${vActionBtn3}
           </div>
           <div class="mt-3 grid grid-cols-4 divide-x divide-x-reverse divide-zinc-100">
-            <div class="text-center px-1"><div class="text-[14px] font-extrabold" id="vstat-followers">${formatNumber(vp.followers||0)}</div><div class="text-[9px] text-zinc-500 font-bold mt-0.5">متابع</div></div>
-            <div class="text-center px-1"><div class="text-[14px] font-extrabold">${formatNumber(vp.following||0)}</div><div class="text-[9px] text-zinc-500 font-bold mt-0.5">يتابع</div></div>
+            <div class="text-center px-1"><div class="text-[14px] font-extrabold" id="vstat-followers">${formatNumber(typeof vp.followers==='object'?Object.keys(vp.followers||{}).length:(vp.followers||0))}</div><div class="text-[9px] text-zinc-500 font-bold mt-0.5">متابع</div></div>
+            <div class="text-center px-1"><div class="text-[14px] font-extrabold">${formatNumber(typeof vp.following==='object'?Object.keys(vp.following||{}).length:(vp.following||0))}</div><div class="text-[9px] text-zinc-500 font-bold mt-0.5">يتابع</div></div>
             <div class="text-center px-1"><div class="text-[14px] font-extrabold" style="color:#1e40af;">${vAccountType==='institution' ? formatNumber(vp.teachers||0) : vPosts.length}</div><div class="text-[9px] font-bold mt-0.5" style="color:#4b5563;">${vAccountType==='institution' ? 'أستاذ' : 'منشور'}</div></div>
             <div class="text-center px-1"><div class="text-[14px] font-extrabold" style="color:#1e40af;">${vAccountType==='institution' ? formatNumber(vp.students||0) : vPosts.filter(p=>p.images&&p.images.length&&p.type!=='video').reduce((s,p)=>s+p.images.length,0)}</div><div class="text-[9px] font-bold mt-0.5" style="color:#4b5563;">${vAccountType==='institution' ? 'تلميذ' : 'وسائط'}</div></div>
           </div>
@@ -917,8 +917,8 @@ function _doRenderMyProfile(myPosts, _fbUserData) {
     cover:    fbU.cover    || localStorage.getItem('yadwor-cover-preview')  || 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1400&auto=format&fit=crop',
     bio:      fbU.bio      || localStorage.getItem('yadwor-bio') || '',
     location: fbU.location || localStorage.getItem('yadwor-location') || '',
-    followers: fbU.followers || 0,
-    following: fbU.following || 0,
+    followers: typeof fbU.followers === 'object' ? Object.keys(fbU.followers||{}).length : (fbU.followers || 0),
+    following: typeof fbU.following === 'object' ? Object.keys(fbU.following||{}).length : (fbU.following || 0),
     verified:  fbU.verified  || false,
     institution: fbU.institution || ''
   };
@@ -1069,7 +1069,6 @@ function _doRenderMyProfile(myPosts, _fbUserData) {
                 <img src="${prof.avatar}" class="h-full w-full rounded-full object-cover relative z-[1]"
                   onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
               </div>
-              ${prof.verified ? `<div class="absolute bottom-0.5 left-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 ring-2 ring-white z-[3]"><svg viewBox="0 0 24 24" class="h-3 w-3 fill-white"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>` : ''}
             </div>
           </div>
         </div>
