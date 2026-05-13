@@ -602,14 +602,16 @@ async function enrichAvatarsFromFirebase(members, containerId) {
 
 function renderProfile() {
   // ── إذا كنا نعرض ملف شخص آخر (زائر) ──
-  if ((_visitorUid || _visitorUsername || state._viewingUsername) && _visitorProfile) {
+  // نتحقق من _viewingUid أو _viewingUsername — أي منهما كافٍ
+  if ((_visitorUid || state._viewingUsername) && _visitorProfile) {
     const vp = _visitorProfile;
-    // استخدام uid من profile المُجلب كمصدر أول دائماً
-    const targetUid = (vp && vp.uid) || _visitorUid || state._viewingUid || '';
-    // تحديث state بـ uid الحقيقي
-    if (targetUid) state._viewingUid = targetUid;
+    // جلب منشورات الزائر بـ uid دائماً (الأدق) — ثم username كـ fallback
+    const targetUid = _visitorUid || state._viewingUid || '';
     getUserPosts(targetUid, function(vPosts) {
+      // تخزين منشورات الزائر في state.posts حتى تعمل getVisitorPosts بشكل صحيح
       if (targetUid) {
+        state._viewingUid = targetUid;
+        // دمج منشورات الزائر في state.posts (بدون تكرار)
         vPosts.forEach(p => {
           const idx = state.posts.findIndex(sp => sp.id === p.id);
           if (idx === -1) state.posts.push(p);
@@ -2692,10 +2694,7 @@ function renderVisitorTabContent(tabId, vPosts) {
         }
 
         if (!finalInstId) {
-          containerIS.innerHTML = emptyState(
-            '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
-            'لم ينضم أي تلميذ بعد'
-          );
+          containerIS.innerHTML = emptyState('لم ينضم أي تلميذ بعد');
           return;
         }
 
@@ -2717,10 +2716,7 @@ function renderVisitorTabContent(tabId, vPosts) {
         }
 
         if (!instStudents.length) {
-          containerIS.innerHTML = emptyState(
-            '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
-            'لم ينضم أي تلميذ بعد'
-          );
+          containerIS.innerHTML = emptyState('لم ينضم أي تلميذ بعد');
           return;
         }
 
@@ -2853,54 +2849,69 @@ async function loadVisitorProfile(username, uid) {
   const db = _pDb();
   // 1) جلب من Firebase بالـ uid — هذا هو المصدر الأول والأدق
   if (uid && db) {
-    try {
-      const userSnap = await db.ref('users/' + uid).once('value');
-      const userData = userSnap.val();
-      if (userData) {
-        const result = {
-          ...userData,
-          uid,
-          verified: !!(userData.verified || userData.isVerified),
-        };
-        if (typeof _userCache !== 'undefined') _userCache[uid] = result;
-        return result;
+    // محاولتان للجلب (retry) لتفادي مشاكل الاتصال المؤقتة
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const userSnap = await db.ref('users/' + uid).once('value');
+        const userData = userSnap.val();
+        if (userData) {
+          const result = {
+            ...userData,
+            uid,
+            verified: !!(userData.verified || userData.isVerified),
+          };
+          if (typeof _userCache !== 'undefined') _userCache[uid] = result;
+          return result;
+        }
+        // البيانات null — قد تكون مشكلة مؤقتة، ننتظر قليلاً قبل الإعادة
+        if (attempt === 0) await new Promise(r => setTimeout(r, 800));
+      } catch(e) {
+        if (attempt === 0) await new Promise(r => setTimeout(r, 800));
       }
-    } catch(e) {}
+    }
   }
   // 2) بحث بالـ username في Firebase (لو الـ uid غير معروف)
   if (username && db) {
-    try {
-      const userSnap = await db.ref('users').orderByChild('username').equalTo(username).once('value');
-      const userData = userSnap.val();
-      if (userData) {
-        const entries = Object.entries(userData);
-        if (entries.length) {
-          const [foundUid, foundData] = entries[0];
-          const result = {
-            uid: foundUid,
-            ...foundData,
-            verified: !!(foundData.verified || foundData.isVerified),
-          };
-          if (typeof _userCache !== 'undefined') _userCache[foundUid] = result;
-          return result;
-        }
-      }
-    } catch(e) {
-      // fallback: بحث كامل في كل المستخدمين
-      if (db) {
-        try {
-          const allSnap = await db.ref('users').once('value');
-          const allUsers = allSnap.val();
-          if (allUsers) {
-            const found = Object.entries(allUsers).find(([,u]) => u && u.username === username);
-            if (found) {
-              const [foundUid, foundData] = found;
-              const result = { uid: foundUid, ...foundData };
-              if (typeof _userCache !== 'undefined') _userCache[foundUid] = result;
-              return result;
-            }
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const userSnap = await db.ref('users').orderByChild('username').equalTo(username).once('value');
+        const userData = userSnap.val();
+        if (userData) {
+          const entries = Object.entries(userData);
+          if (entries.length) {
+            const [foundUid, foundData] = entries[0];
+            const result = {
+              uid: foundUid,
+              ...foundData,
+              verified: !!(foundData.verified || foundData.isVerified),
+            };
+            if (typeof _userCache !== 'undefined') _userCache[foundUid] = result;
+            return result;
           }
-        } catch(e2) {}
+        }
+        if (attempt === 0) await new Promise(r => setTimeout(r, 800));
+      } catch(e) {
+        // fallback: بحث كامل في كل المستخدمين
+        if (db) {
+          try {
+            const allSnap = await db.ref('users').once('value');
+            const allUsers = allSnap.val();
+            if (allUsers) {
+              const found = Object.entries(allUsers).find(([,u]) => u && u.username === username);
+              if (found) {
+                const [foundUid, foundData] = found;
+                const result = {
+                  uid: foundUid,
+                  ...foundData,
+                  verified: !!(foundData.verified || foundData.isVerified),
+                };
+                if (typeof _userCache !== 'undefined') _userCache[foundUid] = result;
+                return result;
+              }
+            }
+          } catch(e2) {}
+        }
+        if (attempt === 0) await new Promise(r => setTimeout(r, 800));
       }
     }
   }
@@ -3149,15 +3160,16 @@ async function syncJoinRequestsFromFirebase() {
     // ملف شخص آخر — حفظ uid للفلترة الدقيقة
     state._viewingUid      = _visitorUid || '';
     state._viewingUsername = _visitorUsername || _visitorUid || '';
+    // عرض skeleton أثناء التحميل حتى لا تبقى الصفحة فارغة
+    const _pcEl = document.getElementById('profile-content');
+    if (_pcEl && !_pcEl.innerHTML.trim()) {
+      _pcEl.innerHTML = '<div style="padding:16px;"><div class="shimmer" style="height:160px;border-radius:16px;margin-bottom:16px;"></div><div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px;"><div class="shimmer" style="width:72px;height:72px;border-radius:50%;"></div><div class="shimmer" style="width:160px;height:18px;border-radius:8px;margin-top:4px;"></div><div class="shimmer" style="width:100px;height:14px;border-radius:8px;"></div></div></div>';
+    }
     await syncJoinRequestsFromFirebase();
     _visitorProfile = await loadVisitorProfile(_visitorUsername, _visitorUid);
     // التحقق من أن البروفايل تم جلبه — إذا فشل أظهر رسالة
     if (!_visitorProfile) {
-      document.body.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:80vh;gap:16px;font-family:Tajawal,sans-serif;direction:rtl;">
-        <p style="font-size:18px;font-weight:800;color:#18181b;">لم يُعثر على هذا الملف الشخصي</p>
-        <p style="font-size:14px;color:#71717a;">ربما تم حذف الحساب أو الرابط غير صحيح</p>
-        <button onclick="history.back()" style="margin-top:8px;padding:12px 24px;background:#18181b;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif;">العودة</button>
-      </div>`;
+      document.body.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:80vh;gap:16px;font-family:Tajawal,sans-serif;direction:rtl;"><p style="font-size:18px;font-weight:800;color:#18181b;">لم يُعثر على هذا الملف الشخصي</p><p style="font-size:14px;color:#71717a;">ربما تم حذف الحساب أو الرابط غير صحيح</p><button onclick="history.back()" style="margin-top:8px;padding:12px 24px;background:#18181b;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif;">العودة</button></div>';
       return;
     }
   } else {
