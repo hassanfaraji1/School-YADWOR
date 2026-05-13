@@ -1192,19 +1192,13 @@ function setProfileTab(id) {
   });
 }
 
-function renderProfileTabContent() {
-  const t = state.profileType, tab = state.activeTab;
-
-  // ── الدوال isStudentMatchingTeacher و canStudentSeeExercise معرَّفتان في shared.js ──
-  // ── دالة مساعدة: بطاقة شخص قابلة للنقر ──
-  function personCard(r) {
+// ══ دالة مساعدة عامة: بطاقة شخص قابلة للنقر (تُستخدم في ملفي وملف الزائر) ══
+function personCard(r) {
     const uid = r.uid || r.userId || '';
     const username = r.username || '';
-    // دائماً استخدم ?uid= — profile.html تُحدد إذا كان صاحب الملف أم زائر
     let navUrl = 'profile.html';
     if (uid) navUrl = 'profile.html?uid=' + encodeURIComponent(uid);
     else if (username) navUrl = 'profile.html?uid=' + encodeURIComponent(username);
-    // جلب الصورة: من الطلب مباشرة، أو من المنشورات، أو ui-avatars كـ fallback
     const fromPost = uid
       ? state.posts.find(p => p.uid && String(p.uid) === String(uid))
       : state.posts.find(p => p.username && p.username === username);
@@ -1223,7 +1217,7 @@ function renderProfileTabContent() {
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-1">
           <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${name}</h3>
-          ${typeof _verifySpan === 'function' ? _verifySpan(r.uid || r.userId || '', r) : (r.verified ? `<img src="verify.png" style="width:14px;height:14px;object-fit:contain;flex-shrink:0;" />` : '')}
+          ${typeof _verifySpan === 'function' ? _verifySpan(r.uid || r.userId || '', r) : (r.verified ? '<img src="verify.png" style="width:14px;height:14px;object-fit:contain;flex-shrink:0;" />' : '')}
         </div>
         <p class="text-[11px] text-zinc-400 font-medium truncate">${sub}</p>
       </div>
@@ -1231,7 +1225,14 @@ function renderProfileTabContent() {
         <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 fill-none stroke-zinc-500" stroke-width="2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
       </div>
     </div>`;
-  }
+}
+
+function renderProfileTabContent() {
+  const t = state.profileType, tab = state.activeTab;
+
+  // ── الدوال isStudentMatchingTeacher و canStudentSeeExercise معرَّفتان في shared.js ──
+  // personCard معرَّفة كدالة عامة أعلاه
+  // (personCard مُعرَّفة كدالة عامة أعلاه)
 
   // ── حالة فارغة ──
   function emptyState(icon, msg) {
@@ -2524,9 +2525,13 @@ function getVisitorPosts() {
 }
 
 function renderVisitorTabContent(tabId, vPosts) {
-  function emptyState(msg) {
+  function emptyState(iconOrMsg, msg) {
+    // يقبل (msg) أو (icon, msg)
+    const message = msg !== undefined ? msg : iconOrMsg;
+    const icon    = msg !== undefined ? iconOrMsg : null;
     return `<div class="flex flex-col items-center justify-center py-14 text-center gap-3">
-      <p class="text-[14px] font-bold text-zinc-400">${msg}</p>
+      ${icon ? `<div class="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100"><svg viewBox="0 0 24 24" class="h-7 w-7 fill-none stroke-zinc-400" stroke-width="1.6" stroke-linecap="round"><path d="${icon}"/></svg></div>` : ''}
+      <p class="text-[14px] font-bold text-zinc-400">${message}</p>
     </div>`;
   }
   if(tabId === 'posts') {
@@ -2694,7 +2699,10 @@ function renderVisitorTabContent(tabId, vPosts) {
         }
 
         if (!finalInstId) {
-          containerIS.innerHTML = emptyState('لم ينضم أي تلميذ بعد');
+          containerIS.innerHTML = emptyState(
+            '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
+            'لم ينضم أي تلميذ بعد'
+          );
           return;
         }
 
@@ -2716,7 +2724,10 @@ function renderVisitorTabContent(tabId, vPosts) {
         }
 
         if (!instStudents.length) {
-          containerIS.innerHTML = emptyState('لم ينضم أي تلميذ بعد');
+          containerIS.innerHTML = emptyState(
+            '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
+            'لم ينضم أي تلميذ بعد'
+          );
           return;
         }
 
@@ -2848,8 +2859,8 @@ let _visitorProfile = null;
 async function loadVisitorProfile(username, uid) {
   const db = _pDb();
   // 1) جلب من Firebase بالـ uid — هذا هو المصدر الأول والأدق
+  // نحاول مرتين لتفادي انقطاع الشبكة المؤقت
   if (uid && db) {
-    // محاولتان للجلب (retry) لتفادي مشاكل الاتصال المؤقتة
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const userSnap = await db.ref('users/' + uid).once('value');
@@ -2864,9 +2875,9 @@ async function loadVisitorProfile(username, uid) {
           return result;
         }
         // البيانات null — قد تكون مشكلة مؤقتة، ننتظر قليلاً قبل الإعادة
-        if (attempt === 0) await new Promise(r => setTimeout(r, 800));
+        if (attempt === 0) await new Promise(r => setTimeout(r, 600));
       } catch(e) {
-        if (attempt === 0) await new Promise(r => setTimeout(r, 800));
+        if (attempt === 0) await new Promise(r => setTimeout(r, 600));
       }
     }
   }
@@ -2889,29 +2900,27 @@ async function loadVisitorProfile(username, uid) {
             return result;
           }
         }
-        if (attempt === 0) await new Promise(r => setTimeout(r, 800));
+        if (attempt === 0) await new Promise(r => setTimeout(r, 600));
       } catch(e) {
         // fallback: بحث كامل في كل المستخدمين
-        if (db) {
-          try {
-            const allSnap = await db.ref('users').once('value');
-            const allUsers = allSnap.val();
-            if (allUsers) {
-              const found = Object.entries(allUsers).find(([,u]) => u && u.username === username);
-              if (found) {
-                const [foundUid, foundData] = found;
-                const result = {
-                  uid: foundUid,
-                  ...foundData,
-                  verified: !!(foundData.verified || foundData.isVerified),
-                };
-                if (typeof _userCache !== 'undefined') _userCache[foundUid] = result;
-                return result;
-              }
+        try {
+          const allSnap = await db.ref('users').once('value');
+          const allUsers = allSnap.val();
+          if (allUsers) {
+            const found = Object.entries(allUsers).find(([,u]) => u && u.username === username);
+            if (found) {
+              const [foundUid, foundData] = found;
+              const result = {
+                uid: foundUid,
+                ...foundData,
+                verified: !!(foundData.verified || foundData.isVerified),
+              };
+              if (typeof _userCache !== 'undefined') _userCache[foundUid] = result;
+              return result;
             }
-          } catch(e2) {}
-        }
-        if (attempt === 0) await new Promise(r => setTimeout(r, 800));
+          }
+        } catch(e2) {}
+        if (attempt === 0) await new Promise(r => setTimeout(r, 600));
       }
     }
   }
@@ -3160,18 +3169,41 @@ async function syncJoinRequestsFromFirebase() {
     // ملف شخص آخر — حفظ uid للفلترة الدقيقة
     state._viewingUid      = _visitorUid || '';
     state._viewingUsername = _visitorUsername || _visitorUid || '';
-    // عرض skeleton أثناء التحميل حتى لا تبقى الصفحة فارغة
-    const _pcEl = document.getElementById('profile-content');
-    if (_pcEl && !_pcEl.innerHTML.trim()) {
-      _pcEl.innerHTML = '<div style="padding:16px;"><div class="shimmer" style="height:160px;border-radius:16px;margin-bottom:16px;"></div><div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px;"><div class="shimmer" style="width:72px;height:72px;border-radius:50%;"></div><div class="shimmer" style="width:160px;height:18px;border-radius:8px;margin-top:4px;"></div><div class="shimmer" style="width:100px;height:14px;border-radius:8px;"></div></div></div>';
-    }
-    await syncJoinRequestsFromFirebase();
+
+    // ① جلب بيانات الملف الشخصي أولاً (الأولوية القصوى — بدونه لا يمكن عرض أي شيء)
     _visitorProfile = await loadVisitorProfile(_visitorUsername, _visitorUid);
+
     // التحقق من أن البروفايل تم جلبه — إذا فشل أظهر رسالة
     if (!_visitorProfile) {
-      document.body.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:80vh;gap:16px;font-family:Tajawal,sans-serif;direction:rtl;"><p style="font-size:18px;font-weight:800;color:#18181b;">لم يُعثر على هذا الملف الشخصي</p><p style="font-size:14px;color:#71717a;">ربما تم حذف الحساب أو الرابط غير صحيح</p><button onclick="history.back()" style="margin-top:8px;padding:12px 24px;background:#18181b;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif;">العودة</button></div>';
+      document.body.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:80vh;gap:16px;font-family:Tajawal,sans-serif;direction:rtl;">
+        <p style="font-size:18px;font-weight:800;color:#18181b;">لم يُعثر على هذا الملف الشخصي</p>
+        <p style="font-size:14px;color:#71717a;">ربما تم حذف الحساب أو الرابط غير صحيح</p>
+        <button onclick="history.back()" style="margin-top:8px;padding:12px 24px;background:#18181b;color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif;">العودة</button>
+      </div>`;
       return;
     }
+
+    // ② جلب طلبات الانضمام في الخلفية ثم تحديث الـ tab النشط
+    syncJoinRequestsFromFirebase().then(() => {
+      // بعد انتهاء جلب الطلبات، نحدث محتوى الـ tab النشط إذا كان يعرض بيانات الطلبات
+      const tabContent = document.getElementById('visitor-tab-content');
+      if (tabContent) {
+        // نجد الـ tab النشط حالياً
+        const activeTabBtn = document.querySelector('[id^="vtab-"]:not([class*="text-zinc-400"])');
+        let activeTabId = '';
+        if (activeTabBtn) activeTabId = activeTabBtn.id.replace('vtab-', '');
+        if (!activeTabId) {
+          // fallback: نفحص أي tab يحتوي على shimmer (يعني لم يكتمل تحميله)
+          if (tabContent.querySelector('.shimmer')) activeTabId = 'students';
+        }
+        if (activeTabId === 'students' || activeTabId === 'teachers') {
+          // نحصل على vPosts من الـ DOM الحالي (نستخدم state.posts المُخزّن مسبقاً)
+          const targetUid = _visitorUid || state._viewingUid || '';
+          const vPosts = state.posts.filter(p => p.uid && String(p.uid) === String(targetUid));
+          tabContent.innerHTML = renderVisitorTabContent(activeTabId, vPosts);
+        }
+      }
+    }).catch(() => {});
   } else {
     // ملفي أنا — لا يوجد viewing (سواء كان ?uid=myUid أو لا params)
     state._viewingUid      = null;
