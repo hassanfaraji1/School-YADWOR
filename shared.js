@@ -181,8 +181,46 @@ async function enrichPostsWithUserData(posts) {
   });
 }
 
-// ============================================================
-// STATE (بيانات التطبيق في الذاكرة — بدون localStorage للمنشورات)
+// ===== علامة التوثيق =====
+const _verifiedBadgeHtml = `<img src="verify.png" style="width:14px;height:14px;object-fit:contain;flex-shrink:0;display:inline-block;" alt="" />`;
+
+// كاش للحسابات الموثقة
+const _verifiedCache = {};
+
+function _isVerified(uid, postData) {
+  if (!uid) return false;
+  // من المنشور مباشرة
+  if (postData && (postData.verified || postData.isVerified)) return true;
+  // من الكاش
+  if (_verifiedCache[uid] === true) return true;
+  if (_verifiedCache[uid] === false) return false;
+  // من _userCache إذا موجود
+  if (typeof _userCache !== 'undefined' && _userCache[uid]) {
+    const u = _userCache[uid];
+    const v = !!(u.verified || u.isVerified);
+    _verifiedCache[uid] = v;
+    return v;
+  }
+  // جلب من Firebase بشكل غير متزامن وتحديث DOM
+  if (typeof firebase !== 'undefined') {
+    firebase.database().ref('users/' + uid + '/verified').once('value').then(snap => {
+      const v = snap.val() === true;
+      _verifiedCache[uid] = v;
+      if (v) {
+        // تحديث كل عناصر DOM التي تحمل هذا uid
+        document.querySelectorAll(`[data-verify-uid="${uid}"]`).forEach(el => {
+          el.innerHTML = _verifiedBadgeHtml;
+        });
+      }
+    }).catch(() => { _verifiedCache[uid] = false; });
+  }
+  return false;
+}
+
+function _verifySpan(uid, postData) {
+  const isV = _isVerified(uid, postData);
+  return `<span data-verify-uid="${uid}" style="display:inline-flex;align-items:center;">${isV ? _verifiedBadgeHtml : ''}</span>`;
+}
 // ============================================================
 let state = {
   posts:         [],
@@ -596,7 +634,7 @@ function renderPostCard(p) {
           <div>
             <div class="flex items-center gap-1">
               <p class="text-[14px] font-extrabold text-zinc-900">${displayName}</p>
-              ${p.verified ? `<img src="verify.png" style="width:14px;height:14px;object-fit:contain;flex-shrink:0;" />` : ''}
+              ${_verifySpan(p.uid, p)}
             </div>
             <div class="flex items-center gap-1.5 mt-0.5">
               <span class="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
@@ -698,7 +736,7 @@ function renderPostCard(p) {
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-1">
               <p class="text-[14px] font-extrabold text-zinc-900 truncate">${displayName}</p>
-              ${p.verified ? `<img src="verify.png" style="width:14px;height:14px;object-fit:contain;flex-shrink:0;" />` : ''}
+              ${_verifySpan(p.uid, p)}
             </div>
             <p class="text-[11px] text-zinc-400">${typeLabel ? typeLabel + ' · ' : ''}${formatTimeAgo(p.publishedAt)}</p>
           </div>
