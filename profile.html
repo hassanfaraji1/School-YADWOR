@@ -558,7 +558,7 @@ function updateSidebarButtons() {
 
 // ====================== GOTO CHAT ======================
 function goToChat() {
-  const myUid = localStorage.getItem('yadwor-uid') || '';
+  // زر "رسائل" في ملفي الشخصي — يذهب لقائمة الرسائل فقط
   window.location.href = 'messages.html';
 }
 
@@ -826,7 +826,7 @@ function _renderVisitorProfile(vp, vPosts) {
             ${vp.bio ? `<p class="mt-2 text-[12px] leading-[1.7] text-zinc-500">${vp.bio}</p>` : ''}
           </div>
           <div class="mt-3 flex gap-2">
-            <button onclick="goToVisitorChat('${encodeURIComponent(vp.name||state._viewingUsername||'')}','${encodeURIComponent(vAvatar)}')" class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full bg-zinc-900 text-[10px] font-bold text-white cursor-pointer">
+            <button onclick="goToVisitorChat('${encodeURIComponent(vp.name||state._viewingUsername||'')}','${encodeURIComponent(vAvatar)}','${encodeURIComponent(_visitorUid||vp.uid||vp.id||'')}')" class="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-full bg-zinc-900 text-[10px] font-bold text-white cursor-pointer">
               <svg viewBox="0 0 24 24" class="h-3 w-3 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               رسالة
             </button>
@@ -1641,10 +1641,13 @@ async function _updateVisitorFollowersCount(uid, username, delta) {
   } catch(e) {}
 }
 
-function goToVisitorChat(name, avatar) {
+function goToVisitorChat(name, avatar, uid) {
   const decodedName   = decodeURIComponent(name);
   const decodedAvatar = decodeURIComponent(avatar);
-  window.location.href = `messages.html?chat=${encodeURIComponent(decodedName)}&avatar=${encodeURIComponent(decodedAvatar)}`;
+  const decodedUid    = uid ? decodeURIComponent(uid) : '';
+  let url = `messages.html?chat=${encodeURIComponent(decodedName)}&avatar=${encodeURIComponent(decodedAvatar)}`;
+  if (decodedUid) url += `&uid=${encodeURIComponent(decodedUid)}`;
+  window.location.href = url;
 }
 
 // ====================== EXERCISES MODAL ======================
