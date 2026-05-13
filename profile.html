@@ -1221,7 +1221,10 @@ function renderProfileTabContent() {
         }
       </div>
       <div class="flex-1 min-w-0">
-        <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${name}</h3>
+        <div class="flex items-center gap-1">
+          <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${name}</h3>
+          ${r.verified ? `<img src="verify.png" style="width:14px;height:14px;object-fit:contain;flex-shrink:0;" />` : ''}
+        </div>
         <p class="text-[11px] text-zinc-400 font-medium truncate">${sub}</p>
       </div>
       <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-50 border border-zinc-200">
@@ -2668,15 +2671,29 @@ function renderVisitorTabContent(tabId, vPosts) {
 
     // ── زائر يرى تلاميذ مؤسسة ──
     if (vAccountType === 'institution') {
-      const vInstId = _visitorUid || _visitorUsername || '';
+      // الحصول على uid المؤسسة من كل المصادر المتاحة
+      const vInstId = _visitorUid || (_visitorProfile && _visitorProfile.uid) || _visitorUsername || '';
       const gridIdIS = 'visitor-inst-students-grid';
       setTimeout(async () => {
         const containerIS = document.getElementById(gridIdIS);
         if (!containerIS) return;
         let instStudents = [];
-        // جلب من Firebase أولاً
+        // إذا لم يكن لدينا uid بعد — نحاول جلبه من Firebase عبر username
+        let finalInstId = vInstId;
+        if (!finalInstId && _visitorUsername) {
+          try {
+            const usSnap = await _pDb().ref('users').orderByChild('username').equalTo(_visitorUsername).limitToFirst(1).once('value');
+            const usData = usSnap.val();
+            if (usData) finalInstId = Object.keys(usData)[0];
+          } catch(e) {}
+        }
+        if (!finalInstId) {
+          containerIS.innerHTML = emptyState('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>', 'لم ينضم أي تلميذ بعد');
+          return;
+        }
+        // جلب من Firebase
         try {
-          const jrSnap = await _pDb().ref('joinRequests/' + vInstId).once('value');
+          const jrSnap = await _pDb().ref('joinRequests/' + finalInstId).once('value');
           const jrData = jrSnap.val();
           if (jrData) {
             instStudents = Object.values(jrData).filter(r => r && r.status === 'accepted' && r.role === 'student');
@@ -2686,14 +2703,11 @@ function renderVisitorTabContent(tabId, vPosts) {
         if (!instStudents.length) {
           instStudents = (state.joinRequests||[]).filter(r =>
             r.status === 'accepted' && r.role === 'student' &&
-            (r.institutionUid === vInstId || r.institutionId === vInstId)
+            (r.institutionUid === finalInstId || r.institutionId === finalInstId)
           );
         }
         if (!instStudents.length) {
-          containerIS.innerHTML = emptyState(
-            '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
-            'لم ينضم أي تلميذ بعد'
-          );
+          containerIS.innerHTML = emptyState('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>', 'لم ينضم أي تلميذ بعد');
           return;
         }
         containerIS.innerHTML = instStudents.map(r => personCard(r)).join('');
