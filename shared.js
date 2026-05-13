@@ -171,12 +171,12 @@ async function enrichPostsWithUserData(posts) {
     if (!u) return p;
     return {
       ...p,
-      // uid لا يُغيَّر أبداً — هو uid صاحب المنشور الحقيقي
       uid:         p.uid,
       name:        p.name        || u.name        || u.displayName || '',
       avatar:      p.avatar      || u.avatar       || '',
       username:    p.username    || u.username     || '',
       accountType: p.accountType || u.accountType  || '',
+      verified:    u.verified    || u.isVerified   || p.verified    || false,
     };
   });
 }
@@ -594,7 +594,10 @@ function renderPostCard(p) {
         <div class="flex items-center gap-2.5 cursor-pointer" onclick="_goToProfile('${p.uid || ''}','${(p.username||'').replace(/'/g,"\\'")}')">
           <div class="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-indigo-50">${reelAvatarEl}</div>
           <div>
-            <p class="text-[14px] font-extrabold text-zinc-900">${displayName}</p>
+            <div class="flex items-center gap-1">
+              <p class="text-[14px] font-extrabold text-zinc-900">${displayName}</p>
+              ${p.verified ? `<img src="verify.png" style="width:14px;height:14px;object-fit:contain;flex-shrink:0;" />` : ''}
+            </div>
             <div class="flex items-center gap-1.5 mt-0.5">
               <span class="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
                 <svg viewBox="0 0 24 24" class="h-2.5 w-2.5 fill-none stroke-current" stroke-width="2.2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
@@ -693,7 +696,10 @@ function renderPostCard(p) {
             }
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-[14px] font-extrabold text-zinc-900 truncate">${displayName}</p>
+            <div class="flex items-center gap-1">
+              <p class="text-[14px] font-extrabold text-zinc-900 truncate">${displayName}</p>
+              ${p.verified ? `<img src="verify.png" style="width:14px;height:14px;object-fit:contain;flex-shrink:0;" />` : ''}
+            </div>
             <p class="text-[11px] text-zinc-400">${typeLabel ? typeLabel + ' · ' : ''}${formatTimeAgo(p.publishedAt)}</p>
           </div>
         </div>
