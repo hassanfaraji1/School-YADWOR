@@ -1042,7 +1042,7 @@ function _doRenderMyProfile(myPosts, _fbUserData) {
         <!-- Info card ONLY (no tabs inside) -->
         <div class="rounded-[22px] bg-white border border-zinc-200/60 pt-12 pb-4 px-4 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
           <div class="text-right">
-            <h2 class="text-[20px] font-extrabold tracking-tight leading-snug flex items-center gap-1.5">${displayName}${prof.verified||prof.isVerified ? '<img src="verify.png" style="width:18px;height:18px;object-fit:contain;flex-shrink:0;" alt="موثق" />' : ''}</h2>
+            <h2 class="text-[20px] font-extrabold tracking-tight leading-snug flex items-center gap-1.5">${displayName}${typeof _verifySpan==='function' ? _verifySpan(myUid, prof).replace('14px','18px') : (prof.verified ? '<img src="verify.png" style="width:18px;height:18px;object-fit:contain;" />' : '')}</h2>
             <div class="mt-1.5 flex items-center gap-2 justify-start">
               <span onclick="${(state.profileType==='teacher'||state.profileType==='student')?'showInstitutionInfoModal()':''}" class="inline-flex items-center gap-0.5 rounded-full bg-zinc-900 px-2 py-0.5 text-[9px] font-bold text-white ${(state.profileType==='teacher'||state.profileType==='student')?'cursor-pointer active:opacity-80':''}" style="${(state.profileType==='teacher'||state.profileType==='student')?'cursor:pointer;':''}" >
                 <svg viewBox="0 0 24 24" class="h-2.5 w-2.5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="${typeIcons}"/></svg>
@@ -1223,7 +1223,7 @@ function renderProfileTabContent() {
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-1">
           <h3 class="text-[14px] font-extrabold text-zinc-900 truncate">${name}</h3>
-          ${r.verified ? `<img src="verify.png" style="width:14px;height:14px;object-fit:contain;flex-shrink:0;" />` : ''}
+          ${typeof _verifySpan === 'function' ? _verifySpan(r.uid || r.userId || '', r) : (r.verified ? `<img src="verify.png" style="width:14px;height:14px;object-fit:contain;flex-shrink:0;" />` : '')}
         </div>
         <p class="text-[11px] text-zinc-400 font-medium truncate">${sub}</p>
       </div>
@@ -2671,49 +2671,66 @@ function renderVisitorTabContent(tabId, vPosts) {
 
     // ── زائر يرى تلاميذ مؤسسة ──
     if (vAccountType === 'institution') {
-      // الحصول على uid المؤسسة من كل المصادر المتاحة
-      const vInstId = _visitorUid || (_visitorProfile && _visitorProfile.uid) || _visitorUsername || '';
+      // الأولوية: uid من الـ profile المُجلب > _visitorUid من URL > username
+      const vInstId = (_visitorProfile && _visitorProfile.uid)
+                   || _visitorUid
+                   || (_visitorProfile && _visitorProfile.username)
+                   || _visitorUsername || '';
       const gridIdIS = 'visitor-inst-students-grid';
+
       setTimeout(async () => {
         const containerIS = document.getElementById(gridIdIS);
         if (!containerIS) return;
-        let instStudents = [];
-        // إذا لم يكن لدينا uid بعد — نحاول جلبه من Firebase عبر username
+
         let finalInstId = vInstId;
+        // إذا لا يزال فارغاً — جلب uid من Firebase عبر username
         if (!finalInstId && _visitorUsername) {
           try {
-            const usSnap = await _pDb().ref('users').orderByChild('username').equalTo(_visitorUsername).limitToFirst(1).once('value');
-            const usData = usSnap.val();
-            if (usData) finalInstId = Object.keys(usData)[0];
+            const snap = await _pDb().ref('users').orderByChild('username')
+              .equalTo(_visitorUsername).limitToFirst(1).once('value');
+            const d = snap.val();
+            if (d) finalInstId = Object.keys(d)[0];
           } catch(e) {}
         }
+
         if (!finalInstId) {
-          containerIS.innerHTML = emptyState('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>', 'لم ينضم أي تلميذ بعد');
+          containerIS.innerHTML = emptyState(
+            '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
+            'لم ينضم أي تلميذ بعد'
+          );
           return;
         }
-        // جلب من Firebase
+
+        let instStudents = [];
         try {
           const jrSnap = await _pDb().ref('joinRequests/' + finalInstId).once('value');
           const jrData = jrSnap.val();
           if (jrData) {
-            instStudents = Object.values(jrData).filter(r => r && r.status === 'accepted' && r.role === 'student');
+            instStudents = Object.values(jrData)
+              .filter(r => r && r.status === 'accepted' && r.role === 'student');
           }
         } catch(e) {}
-        // fallback: state.joinRequests
+
         if (!instStudents.length) {
-          instStudents = (state.joinRequests||[]).filter(r =>
+          instStudents = (state.joinRequests || []).filter(r =>
             r.status === 'accepted' && r.role === 'student' &&
             (r.institutionUid === finalInstId || r.institutionId === finalInstId)
           );
         }
+
         if (!instStudents.length) {
-          containerIS.innerHTML = emptyState('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>', 'لم ينضم أي تلميذ بعد');
+          containerIS.innerHTML = emptyState(
+            '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
+            'لم ينضم أي تلميذ بعد'
+          );
           return;
         }
+
         containerIS.innerHTML = instStudents.map(r => personCard(r)).join('');
-        setTimeout(() => enrichAvatarsFromFirebase(instStudents, gridIdIS), 100);
+        setTimeout(() => enrichAvatarsFromFirebase(instStudents, gridIdIS), 80);
       }, 0);
-      return `<div id="${gridIdIS}" class="grid gap-2">${[1,2,3].map(()=>`
+
+      return `<div id="${gridIdIS}" class="grid gap-2">${[1,2,3].map(() => `
         <div class="flex items-center gap-3 rounded-[16px] bg-white border border-zinc-100 p-3 shadow-sm">
           <div class="shimmer rounded-full shrink-0" style="width:44px;height:44px;min-width:44px;"></div>
           <div class="flex-1 space-y-2">
@@ -2842,9 +2859,11 @@ async function loadVisitorProfile(username, uid) {
       const userSnap = await db.ref('users/' + uid).once('value');
       const userData = userSnap.val();
       if (userData) {
-        // uid يُحفظ دائماً في البيانات المُرجَعة ولا يُستبدل
-        const result = { ...userData, uid };
-        // تحديث كاش shared.js إن كان موجوداً
+        const result = {
+          ...userData,
+          uid,
+          verified: !!(userData.verified || userData.isVerified),
+        };
         if (typeof _userCache !== 'undefined') _userCache[uid] = result;
         return result;
       }
@@ -2859,7 +2878,11 @@ async function loadVisitorProfile(username, uid) {
         const entries = Object.entries(userData);
         if (entries.length) {
           const [foundUid, foundData] = entries[0];
-          const result = { uid: foundUid, ...foundData };
+          const result = {
+            uid: foundUid,
+            ...foundData,
+            verified: !!(foundData.verified || foundData.isVerified),
+          };
           if (typeof _userCache !== 'undefined') _userCache[foundUid] = result;
           return result;
         }
