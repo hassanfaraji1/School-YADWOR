@@ -61,7 +61,39 @@
   </div>
 </header>
 
-<main id="profile-content" class="mx-auto max-w-[980px] pb-24"></main>
+<main id="profile-content" class="mx-auto max-w-[980px] pb-24">
+  <div id="profile-shimmer-init">
+    <div class="profile-cover-wrap shimmer" style="min-height:150px;"></div>
+    <div class="relative px-3" style="margin-top:-40px;z-index:5;">
+      <div style="display:flex;justify-content:flex-end;align-items:flex-end;gap:8px;margin-bottom:8px;">
+        <div class="shimmer" style="width:72px;height:72px;border-radius:50%;flex-shrink:0;border:3px solid #fff;"></div>
+      </div>
+      <div class="rounded-[22px] bg-white border border-zinc-200" style="padding:48px 16px 16px;box-shadow:0 8px 32px rgba(0,0,0,0.08);">
+        <div class="shimmer" style="height:22px;width:160px;border-radius:12px;margin-bottom:10px;margin-right:auto;"></div>
+        <div class="shimmer" style="height:16px;width:110px;border-radius:10px;margin-bottom:20px;margin-right:auto;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div class="shimmer" style="height:32px;border-radius:20px;"></div>
+          <div class="shimmer" style="height:32px;border-radius:20px;"></div>
+          <div class="shimmer" style="height:32px;border-radius:20px;"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;">
+          <div class="shimmer" style="height:40px;border-radius:10px;"></div>
+          <div class="shimmer" style="height:40px;border-radius:10px;"></div>
+          <div class="shimmer" style="height:40px;border-radius:10px;"></div>
+          <div class="shimmer" style="height:40px;border-radius:10px;"></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0;border-bottom:1px solid #e4e4e7;margin-top:4px;margin-bottom:16px;">
+        <div class="shimmer" style="flex:1;height:48px;border-radius:0;"></div>
+        <div class="shimmer" style="flex:1;height:48px;border-radius:0;opacity:0.5;"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="shimmer" style="height:110px;border-radius:18px;"></div>
+        <div class="shimmer" style="height:110px;border-radius:18px;opacity:0.7;"></div>
+      </div>
+    </div>
+  </div>
+</main>
 
 <!-- ===== BOTTOM NAV ===== -->
 <nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-[0_-6px_20px_rgba(0,0,0,0.04)]">
@@ -744,6 +776,8 @@ function _renderVisitorProfile(vp, vPosts) {
       </button>`;
     }
 
+    var _shimInit = document.getElementById('profile-shimmer-init');
+    if (_shimInit) _shimInit.remove();
     document.getElementById('profile-content').innerHTML = `
     <div>
       <div class="profile-cover-wrap">
@@ -774,6 +808,7 @@ function _renderVisitorProfile(vp, vPosts) {
                 <img src="${vAvatar}" class="h-full w-full rounded-full object-cover relative z-[1]"
                   onload="this.previousElementSibling&&this.previousElementSibling.remove()"
                   onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(vp.name||_visitorUsername||'U')}&background=e4e6eb&color=555&size=200';var e=this.previousElementSibling;if(e)e.remove();" />
+                ${vp.verified ? `<div class="absolute bottom-0.5 left-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 ring-2 ring-white z-[3]"><svg viewBox="0 0 24 24" class="h-3 w-3 fill-white"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>` : ''}
               </div>
             </div>
           </div>
@@ -845,37 +880,6 @@ function _renderMyProfile(myPosts) {
   state.profileType        = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || state.profileType || 'influencer';
   state.settingsAccountType = state.profileType;
 
-  // ── عرض shimmer أثناء تحميل البيانات من Firebase ──
-  const profileContent = document.getElementById('profile-content');
-  if (profileContent && !profileContent.innerHTML.trim()) {
-    profileContent.innerHTML = `
-    <div>
-      <div class="profile-cover-wrap shimmer"></div>
-      <div class="relative z-[5] -mt-10 px-3">
-        <div class="absolute z-[20]" style="top:-36px; right:12px;">
-          <div class="flex items-end justify-end gap-2">
-            <div class="shimmer h-[72px] w-[72px] rounded-full"></div>
-          </div>
-        </div>
-        <div class="rounded-[22px] bg-white border border-zinc-200/60 pt-12 pb-4 px-4 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
-          <div class="shimmer h-6 w-40 rounded-full mb-3"></div>
-          <div class="shimmer h-4 w-28 rounded-full mb-4"></div>
-          <div class="grid grid-cols-3 gap-2 mb-3">
-            <div class="shimmer h-8 rounded-full"></div>
-            <div class="shimmer h-8 rounded-full"></div>
-            <div class="shimmer h-8 rounded-full"></div>
-          </div>
-          <div class="grid grid-cols-4 gap-1">
-            <div class="shimmer h-10 rounded-xl"></div>
-            <div class="shimmer h-10 rounded-xl"></div>
-            <div class="shimmer h-10 rounded-xl"></div>
-            <div class="shimmer h-10 rounded-xl"></div>
-          </div>
-        </div>
-      </div>
-    </div>`;
-  }
-
   // ── جلب بيانات المستخدم من Firebase لضمان عرض الاسم الصحيح ──
   if (myUid) {
     firebase.database().ref('users/' + myUid).once('value').then(function(snap) {
@@ -893,11 +897,18 @@ function _renderMyProfile(myPosts) {
         }
         if (fbUser.username) localStorage.setItem('yadwor-username', fbUser.username);
       }
+      // إزالة الـ shimmer الأولي قبل عرض البيانات
+      var shimmerInit = document.getElementById('profile-shimmer-init');
+      if (shimmerInit) shimmerInit.remove();
       _doRenderMyProfile(myPosts, fbUser || null);
     }).catch(function() {
+      var shimmerInit = document.getElementById('profile-shimmer-init');
+      if (shimmerInit) shimmerInit.remove();
       _doRenderMyProfile(myPosts, null);
     });
   } else {
+    var shimmerInit = document.getElementById('profile-shimmer-init');
+    if (shimmerInit) shimmerInit.remove();
     _doRenderMyProfile(myPosts, null);
   }
 }
@@ -1020,6 +1031,8 @@ function _doRenderMyProfile(myPosts, _fbUserData) {
           : `<button onclick="openJoinModal()" class="inline-flex h-8 w-full items-center justify-center gap-1 rounded-full px-2 text-[10px] font-bold text-white" style="background:#f97316;">انضمام</button>`)
       : `<div class="h-8 w-full"></div>`;
 
+  var _shimInit2 = document.getElementById('profile-shimmer-init');
+  if (_shimInit2) _shimInit2.remove();
   document.getElementById('profile-content').innerHTML = `
     <div>
       <!-- Cover photo — مربع 1:1 -->
@@ -1064,6 +1077,7 @@ function _doRenderMyProfile(myPosts, _fbUserData) {
                 <img src="${prof.avatar}" class="h-full w-full rounded-full object-cover relative z-[1]"
                   onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
               </div>
+              ${prof.verified ? `<div class="absolute bottom-0.5 left-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 ring-2 ring-white z-[3]"><svg viewBox="0 0 24 24" class="h-3 w-3 fill-white"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>` : ''}
             </div>
           </div>
         </div>
