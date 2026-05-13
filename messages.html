@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <title>YADWOR – الرسائل</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10,474 +10,350 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-<script>
-  if (!firebase.apps.length) {
-    firebase.initializeApp({
-      apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
-      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com",
-      storageBucket: "a-comment-5a3e5.appspot.com"
-    });
-  }
-</script>
 <style>
-* { box-sizing: border-box; }
-body {
-  font-family: 'Tajawal', system-ui, sans-serif;
-  background: #f5f4f2;
-  color: #18181b;
-  overflow-x: hidden;
-}
-input:focus, textarea:focus { outline: none; }
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'Tajawal',system-ui,sans-serif;background:#f0efed;color:#18181b;overflow-x:hidden;margin:0}
+input:focus,textarea:focus{outline:none}
+button{border:none;background:none;cursor:pointer;font-family:inherit}
 
-/* ── شيمر ── */
-.shimmer { animation: shimmer 1.5s infinite; background: linear-gradient(90deg,#ebebeb 25%,#d8d8d8 50%,#ebebeb 75%); background-size: 200% 100%; }
-@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-.truncate { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.shimmer{animation:shimmer 1.5s infinite;background:linear-gradient(90deg,#ebebeb 25%,#d8d8d8 50%,#ebebeb 75%);background-size:200% 100%}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.truncate{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* ── Toast ── */
-#toast {
-  position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(20px);
-  background:#18181b; color:#fff; padding:10px 20px; border-radius:20px;
-  font-size:13px; font-weight:700; opacity:0; pointer-events:none;
-  transition:all .25s; z-index:9999; white-space:nowrap;
-}
-#toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+#toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(16px);
+  background:#18181b;color:#fff;padding:9px 18px;border-radius:22px;font-size:13px;
+  font-weight:700;opacity:0;pointer-events:none;transition:all .22s;z-index:9999;
+  white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-/* ── قائمة المحادثات ── */
-.chat-item {
-  display:flex; align-items:center; gap:12px;
-  background:#fff; border-radius:18px;
-  padding:12px 14px; cursor:pointer;
-  transition:background .15s;
-  border:1px solid rgba(0,0,0,0.06);
-  position:relative;
-}
-.chat-item:active { background:#f4f4f5; }
-.chat-item.unread .chat-last-msg { font-weight:800; color:#18181b; }
-.chat-item.unread .chat-name { font-weight:900; }
-.unread-dot {
-  width:9px; height:9px; border-radius:50%;
-  background:#18181b; flex-shrink:0;
-}
-.unread-badge {
-  background:#18181b; color:#fff; border-radius:20px;
-  font-size:11px; font-weight:800; padding:1px 7px; min-width:20px;
-  text-align:center; flex-shrink:0;
-}
+/* list */
+.chat-row{display:flex;align-items:center;gap:12px;background:#fff;border-radius:18px;
+  padding:12px 14px;cursor:pointer;transition:background .15s;
+  border:1px solid rgba(0,0,0,.055);position:relative;user-select:none}
+.chat-row:active{background:#f4f4f5}
+.chat-row.unread .last-msg{font-weight:800;color:#18181b}
+.chat-row.unread .row-name{font-weight:900}
+.unread-dot{width:9px;height:9px;border-radius:50%;background:#18181b;flex-shrink:0}
+.unread-badge{background:#18181b;color:#fff;border-radius:20px;font-size:11px;
+  font-weight:800;padding:1px 7px;min-width:20px;text-align:center;flex-shrink:0}
+.new-tag{font-size:10px;font-weight:800;color:#18181b;background:#fbbf24;
+  border-radius:6px;padding:2px 7px;flex-shrink:0}
 
-/* ── شاشة الدردشة ── */
-#messages-chat-view {
-  position:fixed; inset:0; z-index:100;
-  display:flex; flex-direction:column;
-  background:#f5f4f2;
-  transform:translateX(100%);
-  transition:transform .28s cubic-bezier(.4,0,.2,1);
-}
-#messages-chat-view.open { transform:translateX(0); }
+/* chat view */
+#chat-view{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;
+  background:#f0efed;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1)}
+#chat-view.open{transform:translateX(0)}
 
-/* ── فقاعات الرسائل ── */
-.bubble-wrap { display:flex; margin-bottom:4px; }
-.bubble-wrap.mine  { justify-content:flex-start; }
-.bubble-wrap.other { justify-content:flex-end; }
+/* bubbles */
+.bwrap{display:flex;margin-bottom:3px;padding:0 12px}
+.bwrap.me{justify-content:flex-start}
+.bwrap.them{justify-content:flex-end}
+.bubble{max-width:75%;padding:9px 13px;font-size:14px;line-height:1.55;
+  position:relative;word-break:break-word;cursor:pointer}
+.bubble.me{background:#1c1c1e;color:#fff;border-radius:18px 18px 18px 4px}
+.bubble.them{background:#fff;color:#18181b;border-radius:18px 18px 4px 18px;
+  box-shadow:0 1px 4px rgba(0,0,0,.09)}
+.bubble.deleted-msg{opacity:.45;font-style:italic}
+.bubble.blocked-msg{background:#fee2e2!important;color:#dc2626!important;
+  border:1px solid #fca5a5;border-radius:14px}
 
-.bubble {
-  max-width:75%; padding:10px 14px; font-size:14px; line-height:1.55;
-  position:relative; word-break:break-word;
-}
-.bubble.mine  { background:#18181b; color:#fff; border-radius:18px 18px 18px 4px; }
-.bubble.other { background:#fff; color:#18181b; border-radius:18px 18px 4px 18px;
-  box-shadow:0 1px 4px rgba(0,0,0,.08); }
+.notice-line{display:block;text-align:center;padding:5px 14px;font-size:12px;font-weight:700;
+  color:#6b7280;background:#e5e7eb;border-radius:12px;margin:6px auto;max-width:82%}
+.notice-line.unblock-n{color:#16a34a;background:#dcfce7}
+.notice-line.block-n{color:#dc2626;background:#fee2e2}
 
-.bubble .msg-time { font-size:10px; opacity:.55; margin-top:4px; display:block; }
-.bubble.mine .msg-time { text-align:left; }
-.bubble.other .msg-time { text-align:right; }
+.btime{font-size:10px;opacity:.5;margin-top:4px;display:block}
+.bubble.me .btime{text-align:left}
+.bubble.them .btime{text-align:right}
+.tick{font-size:11px;color:#a1f4b8}
+.tick.seen{color:#34d399}
 
-/* رد مقتبس */
-.reply-preview {
-  background:rgba(255,255,255,.15); border-radius:8px; padding:6px 10px;
-  margin-bottom:6px; border-right:3px solid rgba(255,255,255,.5);
-  font-size:12px; opacity:.9;
-}
-.bubble.other .reply-preview {
-  background:rgba(0,0,0,.06); border-right-color:rgba(0,0,0,.3);
-}
+.rp{background:rgba(255,255,255,.14);border-radius:8px;padding:5px 10px;
+  margin-bottom:6px;border-right:3px solid rgba(255,255,255,.45);font-size:12px;opacity:.9}
+.bubble.them .rp{background:rgba(0,0,0,.06);border-right-color:rgba(0,0,0,.28)}
 
-/* صورة في الرسالة */
-.bubble img.msg-img {
-  max-width:220px; border-radius:12px; display:block; cursor:pointer;
-}
+.bubble img.bimg{max-width:200px;border-radius:11px;display:block;cursor:pointer}
 
-/* صوت في الرسالة */
-.audio-player {
-  display:flex; align-items:center; gap:8px;
-  background:rgba(255,255,255,.12); border-radius:12px; padding:8px 12px;
-  min-width:180px;
-}
-.bubble.other .audio-player { background:rgba(0,0,0,.06); }
-.audio-bar { flex:1; height:3px; background:rgba(255,255,255,.3); border-radius:2px; cursor:pointer; }
-.bubble.other .audio-bar { background:rgba(0,0,0,.2); }
-.audio-fill { height:100%; width:0%; background:#fff; border-radius:2px; transition:width .1s; }
-.bubble.other .audio-fill { background:#18181b; }
+.ap{display:flex;align-items:center;gap:8px;min-width:170px;
+  background:rgba(255,255,255,.13);border-radius:11px;padding:7px 11px}
+.bubble.them .ap{background:rgba(0,0,0,.06)}
+.ap-bar{flex:1;height:3px;background:rgba(255,255,255,.28);border-radius:2px;cursor:pointer}
+.bubble.them .ap-bar{background:rgba(0,0,0,.18)}
+.ap-fill{height:100%;width:0;background:#fff;border-radius:2px;transition:width .1s}
+.bubble.them .ap-fill{background:#18181b}
 
-/* Context menu */
-#ctx-menu {
-  position:fixed; z-index:9998;
-  background:#fff; border-radius:16px;
-  box-shadow:0 8px 40px rgba(0,0,0,.18);
-  padding:6px; min-width:180px;
-  display:none;
-  animation:fadeIn .15s ease;
-}
-@keyframes fadeIn { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
-.ctx-item {
-  display:flex; align-items:center; gap:10px;
-  padding:10px 14px; border-radius:10px;
-  font-size:13px; font-weight:700; cursor:pointer;
-  transition:background .1s;
-}
-.ctx-item:hover { background:#f4f4f5; }
-.ctx-item.danger { color:#dc2626; }
+.date-sep{display:flex;justify-content:center;margin:10px 0}
+.date-sep span{font-size:11px;font-weight:700;color:#9ca3af;background:#e9e8e6;border-radius:20px;padding:3px 12px}
 
-/* شريط الإدخال */
-#input-bar {
-  display:flex; align-items:flex-end; gap:8px;
-  background:#fff; border-top:1px solid rgba(0,0,0,.07);
-  padding:10px 12px 14px;
-}
-.input-inner {
-  flex:1; display:flex; align-items:flex-end; gap:6px;
-  background:#f4f4f5; border-radius:22px; padding:8px 14px;
-}
-#chat-input {
-  flex:1; background:transparent; font-family:'Tajawal',sans-serif;
-  font-size:14px; resize:none; max-height:100px; line-height:1.5;
-  overflow-y:auto;
-}
-.send-btn {
-  width:38px; height:38px; border-radius:50%;
-  background:#18181b; color:#fff;
-  display:flex; align-items:center; justify-content:center;
-  flex-shrink:0; cursor:pointer; transition:transform .1s;
-}
-.send-btn:active { transform:scale(.92); }
-.icon-btn {
-  width:36px; height:36px; border-radius:50%;
-  display:flex; align-items:center; justify-content:center;
-  cursor:pointer; color:#71717a; flex-shrink:0;
-  transition:background .15s;
-}
-.icon-btn:active { background:#f4f4f5; }
+/* ctx */
+#ctx{position:fixed;z-index:9998;background:#fff;border-radius:16px;
+  box-shadow:0 8px 40px rgba(0,0,0,.18);padding:5px;min-width:178px;display:none;
+  animation:popIn .14s ease}
+@keyframes popIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+.ctx-row{display:flex;align-items:center;gap:9px;padding:10px 13px;
+  border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:background .1s}
+.ctx-row:hover{background:#f4f4f5}
+.ctx-row.red{color:#dc2626}
 
-/* شريط الرد */
-#reply-bar {
-  display:none; align-items:center; gap:10px;
-  background:#f0efed; padding:10px 14px;
-  border-top:1px solid rgba(0,0,0,.06);
-}
-#reply-bar.visible { display:flex; }
+/* input */
+#ibar{display:flex;align-items:flex-end;gap:7px;background:#fff;
+  border-top:1px solid rgba(0,0,0,.07);padding:9px 10px 13px;flex-shrink:0}
+.iinner{flex:1;display:flex;align-items:flex-end;gap:5px;
+  background:#f2f2f2;border-radius:22px;padding:7px 13px}
+#ci{flex:1;background:transparent;font-family:'Tajawal',sans-serif;
+  font-size:14px;resize:none;max-height:96px;line-height:1.5;overflow-y:auto}
+.sbtn{width:38px;height:38px;border-radius:50%;background:#1c1c1e;color:#fff;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;transition:transform .12s}
+.sbtn:active{transform:scale(.9)}
+.ibtn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;cursor:pointer;color:#71717a;flex-shrink:0;transition:background .15s}
+.ibtn:active{background:#f0f0f0}
 
-/* تسجيل الصوت */
-#rec-bar {
-  display:none; align-items:center; gap:10px;
-  background:#fff; border-top:1px solid rgba(0,0,0,.07);
-  padding:12px 16px 16px;
-}
-#rec-bar.visible { display:flex; }
-.rec-pulse {
-  width:10px; height:10px; border-radius:50%;
-  background:#dc2626; animation:pulse 1s infinite;
-}
-@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+#reply-bar{display:none;align-items:center;gap:10px;background:#ebe9e7;
+  padding:9px 14px;border-top:1px solid rgba(0,0,0,.06);flex-shrink:0}
+#reply-bar.on{display:flex}
 
-/* Bottom sheet */
-#bottom-sheet-overlay {
-  position:fixed; inset:0; z-index:200;
-  background:rgba(0,0,0,.4); display:none;
-  align-items:flex-end;
-}
-#bottom-sheet-overlay.open { display:flex; }
-#bottom-sheet {
-  width:100%; background:#fff; border-radius:24px 24px 0 0;
-  padding:16px 0 32px; transform:translateY(100%);
-  transition:transform .3s cubic-bezier(.4,0,.2,1);
-}
-#bottom-sheet-overlay.open #bottom-sheet { transform:translateY(0); }
-.sheet-item {
-  display:flex; align-items:center; gap:14px;
-  padding:14px 20px; font-size:15px; font-weight:700;
-  cursor:pointer; transition:background .1s;
-}
-.sheet-item:active { background:#f4f4f5; }
-.sheet-icon {
-  width:40px; height:40px; border-radius:12px;
-  background:#f4f4f5; display:flex; align-items:center; justify-content:center;
-  flex-shrink:0;
-}
+#rec-bar{display:none;align-items:center;gap:10px;background:#fff;
+  border-top:1px solid rgba(0,0,0,.07);padding:11px 14px 14px;flex-shrink:0}
+#rec-bar.on{display:flex}
+.rpulse{width:9px;height:9px;border-radius:50%;background:#dc2626;animation:rp 1s infinite;flex-shrink:0}
+@keyframes rp{0%,100%{opacity:1}50%{opacity:.35}}
 
-/* إعدادات ── Modal */
-#settings-modal {
-  position:fixed; inset:0; z-index:300; background:rgba(0,0,0,.45);
-  display:none; align-items:flex-end;
-}
-#settings-modal.open { display:flex; }
-#settings-sheet {
-  width:100%; background:#fff; border-radius:24px 24px 0 0;
-  padding:20px 0 36px; max-height:85vh; overflow-y:auto;
-  transform:translateY(100%);
-  transition:transform .3s cubic-bezier(.4,0,.2,1);
-}
-#settings-modal.open #settings-sheet { transform:translateY(0); }
-.settings-section-title {
-  font-size:11px; font-weight:800; color:#a1a1aa;
-  text-transform:uppercase; letter-spacing:.06em;
-  padding:8px 20px 4px;
-}
+/* sheets */
+.bsheet-ov{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.42);
+  display:none;align-items:flex-end}
+.bsheet-ov.on{display:flex}
+.bsheet{width:100%;background:#fff;border-radius:24px 24px 0 0;
+  padding:14px 0 30px;transform:translateY(100%);
+  transition:transform .28s cubic-bezier(.4,0,.2,1);max-height:88vh;overflow-y:auto}
+.bsheet-ov.on .bsheet{transform:translateY(0)}
+.srow{display:flex;align-items:center;gap:13px;padding:13px 18px;
+  font-size:15px;font-weight:700;cursor:pointer;transition:background .1s}
+.srow:active{background:#f4f4f5}
+.sico{width:40px;height:40px;border-radius:12px;background:#f4f4f5;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0}
 
-/* لائحة المحظورين */
-.blocked-item {
-  display:flex; align-items:center; gap:12px;
-  padding:12px 20px; border-bottom:1px solid #f4f4f5;
-}
+/* settings tabs */
+.stab-bar{display:flex;border-bottom:2px solid #f0f0f0;padding:0 16px;flex-shrink:0}
+.stab{padding:10px 14px;font-size:13px;font-weight:800;color:#9ca3af;
+  cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-2px;transition:all .15s;white-space:nowrap}
+.stab.active{color:#18181b;border-bottom-color:#18181b}
+.stab-panel{display:none}
+.stab-panel.active{display:block}
 
-/* صورة كاملة */
-#img-viewer {
-  position:fixed; inset:0; z-index:400;
-  background:rgba(0,0,0,.92); display:none;
-  align-items:center; justify-content:center;
-}
-#img-viewer.open { display:flex; }
-#img-viewer img { max-width:95vw; max-height:90vh; border-radius:12px; }
+.blocked-row{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid #f4f4f5}
 
-/* رد / إعادة توجيه progress */
-.upload-progress {
-  height:2px; background:#e4e4e7; border-radius:1px; overflow:hidden; margin-top:6px;
-}
-.upload-bar { height:100%; background:#18181b; width:0%; transition:width .2s; border-radius:1px; }
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid #f4f4f5}
+.toggle-sw{position:relative;width:44px;height:26px;flex-shrink:0}
+.toggle-sw input{opacity:0;width:0;height:0;position:absolute}
+.toggle-slider{position:absolute;inset:0;border-radius:13px;background:#d1d5db;cursor:pointer;transition:.2s}
+.toggle-slider:before{content:'';position:absolute;width:20px;height:20px;background:#fff;border-radius:50%;bottom:3px;right:3px;transition:.2s;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.toggle-sw input:checked+.toggle-slider{background:#18181b}
+.toggle-sw input:checked+.toggle-slider:before{transform:translateX(-18px)}
 
-/* بادج في قائمة المحادثات – علامة "جديد" */
-.new-tag {
-  font-size:10px; font-weight:800; color:#18181b;
-  background:#fbbf24; border-radius:6px; padding:2px 7px;
-}
+#imgv{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center}
+#imgv.on{display:flex}
+#imgv img{max-width:95vw;max-height:90vh;border-radius:12px}
 </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════
-     قائمة المحادثات
-═══════════════════════════════════════════ -->
-<div id="messages-list-view">
+<script>
+if(!firebase.apps.length){
+  firebase.initializeApp({
+    apiKey:"AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
+    databaseURL:"https://a-comment-5a3e5-default-rtdb.firebaseio.com"
+  });
+}
+const DB=firebase.database();
+const CLD_NAME='dlujoziwz', CLD_PRESET='my_app_upload';
+</script>
 
-  <!-- هيدر -->
+<!-- LIST VIEW -->
+<div id="list-view">
   <header class="sticky top-0 z-40 border-b border-zinc-200/60 bg-white/95 backdrop-blur-xl">
     <div class="mx-auto flex h-12 max-w-[760px] items-center justify-between px-4">
       <a href="home.html" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
         <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
       </a>
-      <h1 class="text-[16px] font-extrabold tracking-tight">الرسائل</h1>
-      <!-- زر الإعدادات -->
-      <button onclick="openSettings()" class="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100 relative">
+      <h1 class="text-[16px] font-extrabold">الرسائل</h1>
+      <button onclick="openSettings()" class="relative flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100">
         <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round">
-          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
         </svg>
-        <span id="blocked-dot" style="display:none" class="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-white"></span>
+        <span id="blocked-dot" class="hidden absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-white"></span>
       </button>
     </div>
   </header>
-
-  <!-- قائمة المحادثات -->
   <main id="chats-list" class="mx-auto max-w-[760px] px-3 py-3 space-y-2 pb-28"></main>
 </div>
 
-
-<!-- ═══════════════════════════════════════════
-     شاشة الدردشة
-═══════════════════════════════════════════ -->
-<div id="messages-chat-view">
-
-  <!-- هيدر الدردشة -->
-  <header class="sticky top-0 z-30 bg-white border-b border-zinc-100 shadow-sm">
+<!-- CHAT VIEW -->
+<div id="chat-view">
+  <header class="bg-white border-b border-zinc-100 shadow-sm shrink-0">
     <div class="flex items-center gap-3 px-3 py-2.5">
       <button onclick="closeChatView()" class="h-9 w-9 flex items-center justify-center rounded-full hover:bg-zinc-100">
         <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
-      <div id="chat-header-avatar-wrap" class="relative h-10 w-10 rounded-full overflow-hidden shrink-0">
-        <div class="shimmer absolute inset-0"></div>
-        <img id="chat-avatar" src="" alt="" class="h-10 w-10 rounded-full object-cover z-[1] relative" onload="this.previousElementSibling&&this.previousElementSibling.remove()" />
+      <div class="relative h-10 w-10 rounded-full overflow-hidden shrink-0">
+        <div class="shimmer absolute inset-0 rounded-full"></div>
+        <img id="ch-av" src="" class="h-10 w-10 rounded-full object-cover z-[1] relative"
+          onload="this.previousElementSibling&&this.previousElementSibling.remove()"
+          onerror="this.src='https://ui-avatars.com/api/?background=e4e4e7&color=52525b&size=40&name=?'"/>
       </div>
       <div class="flex-1 min-w-0">
-        <h3 id="chat-name" class="text-[14px] font-extrabold truncate"></h3>
-        <p id="chat-status" class="text-[11px] text-zinc-400">محادثة مباشرة</p>
+        <h3 id="ch-name" class="text-[14px] font-extrabold truncate"></h3>
+        <p id="ch-status" class="text-[11px] text-zinc-400">محادثة مباشرة</p>
       </div>
-      <!-- قائمة الدردشة 3 نقاط -->
       <button onclick="openChatMenu()" class="h-9 w-9 flex items-center justify-center rounded-full hover:bg-zinc-100">
-        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-current" stroke-width="0"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-current"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
       </button>
     </div>
   </header>
 
-  <!-- منطقة الرسائل -->
-  <div id="chat-messages" class="flex-1 overflow-y-auto px-3 py-3 pb-4 space-y-1" style="min-height:0"></div>
+  <div id="chat-msgs" class="flex-1 overflow-y-auto py-3 pb-2 space-y-0.5" style="min-height:0"></div>
 
-  <!-- شريط الرد على رسالة -->
   <div id="reply-bar">
     <div class="flex-1 min-w-0">
       <p class="text-[11px] font-bold text-zinc-500 mb-0.5">ردّاً على:</p>
-      <p id="reply-preview-text" class="text-[13px] text-zinc-700 truncate"></p>
+      <p id="rp-txt" class="text-[13px] text-zinc-700 truncate"></p>
     </div>
-    <button onclick="cancelReply()" class="shrink-0 text-zinc-400">
+    <button onclick="cancelReply()" class="text-zinc-400 shrink-0">
       <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
     </button>
   </div>
 
-  <!-- شريط تسجيل الصوت -->
   <div id="rec-bar">
-    <div class="rec-pulse"></div>
-    <span id="rec-timer" class="text-[14px] font-bold">0:00</span>
+    <div class="rpulse"></div>
+    <span id="rec-t" class="text-[14px] font-bold text-zinc-800">0:00</span>
     <div class="flex-1"></div>
-    <button onclick="cancelRecording()" class="icon-btn">
+    <button onclick="cancelRec()" class="ibtn">
       <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
     </button>
-    <button onclick="stopAndSendAudio()" class="send-btn">
-      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current stroke-white" stroke-width="2.2" stroke-linecap="round"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg>
+    <button onclick="stopSendAudio()" class="sbtn">
+      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-white" stroke-width="2.2" stroke-linecap="round"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg>
     </button>
   </div>
 
-  <!-- شريط الإدخال -->
-  <div id="input-bar">
-    <!-- زر المرفقات -->
-    <button onclick="openAttachSheet()" class="icon-btn" title="مرفق">
+  <div id="ibar">
+    <button onclick="openAttach()" class="ibtn">
       <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.2-9.19a4 4 0 0 1 5.66 5.65l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
     </button>
-    <!-- حقل النص -->
-    <div class="input-inner">
-      <textarea id="chat-input" rows="1" placeholder="اكتب رسالتك…"
-        oninput="autoResize(this)"
-        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"></textarea>
+    <div class="iinner">
+      <textarea id="ci" rows="1" placeholder="اكتب رسالتك…"
+        oninput="arResize(this);chkSendBtn()"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"></textarea>
     </div>
-    <!-- زر الميكروفون / الإرسال -->
-    <button id="mic-or-send-btn" onclick="handleMicOrSend()" class="send-btn">
-      <svg id="mic-icon" viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current stroke-white" stroke-width="2.2" stroke-linecap="round">
+    <button onclick="handleMicSend()" class="sbtn">
+      <svg id="ico-mic" viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-white" stroke-width="2.2" stroke-linecap="round">
         <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
         <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/>
       </svg>
-      <svg id="send-icon" viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current stroke-white hidden" stroke-width="2.2" stroke-linecap="round">
+      <svg id="ico-send" class="h-5 w-5 fill-none stroke-white hidden" viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round">
         <path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/>
       </svg>
     </button>
   </div>
-
+  <input type="file" id="img-pick" accept="image/*" style="display:none" onchange="onImgPick(event)"/>
+  <input type="file" id="cam-pick" accept="image/*" capture="environment" style="display:none" onchange="onImgPick(event)"/>
 </div>
 
-
-<!-- ═══════════════════════════════════════════
-     Context Menu (ضغط مطوّل)
-═══════════════════════════════════════════ -->
-<div id="ctx-menu">
-  <div class="ctx-item" onclick="ctxReply()">
-    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3M13 21l-4-4 4-4M9 17h8a2 2 0 0 0 2-2v-5"/></svg>
-    رد على الرسالة
+<!-- CONTEXT MENU -->
+<div id="ctx">
+  <div class="ctx-row" onclick="ctxReply()">
+    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M9 17H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3M13 21l-4-4 4-4M9 17h8a2 2 0 0 0 2-2v-5"/></svg>رد على الرسالة
   </div>
-  <div class="ctx-item" onclick="ctxCopy()">
-    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-    نسخ النص
+  <div id="ctx-copy" class="ctx-row" onclick="ctxCopy()">
+    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>نسخ النص
   </div>
-  <div class="ctx-item danger" onclick="ctxDeleteForMe()">
-    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
-    حذف من عندي
+  <div class="ctx-row red" onclick="ctxDelMe()">
+    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>حذف من عندي
   </div>
-  <div id="ctx-delete-both" class="ctx-item danger" onclick="ctxDeleteForBoth()">
-    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
-    حذف للجميع
+  <div id="ctx-del-all" class="ctx-row red" onclick="ctxDelAll()">
+    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>حذف للجميع
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════
-     Bottom Sheet – مرفقات
-═══════════════════════════════════════════ -->
-<div id="bottom-sheet-overlay" onclick="closeAttachSheet(event)">
-  <div id="bottom-sheet">
-    <div class="w-10 h-1 bg-zinc-200 rounded-full mx-auto mb-4"></div>
-    <p class="text-[13px] font-bold text-zinc-400 px-5 mb-2">إرسال مرفق</p>
-
-    <div class="sheet-item" onclick="triggerImagePick()">
-      <div class="sheet-icon">
-        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-      </div>
-      صورة من المعرض
-    </div>
-    <div class="sheet-item" onclick="triggerCameraPick()">
-      <div class="sheet-icon">
-        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      </div>
-      التقاط صورة
-    </div>
-    <!-- Input مخفية للصور -->
-    <input type="file" id="img-picker" accept="image/*" style="display:none" onchange="handleImagePicked(event)" />
-    <input type="file" id="cam-picker" accept="image/*" capture="environment" style="display:none" onchange="handleImagePicked(event)" />
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════
-     Modal إعدادات
-═══════════════════════════════════════════ -->
-<div id="settings-modal" onclick="closeSettingsModal(event)">
-  <div id="settings-sheet">
-    <div class="w-10 h-1 bg-zinc-200 rounded-full mx-auto mb-4"></div>
-    <h2 class="text-[16px] font-extrabold px-5 mb-2">إعدادات الرسائل</h2>
-
-    <p class="settings-section-title">عام</p>
-    <div class="sheet-item" onclick="clearAllChats()">
-      <div class="sheet-icon">
-        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
-      </div>
-      مسح كل المحادثات
-    </div>
-
-    <p class="settings-section-title mt-2">المحظورون</p>
-    <div id="blocked-list-wrap">
-      <div id="blocked-empty" class="px-5 py-4 text-[13px] text-zinc-400">لا يوجد محظورون</div>
-      <div id="blocked-list"></div>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════
-     عارض الصور الكاملة
-═══════════════════════════════════════════ -->
-<div id="img-viewer" onclick="document.getElementById('img-viewer').classList.remove('open')">
-  <img id="img-viewer-img" src="" alt="" />
-</div>
-
-<!-- ═══════════════════════════════════════════
-     Bottom Sheet – قائمة خيارات الدردشة (3 نقاط)
-═══════════════════════════════════════════ -->
-<div id="chat-menu-overlay" onclick="closeChatMenu(event)" style="position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.4);display:none;align-items:flex-end;">
-  <div id="chat-menu-sheet" style="width:100%;background:#fff;border-radius:24px 24px 0 0;padding:16px 0 32px;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);">
+<!-- ATTACH SHEET -->
+<div id="attach-ov" class="bsheet-ov" onclick="if(event.target===this)closeSheet('attach-ov')">
+  <div class="bsheet">
     <div class="w-10 h-1 bg-zinc-200 rounded-full mx-auto mb-3"></div>
-    <div id="block-toggle-item" class="sheet-item" onclick="toggleBlockCurrentUser()">
-      <div class="sheet-icon" style="background:#fef2f2">
+    <div class="srow" onclick="closeSheet('attach-ov');document.getElementById('img-pick').click()">
+      <div class="sico"><svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>صورة من المعرض
+    </div>
+    <div class="srow" onclick="closeSheet('attach-ov');document.getElementById('cam-pick').click()">
+      <div class="sico"><svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>التقاط صورة
+    </div>
+  </div>
+</div>
+
+<!-- CHAT MENU SHEET -->
+<div id="chatmenu-ov" class="bsheet-ov" onclick="if(event.target===this)closeSheet('chatmenu-ov')">
+  <div class="bsheet">
+    <div class="w-10 h-1 bg-zinc-200 rounded-full mx-auto mb-3"></div>
+    <div class="srow" onclick="toggleBlock()">
+      <div class="sico" style="background:#fef2f2">
         <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-red-500" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
       </div>
-      <span id="block-toggle-label" class="text-red-600">حظر المستخدم</span>
+      <span id="block-lbl" class="text-red-600 font-bold">حظر المستخدم</span>
     </div>
-    <div class="sheet-item danger" onclick="deleteChatHistory()" style="color:#dc2626">
-      <div class="sheet-icon" style="background:#fef2f2">
+    <div class="srow" onclick="deleteChat()" style="color:#dc2626">
+      <div class="sico" style="background:#fef2f2">
         <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-red-500" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
       </div>
-      حذف المحادثة
+      <span class="font-bold">حذف المحادثة</span>
     </div>
   </div>
 </div>
 
-<!-- Toast -->
+<!-- SETTINGS SHEET -->
+<div id="settings-ov" class="bsheet-ov" onclick="if(event.target===this)closeSheet('settings-ov')">
+  <div class="bsheet">
+    <div class="w-10 h-1 bg-zinc-200 rounded-full mx-auto mb-3"></div>
+    <h2 class="text-[16px] font-extrabold px-5 mb-3">إعدادات الرسائل</h2>
+    <!-- tabs -->
+    <div class="stab-bar">
+      <div class="stab active" data-tab="tab-g" onclick="switchTab(this)">عام</div>
+      <div class="stab" data-tab="tab-b" onclick="switchTab(this)">المحظورون</div>
+      <div class="stab" data-tab="tab-ar" onclick="switchTab(this)">الرد التلقائي</div>
+    </div>
+    <!-- general -->
+    <div id="tab-g" class="stab-panel active">
+      <div class="srow" onclick="clearMyMsgs()">
+        <div class="sico"><svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg></div>
+        <div><p class="font-bold">تنظيف قائمة الرسائل</p><p class="text-[12px] text-zinc-400">يُزيل المحادثات من عندك فقط</p></div>
+      </div>
+    </div>
+    <!-- blocked -->
+    <div id="tab-b" class="stab-panel">
+      <p id="blocked-empty-p" class="px-5 py-6 text-[13px] text-zinc-400 text-center">لا يوجد محظورون</p>
+      <div id="blocked-list"></div>
+    </div>
+    <!-- auto reply -->
+    <div id="tab-ar" class="stab-panel">
+      <div class="toggle-row">
+        <div><p class="font-bold text-[14px]">تفعيل الرد التلقائي</p><p class="text-[12px] text-zinc-400">يرسل رداً عند استلام رسالة</p></div>
+        <label class="toggle-sw"><input type="checkbox" id="ar-tog" onchange="saveAR()"/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="px-5 pt-3 pb-2">
+        <p class="text-[12px] font-bold text-zinc-500 mb-1">نص الرد التلقائي</p>
+        <textarea id="ar-txt" rows="4"
+          class="w-full rounded-[14px] bg-zinc-100 p-3 text-[14px] resize-none"
+          placeholder="مثال: مرحباً، سيتم الرد عليك في أقرب وقت 🙏"
+          oninput="saveAR()"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- image viewer -->
+<div id="imgv" onclick="this.classList.remove('on')"><img id="imgv-img" src="" alt=""/></div>
+
 <div id="toast"></div>
 
-<!-- ═══════════════════════════════════════════
-     شريط التنقل
-═══════════════════════════════════════════ -->
-<nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-[0_-6px_20px_rgba(0,0,0,0.04)]">
+<!-- BOTTOM NAV -->
+<nav id="bnav" class="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white shadow-[0_-6px_20px_rgba(0,0,0,0.04)]">
   <div class="mx-auto grid max-w-[480px] grid-cols-5 px-2 py-2 gap-1">
     <a href="profile.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
       <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>الملف
@@ -499,655 +375,539 @@ input:focus, textarea:focus { outline: none; }
 
 <script src="shared.js"></script>
 <script>
-// ════════════════════════════════════════
-// STATE
-// ════════════════════════════════════════
-const myUid  = localStorage.getItem('yadwor-uid') || 'me';
-const myName = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'أنا';
-const myAvatar = localStorage.getItem('yadwor-avatar-preview') || '';
+/* ─── IDs من shared.js ─── */
+const MY_UID    = (typeof state!=='undefined'?state.myUid:null)  || localStorage.getItem('yadwor-uid') || '';
+const MY_NAME   = (typeof state!=='undefined'?state.myName:null) || localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || '';
+const MY_AVATAR = (typeof state!=='undefined'?state.myAvatar:null)|| localStorage.getItem('yadwor-avatar-preview') || '';
 
-let activeChat = null;   // { uid, name, avatar }
-let activeMsgId = null;  // للـ context menu
-let replyTo    = null;   // { id, text, senderName }
-let mediaRecorder = null;
-let recChunks  = [];
-let recTimerInterval = null;
-let recSeconds = 0;
-let blockedUsers = JSON.parse(localStorage.getItem('yadwor-blocked') || '[]');
-// { uid, name, avatar }[]
+/* ─── State ─── */
+let AC=null;           // {uid,name,avatar,cid}
+let ctxId=null;        // context menu target msg id
+let replyTo=null;      // {id,senderName,preview}
+let _msgsOff=null;     // firebase off handle
+let mRec=null, mCh=[], recS=0, recInt=null;
+const _aud={};
 
-// مخزن المحادثات: { [chatId]: { uid, name, avatar, messages:[], unread:0, lastTs:0 } }
-let chatsStore = JSON.parse(localStorage.getItem('yadwor-chats-store') || '{}');
-function saveChatsStore() {
-  localStorage.setItem('yadwor-chats-store', JSON.stringify(chatsStore));
+/* ─── Utils ─── */
+const genId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+const escH=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const fmtSec=s=>{s=Math.floor(s||0);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+function avUrl(n){return`https://ui-avatars.com/api/?background=e4e4e7&color=52525b&size=52&name=${encodeURIComponent(n||'?')}`}
+function fmtTime(ts){
+  if(!ts)return'';
+  const d=new Date(ts),n=new Date();
+  if(d.toDateString()===n.toDateString())return d.toLocaleTimeString('ar',{hour:'2-digit',minute:'2-digit'});
+  const diff=Math.floor((n-d)/86400000);
+  if(diff===1)return'أمس';
+  if(diff<7)return d.toLocaleDateString('ar',{weekday:'short'});
+  return d.toLocaleDateString('ar',{day:'2-digit',month:'2-digit'});
 }
-function saveBlocked() {
-  localStorage.setItem('yadwor-blocked', JSON.stringify(blockedUsers));
-  updateBlockedDot();
+function fmtDate(ts){
+  if(!ts)return'';
+  const d=new Date(ts),n=new Date();
+  if(d.toDateString()===n.toDateString())return'اليوم';
+  if(Math.floor((n-d)/86400000)===1)return'أمس';
+  return d.toLocaleDateString('ar',{day:'2-digit',month:'long',year:'numeric'});
 }
+function showToast(m,dur){const el=document.getElementById('toast');el.textContent=m;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),dur||2400)}
+function arResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,96)+'px'}
+function cidOf(a,b){return[a,b].sort().join('_')}
 
-function chatId(uid) { return [myUid, uid].sort().join('_'); }
-
-// ════════════════════════════════════════
-// قائمة المحادثات
-// ════════════════════════════════════════
-function renderChatsList() {
-  const list = document.getElementById('chats-list');
-
-  // shimmer
-  list.innerHTML = [1,2,3].map(() => `
-    <div class="flex items-center gap-3 rounded-[18px] border border-zinc-200 bg-white px-3 py-3">
-      <div class="shimmer h-13 w-13 rounded-full shrink-0" style="width:52px;height:52px"></div>
+/* ─── CONVERSATIONS LIST ─── */
+function listenConvs(){
+  if(!MY_UID){renderEmpty();return;}
+  shimmerList();
+  DB.ref(`users/${MY_UID}/chats`).on('value',async snap=>{
+    const d=snap.val()||{};
+    const cids=Object.keys(d);
+    if(!cids.length){renderEmpty();return;}
+    const metas=await Promise.all(cids.map(cid=>DB.ref(`chats/${cid}/meta`).once('value').then(s=>({cid,...(s.val()||{})}))));
+    const rows=metas.filter(m=>m&&m.lastTs).sort((a,b)=>b.lastTs-a.lastTs);
+    if(!rows.length){renderEmpty();return;}
+    const list=document.getElementById('chats-list');
+    list.innerHTML=rows.map(m=>{
+      const unread=d[m.cid]?.unread||0, isNew=unread>0;
+      const theirUid=m.cid.split('_').find(u=>u!==MY_UID)||'';
+      const tName=m.peerName||'...', tAv=m.peerAvatar||avUrl(tName);
+      let last=m.lastMsg||'';
+      if(m.lastType==='image')last='📷 صورة';
+      if(m.lastType==='audio')last='🎙️ رسالة صوتية';
+      if(m.lastType==='notice')last='';
+      return`<div class="chat-row ${isNew?'unread':''}" onclick="openChat('${escH(theirUid)}','${escH(tName)}','${escH(tAv)}')">
+        <div class="relative shrink-0" style="width:52px;height:52px">
+          <img src="${escH(tAv)}" onerror="this.src='${avUrl(tName)}'" class="w-full h-full rounded-full object-cover"/>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2 mb-0.5">
+            <h3 class="row-name truncate text-[14px] font-bold">${escH(tName)}</h3>
+            <div class="flex items-center gap-1.5 shrink-0">
+              ${isNew?'<span class="new-tag">جديد</span>':''}
+              <span class="text-[11px] text-zinc-400">${fmtTime(m.lastTs)}</span>
+            </div>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <p class="last-msg truncate text-[12px] text-zinc-500">${escH(last)}</p>
+            ${unread>1?`<span class="unread-badge">${unread}</span>`:isNew?'<span class="unread-dot"></span>':''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  });
+}
+function shimmerList(){
+  document.getElementById('chats-list').innerHTML=[1,2,3].map(()=>`
+    <div class="flex items-center gap-3 rounded-[18px] bg-white px-3 py-3 border border-zinc-200/60">
+      <div class="shimmer rounded-full shrink-0" style="width:52px;height:52px"></div>
       <div class="flex-1 space-y-2">
         <div class="flex justify-between"><div class="shimmer h-3.5 w-28 rounded-full"></div><div class="shimmer h-3 w-10 rounded-full"></div></div>
         <div class="shimmer h-3 w-4/5 rounded-full"></div>
       </div>
     </div>`).join('');
+}
+function renderEmpty(){document.getElementById('chats-list').innerHTML=`<div class="text-center py-16 text-zinc-400 text-[14px] font-bold">لا توجد محادثات بعد</div>`;}
 
-  setTimeout(() => {
-    const sorted = Object.values(chatsStore)
-      .filter(c => !isBlocked(c.uid))
-      .sort((a,b)=>(b.lastTs||0)-(a.lastTs||0));
-
-    if (!sorted.length) {
-      list.innerHTML = `<div class="text-center py-16 text-zinc-400 text-[14px] font-bold">لا توجد محادثات بعد</div>`;
-      return;
-    }
-
-    list.innerHTML = sorted.map(c => {
-      const lastMsg = c.messages && c.messages.length ? c.messages[c.messages.length-1] : null;
-      const lastText = lastMsg
-        ? (lastMsg.type === 'image' ? '📷 صورة' : lastMsg.type === 'audio' ? '🎙️ رسالة صوتية' : (lastMsg.text || ''))
-        : '';
-      const timeStr = lastMsg ? formatMsgTime(lastMsg.ts) : '';
-      const unread = c.unread || 0;
-      const isNew = unread > 0;
-
-      return `
-      <div class="chat-item ${isNew?'unread':''}" onclick="openChat('${c.uid}')">
-        <div class="relative shrink-0" style="width:52px;height:52px">
-          <img src="${c.avatar||'https://ui-avatars.com/api/?name='+encodeURIComponent(c.name)+'&background=e4e4e7&color=52525b&size=52'}"
-            onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(c.name)}&background=e4e4e7&color=52525b&size=52'"
-            class="w-full h-full rounded-full object-cover" />
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between gap-2 mb-0.5">
-            <h3 class="chat-name truncate text-[14px] font-bold">${c.name}</h3>
-            <div class="flex items-center gap-1.5 shrink-0">
-              ${isNew ? `<span class="new-tag">جديد</span>` : ''}
-              <span class="text-[11px] text-zinc-400">${timeStr}</span>
-            </div>
-          </div>
-          <div class="flex items-center justify-between gap-2">
-            <p class="chat-last-msg truncate text-[12px] text-zinc-500">${lastText}</p>
-            ${unread > 1 ? `<span class="unread-badge">${unread}</span>` : (isNew ? `<span class="unread-dot"></span>` : '')}
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-  }, 400);
+/* ─── OPEN / CLOSE CHAT ─── */
+function openChat(uid,name,avatar){
+  if(!MY_UID){showToast('يجب تسجيل الدخول أولاً');return;}
+  const cid=cidOf(MY_UID,uid);
+  AC={uid,name,avatar,cid};
+  document.getElementById('ch-av').src=avatar||avUrl(name);
+  document.getElementById('ch-name').textContent=name;
+  DB.ref(`users/${MY_UID}/chats/${cid}/unread`).set(0);
+  updateBlockLabel();
+  document.getElementById('list-view').style.display='none';
+  document.getElementById('bnav').style.display='none';
+  const cv=document.getElementById('chat-view');
+  cv.style.display='flex';
+  requestAnimationFrame(()=>cv.classList.add('open'));
+  listenMsgs(cid);
+}
+function closeChatView(){
+  if(_msgsOff&&AC)DB.ref(`chats/${AC.cid}/messages`).off('value',_msgsOff);
+  _msgsOff=null;
+  document.getElementById('chat-view').classList.remove('open');
+  setTimeout(()=>{
+    document.getElementById('chat-view').style.display='none';
+    document.getElementById('list-view').style.display='block';
+    document.getElementById('bnav').style.display='block';
+    AC=null;cancelReply();cancelRec();
+  },280);
+}
+function openChatUI(name,avatar,uid){
+  uid=uid||'user_'+Math.random().toString(36).slice(2,8);
+  openChat(uid,name,avatar||avUrl(name));
 }
 
-function formatMsgTime(ts) {
-  if (!ts) return '';
-  const d = new Date(ts), now = new Date();
-  if (d.toDateString() === now.toDateString()) {
-    return d.toLocaleTimeString('ar', { hour:'2-digit', minute:'2-digit' });
+/* ─── LISTEN MESSAGES ─── */
+function listenMsgs(cid){
+  if(_msgsOff)DB.ref(`chats/${cid}/messages`).off('value',_msgsOff);
+  _msgsOff=DB.ref(`chats/${cid}/messages`).orderByChild('ts').on('value',snap=>{
+    const d=snap.val()||{};
+    const msgs=Object.entries(d).map(([id,m])=>({id,...m})).sort((a,b)=>a.ts-b.ts);
+    renderMsgs(msgs);
+    // mark read
+    msgs.filter(m=>m.from!==MY_UID&&!m.read).forEach(m=>{
+      DB.ref(`chats/${cid}/messages/${m.id}/read`).set(true);
+    });
+    DB.ref(`users/${MY_UID}/chats/${cid}/unread`).set(0);
+  });
+}
+
+/* ─── RENDER MESSAGES ─── */
+function renderMsgs(msgs){
+  const c=document.getElementById('chat-msgs');
+  if(!msgs.length){c.innerHTML=`<div class="text-center py-10 text-zinc-400 text-[13px] font-bold">ابدأ المحادثة!</div>`;return;}
+  let html='',lastDate='';
+  msgs.forEach(m=>{
+    const ds=fmtDate(m.ts);
+    if(ds!==lastDate){html+=`<div class="date-sep"><span>${ds}</span></div>`;lastDate=ds;}
+    html+=buildBubble(m);
+  });
+  c.innerHTML=html;
+  c.scrollTop=c.scrollHeight;
+}
+function buildBubble(m){
+  const isMe=m.from===MY_UID;
+  const dir=isMe?'me':'them';
+  if(m.type==='notice'){
+    const ncls=m.noticeType==='unblock'?'unblock-n':m.noticeType==='block-n'?'block-n':'';
+    return`<div class="px-4 py-1"><span class="notice-line ${ncls}">${escH(m.text||'')}</span></div>`;
   }
-  const diff = Math.floor((now - d) / 86400000);
-  if (diff === 1) return 'أمس';
-  if (diff < 7)  return d.toLocaleDateString('ar', { weekday:'short' });
-  return d.toLocaleDateString('ar', { day:'2-digit', month:'2-digit' });
-}
-
-function formatMsgDate(ts) {
-  if (!ts) return '';
-  const d = new Date(ts), now = new Date();
-  if (d.toDateString() === now.toDateString()) return 'اليوم';
-  const diff = Math.floor((now - d) / 86400000);
-  if (diff === 1) return 'أمس';
-  return d.toLocaleDateString('ar', { day:'2-digit', month:'long', year:'numeric' });
-}
-
-function isBlocked(uid) {
-  return blockedUsers.some(u => u.uid === uid);
-}
-
-// ════════════════════════════════════════
-// فتح الدردشة
-// ════════════════════════════════════════
-function openChat(uid) {
-  const cid = chatId(uid);
-  if (!chatsStore[cid]) return;
-  activeChat = { uid, name: chatsStore[cid].name, avatar: chatsStore[cid].avatar };
-
-  // صفّر غير المقروءة
-  chatsStore[cid].unread = 0;
-  saveChatsStore();
-
-  document.getElementById('chat-avatar').src = activeChat.avatar ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(activeChat.name)}&background=e4e4e7&color=52525b&size=52`;
-  document.getElementById('chat-name').textContent = activeChat.name;
-
-  // تحديث زر الحظر
-  updateBlockToggleLabel();
-
-  document.getElementById('messages-list-view').style.display = 'none';
-  document.getElementById('bottom-nav').style.display = 'none';
-  const chatView = document.getElementById('messages-chat-view');
-  chatView.style.display = 'flex';
-  requestAnimationFrame(() => chatView.classList.add('open'));
-
-  renderChatMessages();
-}
-
-function closeChatView() {
-  const chatView = document.getElementById('messages-chat-view');
-  chatView.classList.remove('open');
-  setTimeout(() => {
-    chatView.style.display = 'none';
-    document.getElementById('messages-list-view').style.display = 'block';
-    document.getElementById('bottom-nav').style.display = 'block';
-    renderChatsList();
-    cancelReply();
-    cancelRecording();
-  }, 280);
-}
-
-// فتح الدردشة من URL params
-function openChatUI(name, avatar, uid) {
-  uid = uid || 'user_' + name.replace(/\s/g,'');
-  const cid = chatId(uid);
-  if (!chatsStore[cid]) {
-    chatsStore[cid] = { uid, name, avatar, messages:[], unread:0, lastTs:0 };
-    saveChatsStore();
+  const del=m.deleted||(isMe&&m.deletedForMe);
+  const isBlk=m.blockedMsg;
+  let inner='',extraCls='';
+  if(del){inner=`<span>🗑️ تم حذف هذه الرسالة</span>`;extraCls='deleted-msg';}
+  else if(isBlk){inner=`<span>⛔ تعذّر إرسال الرسالة</span>`;extraCls='blocked-msg';}
+  else{
+    if(m.replyTo)inner+=`<div class="rp"><span style="font-size:11px;font-weight:800;opacity:.7">${escH(m.replyTo.senderName||'')}</span><br><span>${escH(m.replyTo.preview||'')}</span></div>`;
+    if(m.type==='image')inner+=`<img class="bimg" src="${escH(m.url||'')}" onclick="viewImg('${escH(m.url||'')}')"/>`;
+    else if(m.type==='audio')inner+=buildAP(m);
+    else inner+=`<span>${escH(m.text||'')}</span>`;
   }
-  openChat(uid);
+  const tick=isMe?(m.read?`<span class="tick seen">✓✓</span>`:`<span class="tick">✓</span>`):'';
+  return`<div class="bwrap ${dir}" data-id="${escH(m.id)}">
+    <div class="bubble ${dir} ${extraCls}"
+      oncontextmenu="showCtx(event,'${escH(m.id)}',${isMe})"
+      ontouchstart="startLP(event,'${escH(m.id)}',${isMe})" ontouchend="cancelLP()" ontouchmove="cancelLP()">
+      ${inner}
+      ${!del&&!isBlk?`<span class="btime">${fmtTime(m.ts)} ${tick}</span>`:''}
+    </div>
+  </div>
+  ${isBlk?`<div class="px-4 pb-1"><span class="notice-line block-n">⛔ لقد قام هذا الشخص بحظرك</span></div>`:''}`;
 }
 
-// ════════════════════════════════════════
-// عرض رسائل الدردشة
-// ════════════════════════════════════════
-function renderChatMessages() {
-  if (!activeChat) return;
-  const cid = chatId(activeChat.uid);
-  const msgs = (chatsStore[cid] && chatsStore[cid].messages) || [];
-  const container = document.getElementById('chat-messages');
+/* ─── AUDIO PLAYER ─── */
+function buildAP(m){
+  const aid='ap_'+m.id;
+  return`<div class="ap"><button onclick="togAP('${aid}','${escH(m.url||'')}')"
+    style="width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+    <svg id="ico_${aid}" viewBox="0 0 24 24" class="h-4 w-4 fill-current"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+  </button>
+  <div class="ap-bar" id="bar_${aid}" onclick="seekAP('${aid}',event)"><div class="ap-fill" id="fill_${aid}"></div></div>
+  <span id="tm_${aid}" style="font-size:11px;opacity:.65;white-space:nowrap">0:00</span></div>`;
+}
+function togAP(aid,url){
+  if(!_aud[aid]){
+    _aud[aid]=new Audio(url);
+    _aud[aid].ontimeupdate=()=>{
+      const a=_aud[aid],p=a.duration?a.currentTime/a.duration*100:0;
+      const f=document.getElementById('fill_'+aid),t=document.getElementById('tm_'+aid);
+      if(f)f.style.width=p+'%';if(t)t.textContent=fmtSec(a.currentTime);
+    };
+    _aud[aid].onended=()=>{const ic=document.getElementById('ico_'+aid);if(ic)ic.innerHTML='<polygon points="5 3 19 12 5 21 5 3"/>';};
+  }
+  const a=_aud[aid],ic=document.getElementById('ico_'+aid);
+  if(a.paused){
+    Object.keys(_aud).forEach(k=>{if(k!==aid&&!_aud[k].paused)_aud[k].pause()});
+    a.play();if(ic)ic.innerHTML='<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+  }else{a.pause();if(ic)ic.innerHTML='<polygon points="5 3 19 12 5 21 5 3"/>';}
+}
+function seekAP(aid,e){const a=_aud[aid];if(!a||!a.duration)return;const r=document.getElementById('bar_'+aid).getBoundingClientRect();a.currentTime=((e.clientX-r.left)/r.width)*a.duration;}
 
-  if (!msgs.length) {
-    container.innerHTML = `<div class="text-center py-8 text-zinc-400 text-[13px]">لا توجد رسائل بعد، ابدأ المحادثة!</div>`;
+/* ─── PUSH MESSAGE to Firebase ─── */
+async function pushMsg(msg){
+  if(!AC)return;
+  const cid=AC.cid;
+  const ref=DB.ref(`chats/${cid}/messages`).push();
+  msg.id=ref.key;
+  await ref.set(msg);
+  // meta
+  const isTextLike=msg.type==='text'||msg.type==='notice';
+  await DB.ref(`chats/${cid}/meta`).update({
+    lastMsg   : isTextLike?(msg.text||''):'',
+    lastType  : msg.type,
+    lastTs    : msg.ts,
+    peerName  : AC.name,      peerAvatar: AC.avatar,
+    myName    : MY_NAME,      myAvatar  : MY_AVATAR,
+    [`participants/${MY_UID}`]:true,
+    [`participants/${AC.uid}`]:true
+  });
+  // my chat entry
+  await DB.ref(`users/${MY_UID}/chats/${cid}`).update({lastTs:msg.ts});
+  // peer chat entry + unread (not for notices)
+  if(msg.type!=='notice'){
+    // update peer meta so their list shows MY name/avatar
+    await DB.ref(`chats/${cid}/meta`).update({peerName:MY_NAME, peerAvatar:MY_AVATAR});
+    // for MY list I want to see THEIR name
+    await DB.ref(`chats/${cid}/meta`).update({});
+    await DB.ref(`users/${AC.uid}/chats/${cid}`).transaction(cur=>({lastTs:msg.ts,unread:((cur&&cur.unread)||0)+1}));
+  }
+}
+
+/* Meta helper: we store two perspectives in meta.
+   When I open my list I query chats and I need THEIR name/avatar.
+   Solution: store peerFor_<uid> fields. */
+async function updateMetaPerspectives(){
+  if(!AC)return;
+  await DB.ref(`chats/${AC.cid}/meta`).update({
+    [`peerFor_${MY_UID}_name`]  : AC.name,
+    [`peerFor_${MY_UID}_avatar`]: AC.avatar,
+    [`peerFor_${AC.uid}_name`]  : MY_NAME,
+    [`peerFor_${AC.uid}_avatar`]: MY_AVATAR,
+  });
+}
+
+/* ─── SEND TEXT ─── */
+async function sendMsg(){
+  const inp=document.getElementById('ci');
+  const txt=inp.value.trim();
+  if(!txt||!AC)return;
+  // check if blocked by the other
+  const blockedSnap=await DB.ref(`users/${AC.uid}/blocked/${MY_UID}`).once('value');
+  if(blockedSnap.val()){
+    showToast('⛔ لا يمكنك الإرسال، أنت محظور من قِبَل هذا المستخدم');
+    inp.value='';inp.style.height='';chkSendBtn();
     return;
   }
+  await updateMetaPerspectives();
+  const msg={id:genId(),from:MY_UID,type:'text',text:txt,ts:Date.now(),read:false,
+    replyTo:replyTo?{...replyTo}:null,senderName:MY_NAME,senderAvatar:MY_AVATAR};
+  await pushMsg(msg);
+  inp.value='';inp.style.height='';cancelReply();chkSendBtn();
+  triggerAutoReply();
+}
 
-  let html = '';
-  let lastDateStr = '';
+/* ─── AUTO REPLY ─── */
+async function triggerAutoReply(){
+  if(!AC||!MY_UID)return;
+  const snap=await DB.ref(`users/${MY_UID}/autoReply`).once('value');
+  const ar=snap.val();
+  if(!ar||!ar.enabled||!ar.text)return;
+  setTimeout(async()=>{
+    if(!AC)return;
+    await pushMsg({id:genId(),from:MY_UID,type:'text',text:ar.text,ts:Date.now(),read:false,
+      replyTo:null,senderName:MY_NAME,senderAvatar:MY_AVATAR});
+  },1000+Math.random()*1500);
+}
 
-  msgs.forEach((m, idx) => {
-    // فاصل التاريخ
-    const dateStr = formatMsgDate(m.ts);
-    if (dateStr !== lastDateStr) {
-      html += `<div class="flex justify-center my-3">
-        <span class="text-[11px] font-bold text-zinc-400 bg-zinc-100 rounded-full px-3 py-1">${dateStr}</span>
-      </div>`;
-      lastDateStr = dateStr;
-    }
+/* ─── SEND IMAGE ─── */
+async function onImgPick(e){
+  const file=e.target.files[0];if(!file)return;e.target.value='';
+  if(!AC)return;
+  const bs=await DB.ref(`users/${AC.uid}/blocked/${MY_UID}`).once('value');
+  if(bs.val()){showToast('⛔ أنت محظور، لا يمكنك الإرسال');return;}
+  showToast('جاري رفع الصورة…');
+  try{
+    const fd=new FormData();fd.append('file',file);fd.append('upload_preset',CLD_PRESET);
+    const r=await fetch(`https://api.cloudinary.com/v1_1/${CLD_NAME}/image/upload`,{method:'POST',body:fd});
+    const d=await r.json();const url=d.secure_url||'';
+    if(!url){showToast('فشل الرفع');return;}
+    await updateMetaPerspectives();
+    await pushMsg({id:genId(),from:MY_UID,type:'image',url,ts:Date.now(),read:false,
+      replyTo:replyTo?{...replyTo}:null,senderName:MY_NAME,senderAvatar:MY_AVATAR});
+    cancelReply();showToast('✓ تم إرسال الصورة');
+  }catch(e){showToast('خطأ في الرفع');}
+}
 
-    const isMine = m.from === myUid;
-    const deleted = m.deleted || (isMine ? m.deletedForMe : false);
+/* ─── VOICE RECORDING ─── */
+async function startRec(){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    mRec=new MediaRecorder(stream);mCh=[];recS=0;
+    mRec.ondataavailable=ev=>mCh.push(ev.data);
+    mRec.start(100);
+    document.getElementById('ibar').style.display='none';
+    document.getElementById('rec-bar').classList.add('on');
+    recInt=setInterval(()=>{recS++;document.getElementById('rec-t').textContent=fmtSec(recS);},1000);
+  }catch(e){showToast('تعذّر الوصول للميكروفون');}
+}
+function cancelRec(){
+  if(mRec&&mRec.state!=='inactive')mRec.stop();
+  clearInterval(recInt);mCh=[];
+  document.getElementById('rec-bar').classList.remove('on');
+  document.getElementById('ibar').style.display='flex';
+}
+async function stopSendAudio(){
+  if(!mRec)return;
+  mRec.onstop=async()=>{
+    if(!AC)return;
+    const bs=await DB.ref(`users/${AC.uid}/blocked/${MY_UID}`).once('value');
+    if(bs.val()){showToast('⛔ أنت محظور');return;}
+    showToast('جاري رفع الصوت…');
+    try{
+      const blob=new Blob(mCh,{type:'audio/webm'});
+      const fd=new FormData();fd.append('file',blob,'v.webm');
+      fd.append('upload_preset',CLD_PRESET);fd.append('resource_type','video');
+      const r=await fetch(`https://api.cloudinary.com/v1_1/${CLD_NAME}/video/upload`,{method:'POST',body:fd});
+      const d=await r.json();const url=d.secure_url||'';
+      if(!url){showToast('فشل رفع الصوت');return;}
+      await updateMetaPerspectives();
+      await pushMsg({id:genId(),from:MY_UID,type:'audio',url,ts:Date.now(),read:false,
+        replyTo:replyTo?{...replyTo}:null,senderName:MY_NAME,senderAvatar:MY_AVATAR});
+      cancelReply();showToast('✓ تم إرسال الصوت');
+    }catch(e){showToast('خطأ في رفع الصوت');}
+  };
+  if(mRec.state!=='inactive')mRec.stop();
+  clearInterval(recInt);
+  document.getElementById('rec-bar').classList.remove('on');
+  document.getElementById('ibar').style.display='flex';
+}
+function handleMicSend(){if(document.getElementById('ci').value.trim())sendMsg();else startRec();}
+function chkSendBtn(){
+  const v=document.getElementById('ci').value.trim();
+  document.getElementById('ico-mic').classList.toggle('hidden',!!v);
+  document.getElementById('ico-send').classList.toggle('hidden',!v);
+}
 
-    html += `<div class="bubble-wrap ${isMine?'mine':'other'}" data-msg-id="${m.id}">
-      <div class="bubble ${isMine?'mine':'other'} ${deleted?'opacity-40 italic':''}"
-        oncontextmenu="showCtxMenu(event,'${m.id}')"
-        ontouchstart="startLongPress(event,'${m.id}')" ontouchend="cancelLongPress()" ontouchmove="cancelLongPress()">
-        ${deleted ? '<span style="font-size:13px">🗑️ تم حذف هذه الرسالة</span>' : buildMsgContent(m)}
-        ${!deleted ? `<span class="msg-time">${formatMsgTime(m.ts)}${isMine ? (m.read ? ' ✓✓' : ' ✓') : ''}</span>` : ''}
-      </div>
-    </div>`;
+/* ─── REPLY ─── */
+function setReply(id){
+  const el=document.querySelector(`[data-id="${id}"] .bubble`);if(!el)return;
+  const txt=el.textContent.trim().slice(0,60);
+  const isMe=el.classList.contains('me');
+  replyTo={id,senderName:isMe?MY_NAME:(AC?.name||''),preview:txt};
+  document.getElementById('rp-txt').textContent=txt;
+  document.getElementById('reply-bar').classList.add('on');
+  document.getElementById('ci').focus();
+}
+function cancelReply(){replyTo=null;document.getElementById('reply-bar').classList.remove('on');}
+
+/* ─── CONTEXT MENU ─── */
+let _lpT=null;
+function startLP(e,id,isMe){_lpT=setTimeout(()=>showCtx(e,id,isMe),580);}
+function cancelLP(){clearTimeout(_lpT);}
+function showCtx(e,id,isMe){
+  e.preventDefault();ctxId=id;
+  document.getElementById('ctx-del-all').style.display=isMe?'flex':'none';
+  const m=document.getElementById('ctx');
+  m.style.display='block';
+  const cx=Math.min(e.clientX||(e.touches?.[0]?.clientX||80),window.innerWidth-185);
+  const cy=Math.min(e.clientY||(e.touches?.[0]?.clientY||80),window.innerHeight-175);
+  m.style.left=cx+'px';m.style.top=cy+'px';
+  setTimeout(()=>document.addEventListener('click',hideCtx,{once:true}),10);
+}
+function hideCtx(){document.getElementById('ctx').style.display='none';}
+function ctxReply(){hideCtx();if(ctxId)setReply(ctxId);}
+function ctxCopy(){
+  const el=document.querySelector(`[data-id="${ctxId}"] .bubble`);
+  if(el){navigator.clipboard?.writeText(el.textContent.trim()).catch(()=>{});showToast('تم النسخ');}
+  hideCtx();
+}
+async function ctxDelMe(){
+  if(!AC||!ctxId)return;
+  await DB.ref(`chats/${AC.cid}/messages/${ctxId}`).update({deleted:true,deletedForMe:true});
+  hideCtx();showToast('تم الحذف من عندك');
+}
+async function ctxDelAll(){
+  if(!AC||!ctxId)return;
+  await DB.ref(`chats/${AC.cid}/messages/${ctxId}`).update({deleted:true,deletedForBoth:true,text:'تم حذف هذه الرسالة'});
+  hideCtx();showToast('تم الحذف للجميع');
+}
+
+/* ─── BLOCK / UNBLOCK ─── */
+function updateBlockLabel(){
+  if(!AC||!MY_UID)return;
+  DB.ref(`users/${MY_UID}/blocked/${AC.uid}`).once('value').then(s=>{
+    document.getElementById('block-lbl').textContent=s.val()?'إلغاء الحظر':'حظر المستخدم';
   });
-
-  container.innerHTML = html;
-  container.scrollTop = container.scrollHeight;
 }
-
-function buildMsgContent(m) {
-  let html = '';
-  // رد مقتبس
-  if (m.replyTo) {
-    html += `<div class="reply-preview">
-      <span style="font-size:11px;font-weight:800;opacity:.7">${m.replyTo.senderName}</span><br>
-      <span>${m.replyTo.text || (m.replyTo.type === 'image' ? '📷 صورة' : '🎙️ صوت')}</span>
-    </div>`;
-  }
-  if (m.type === 'image') {
-    html += `<img class="msg-img" src="${m.url}" onclick="viewImg('${m.url}')" />`;
-  } else if (m.type === 'audio') {
-    html += buildAudioPlayer(m);
-  } else {
-    html += `<span>${escHtml(m.text || '')}</span>`;
-  }
-  return html;
-}
-
-function buildAudioPlayer(m) {
-  const aid = 'aud_' + m.id;
-  return `<div class="audio-player">
-    <button onclick="toggleAudio('${aid}','${m.url}')" style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-      <svg id="icon_${aid}" viewBox="0 0 24 24" class="h-4 w-4 fill-current" style="color:inherit"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-    </button>
-    <div class="audio-bar" id="bar_${aid}" onclick="seekAudio('${aid}',event)">
-      <div class="audio-fill" id="fill_${aid}"></div>
-    </div>
-    <span id="time_${aid}" style="font-size:11px;opacity:.7;white-space:nowrap">0:00</span>
-  </div>`;
-}
-
-// audio players map
-const _audios = {};
-function toggleAudio(aid, url) {
-  if (!_audios[aid]) {
-    _audios[aid] = new Audio(url);
-    _audios[aid].ontimeupdate = () => {
-      const a = _audios[aid];
-      const pct = a.duration ? (a.currentTime / a.duration * 100) : 0;
-      const fillEl = document.getElementById('fill_' + aid);
-      const timeEl = document.getElementById('time_' + aid);
-      if (fillEl) fillEl.style.width = pct + '%';
-      if (timeEl) timeEl.textContent = fmtSec(a.currentTime);
-    };
-    _audios[aid].onended = () => {
-      const iconEl = document.getElementById('icon_' + aid);
-      if (iconEl) iconEl.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
-    };
-  }
-  const a = _audios[aid];
-  const iconEl = document.getElementById('icon_' + aid);
-  if (a.paused) {
-    // pause all others
-    Object.keys(_audios).forEach(k => { if (k !== aid && !_audios[k].paused) _audios[k].pause(); });
-    a.play();
-    if (iconEl) iconEl.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
-  } else {
-    a.pause();
-    if (iconEl) iconEl.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
-  }
-}
-function seekAudio(aid, e) {
-  const a = _audios[aid];
-  if (!a || !a.duration) return;
-  const bar = document.getElementById('bar_' + aid);
-  const rect = bar.getBoundingClientRect();
-  a.currentTime = ((e.clientX - rect.left) / rect.width) * a.duration;
-}
-function fmtSec(s) {
-  s = Math.floor(s||0);
-  return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
-}
-
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-function viewImg(url) {
-  document.getElementById('img-viewer-img').src = url;
-  document.getElementById('img-viewer').classList.add('open');
-}
-
-// ════════════════════════════════════════
-// إرسال الرسائل
-// ════════════════════════════════════════
-function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
-
-function handleMicOrSend() {
-  const input = document.getElementById('chat-input');
-  if (input.value.trim()) { sendMessage(); }
-  else { startRecording(); }
-}
-
-function toggleSendIcon() {
-  const input = document.getElementById('chat-input');
-  const mic = document.getElementById('mic-icon');
-  const send = document.getElementById('send-icon');
-  if (input.value.trim()) { mic.classList.add('hidden'); send.classList.remove('hidden'); }
-  else { mic.classList.remove('hidden'); send.classList.add('hidden'); }
-}
-document.getElementById('chat-input').addEventListener('input', toggleSendIcon);
-
-function sendMessage() {
-  const input = document.getElementById('chat-input');
-  const text = input.value.trim();
-  if (!text || !activeChat) return;
-  if (isBlocked(activeChat.uid)) { showToast('لا يمكنك إرسال رسائل لهذا المستخدم (محظور)'); return; }
-
-  const msg = {
-    id: genId(), from: myUid, type: 'text', text,
-    ts: Date.now(), read: false,
-    replyTo: replyTo ? { ...replyTo } : null
-  };
-  pushMessage(msg);
-  input.value = '';
-  input.style.height = '';
-  cancelReply();
-  toggleSendIcon();
-
-  // رد تلقائي للعرض (يُحذف في الإنتاج)
-  setTimeout(() => simulateReply(), 1500 + Math.random()*2000);
-}
-
-function pushMessage(msg) {
-  const cid = chatId(activeChat.uid);
-  if (!chatsStore[cid]) chatsStore[cid] = { uid: activeChat.uid, name: activeChat.name, avatar: activeChat.avatar, messages:[], unread:0, lastTs:0 };
-  chatsStore[cid].messages.push(msg);
-  chatsStore[cid].lastTs = msg.ts;
-  if (msg.from !== myUid) chatsStore[cid].unread = (chatsStore[cid].unread || 0) + 1;
-  saveChatsStore();
-  renderChatMessages();
-}
-
-function simulateReply() {
-  if (!activeChat) return;
-  const replies = ['شكراً جزيلاً!', 'حسناً، سأتحقق من ذلك.', 'تمام 👍', 'فهمت، شكراً لك.', 'أوكي، سأرد قريباً.'];
-  const msg = {
-    id: genId(), from: activeChat.uid, type: 'text',
-    text: replies[Math.floor(Math.random()*replies.length)],
-    ts: Date.now(), read: false, replyTo: null
-  };
-  pushMessage(msg);
-}
-
-// ════════════════════════════════════════
-// الرد على رسالة
-// ════════════════════════════════════════
-function setReply(msgId) {
-  const cid = chatId(activeChat.uid);
-  const msgs = chatsStore[cid]?.messages || [];
-  const m = msgs.find(x => x.id === msgId);
-  if (!m) return;
-  replyTo = {
-    id: m.id,
-    text: m.type === 'image' ? '📷 صورة' : (m.type === 'audio' ? '🎙️ صوت' : (m.text || '')),
-    senderName: m.from === myUid ? myName : (activeChat?.name || '')
-  };
-  document.getElementById('reply-preview-text').textContent = replyTo.text;
-  document.getElementById('reply-bar').classList.add('visible');
-  document.getElementById('chat-input').focus();
-}
-function cancelReply() {
-  replyTo = null;
-  document.getElementById('reply-bar').classList.remove('visible');
-}
-
-// ════════════════════════════════════════
-// Context Menu (ضغط مطوّل)
-// ════════════════════════════════════════
-let _lpTimer = null;
-function startLongPress(e, msgId) {
-  _lpTimer = setTimeout(() => showCtxMenu(e, msgId), 600);
-}
-function cancelLongPress() { clearTimeout(_lpTimer); }
-
-function showCtxMenu(e, msgId) {
-  e.preventDefault();
-  activeMsgId = msgId;
-  const cid = chatId(activeChat.uid);
-  const m = (chatsStore[cid]?.messages || []).find(x => x.id === msgId);
-  const isMine = m && m.from === myUid;
-  document.getElementById('ctx-delete-both').style.display = isMine ? 'flex' : 'none';
-  const menu = document.getElementById('ctx-menu');
-  menu.style.display = 'block';
-  const x = Math.min(e.clientX || (e.touches?.[0]?.clientX || 100), window.innerWidth - 190);
-  const y = Math.min(e.clientY || (e.touches?.[0]?.clientY || 100), window.innerHeight - 200);
-  menu.style.left = x + 'px';
-  menu.style.top  = y + 'px';
-  setTimeout(() => document.addEventListener('click', hideCtxMenu, { once:true }), 10);
-}
-function hideCtxMenu() { document.getElementById('ctx-menu').style.display = 'none'; }
-function ctxReply() { hideCtxMenu(); setReply(activeMsgId); }
-function ctxCopy() {
-  const cid = chatId(activeChat.uid);
-  const m = (chatsStore[cid]?.messages || []).find(x => x.id === activeMsgId);
-  if (m?.text) { navigator.clipboard?.writeText(m.text).catch(()=>{}); showToast('تم نسخ الرسالة'); }
-  hideCtxMenu();
-}
-function ctxDeleteForMe() {
-  const cid = chatId(activeChat.uid);
-  const msgs = chatsStore[cid]?.messages || [];
-  const idx = msgs.findIndex(x => x.id === activeMsgId);
-  if (idx !== -1) { msgs[idx].deletedForMe = true; msgs[idx].deleted = true; }
-  saveChatsStore(); renderChatMessages(); hideCtxMenu();
-  showToast('تم حذف الرسالة من عندك');
-}
-function ctxDeleteForBoth() {
-  const cid = chatId(activeChat.uid);
-  const msgs = chatsStore[cid]?.messages || [];
-  const idx = msgs.findIndex(x => x.id === activeMsgId);
-  if (idx !== -1) { msgs[idx].deleted = true; msgs[idx].deletedForBoth = true; }
-  saveChatsStore(); renderChatMessages(); hideCtxMenu();
-  showToast('تم حذف الرسالة للجميع');
-}
-
-// ════════════════════════════════════════
-// تسجيل الصوت
-// ════════════════════════════════════════
-async function startRecording() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    recChunks = []; recSeconds = 0;
-    mediaRecorder.ondataavailable = e => recChunks.push(e.data);
-    mediaRecorder.start(100);
-
-    document.getElementById('input-bar').style.display = 'none';
-    document.getElementById('rec-bar').classList.add('visible');
-
-    recTimerInterval = setInterval(() => {
-      recSeconds++;
-      document.getElementById('rec-timer').textContent = fmtSec(recSeconds);
-    }, 1000);
-  } catch(e) { showToast('تعذّر الوصول إلى الميكروفون'); }
-}
-function cancelRecording() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-  clearInterval(recTimerInterval);
-  document.getElementById('rec-bar').classList.remove('visible');
-  document.getElementById('input-bar').style.display = 'flex';
-  recChunks = [];
-}
-function stopAndSendAudio() {
-  if (!mediaRecorder) return;
-  mediaRecorder.onstop = () => {
-    const blob = new Blob(recChunks, { type:'audio/webm' });
-    const url  = URL.createObjectURL(blob);
-    const msg  = { id:genId(), from:myUid, type:'audio', url, ts:Date.now(), read:false, replyTo: replyTo ? {...replyTo} : null };
-    pushMessage(msg);
-    cancelReply();
-  };
-  if (mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-  clearInterval(recTimerInterval);
-  document.getElementById('rec-bar').classList.remove('visible');
-  document.getElementById('input-bar').style.display = 'flex';
-}
-
-// ════════════════════════════════════════
-// الصور
-// ════════════════════════════════════════
-function openAttachSheet() { openSheet('bottom-sheet-overlay'); }
-function closeAttachSheet(e) {
-  if (e.target.id === 'bottom-sheet-overlay') closeSheet('bottom-sheet-overlay');
-}
-function triggerImagePick()  { closeSheet('bottom-sheet-overlay'); document.getElementById('img-picker').click(); }
-function triggerCameraPick() { closeSheet('bottom-sheet-overlay'); document.getElementById('cam-picker').click(); }
-
-function handleImagePicked(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    const msg = { id:genId(), from:myUid, type:'image', url: ev.target.result, ts:Date.now(), read:false, replyTo: replyTo ? {...replyTo} : null };
-    pushMessage(msg);
-    cancelReply();
-  };
-  reader.readAsDataURL(file);
-  e.target.value = '';
-}
-
-// ════════════════════════════════════════
-// قائمة خيارات الدردشة (3 نقاط)
-// ════════════════════════════════════════
-function openChatMenu()  { openSheet('chat-menu-overlay'); }
-function closeChatMenu(e) { if (!e || e.target.id === 'chat-menu-overlay') closeSheet('chat-menu-overlay'); }
-
-function updateBlockToggleLabel() {
-  if (!activeChat) return;
-  const blocked = isBlocked(activeChat.uid);
-  document.getElementById('block-toggle-label').textContent = blocked ? 'إلغاء الحظر' : 'حظر المستخدم';
-}
-
-function toggleBlockCurrentUser() {
-  if (!activeChat) return;
-  closeChatMenu();
-  const idx = blockedUsers.findIndex(u => u.uid === activeChat.uid);
-  if (idx !== -1) {
-    blockedUsers.splice(idx, 1);
+async function toggleBlock(){
+  if(!AC||!MY_UID)return;
+  closeSheet('chatmenu-ov');
+  const snap=await DB.ref(`users/${MY_UID}/blocked/${AC.uid}`).once('value');
+  const was=!!snap.val();
+  if(was){
+    await DB.ref(`users/${MY_UID}/blocked/${AC.uid}`).remove();
+    // send unblock notice into the conversation
+    const nr=DB.ref(`chats/${AC.cid}/messages`).push();
+    await nr.set({id:nr.key,from:MY_UID,type:'notice',noticeType:'unblock',
+      text:`✅ تم إلغاء الحظر من قِبَل ${MY_NAME} — يمكنك الآن مراسلته`,
+      ts:Date.now(),read:true});
     showToast('تم إلغاء الحظر');
   } else {
-    blockedUsers.push({ uid: activeChat.uid, name: activeChat.name, avatar: activeChat.avatar });
+    await DB.ref(`users/${MY_UID}/blocked/${AC.uid}`).set({name:AC.name,avatar:AC.avatar,ts:Date.now()});
+    // send block notice
+    const nr=DB.ref(`chats/${AC.cid}/messages`).push();
+    await nr.set({id:nr.key,from:MY_UID,type:'notice',noticeType:'block-n',
+      text:`⛔ لقد قام ${MY_NAME} بحظرك`,ts:Date.now(),read:true});
     showToast('تم حظر المستخدم');
-    setTimeout(() => closeChatView(), 800);
+    setTimeout(()=>closeChatView(),700);
   }
-  saveBlocked();
-  updateBlockToggleLabel();
-  renderBlockedList();
+  updateBlockLabel();renderBlockedList();updateBDot();
+}
+async function deleteChat(){
+  if(!AC||!MY_UID)return;
+  closeSheet('chatmenu-ov');
+  if(!confirm('حذف المحادثة؟'))return;
+  await DB.ref(`users/${MY_UID}/chats/${AC.cid}`).remove();
+  showToast('تم الحذف');setTimeout(()=>closeChatView(),500);
 }
 
-function deleteChatHistory() {
-  if (!activeChat) return;
-  if (!confirm('هل أنت متأكد من حذف المحادثة؟')) return;
-  const cid = chatId(activeChat.uid);
-  delete chatsStore[cid];
-  saveChatsStore();
-  closeChatMenu();
-  showToast('تم حذف المحادثة');
-  setTimeout(() => closeChatView(), 500);
+/* ─── SETTINGS ─── */
+async function openSettings(){
+  renderBlockedList();loadAR();openSheet('settings-ov');
 }
-
-function clearAllChats() {
-  if (!confirm('هل أنت متأكد من مسح جميع المحادثات؟')) return;
-  chatsStore = {};
-  saveChatsStore();
-  closeSettingsModal();
-  renderChatsList();
-  showToast('تم مسح جميع المحادثات');
+function switchTab(el){
+  const id=el.dataset.tab;
+  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.stab-panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById(id).classList.add('active');
 }
-
-// ════════════════════════════════════════
-// إعدادات
-// ════════════════════════════════════════
-function openSettings() { renderBlockedList(); openSheet('settings-modal'); }
-function closeSettingsModal(e) { if (!e || e.target.id === 'settings-modal') closeSheet('settings-modal'); }
-
-function updateBlockedDot() {
-  const dot = document.getElementById('blocked-dot');
-  if (dot) dot.style.display = blockedUsers.length ? 'block' : 'none';
+async function clearMyMsgs(){
+  if(!MY_UID)return;
+  closeSheet('settings-ov');
+  if(!confirm('تنظيف قائمة الرسائل؟'))return;
+  await DB.ref(`users/${MY_UID}/chats`).remove();
+  showToast('تم التنظيف');
 }
-
-function renderBlockedList() {
-  const list = document.getElementById('blocked-list');
-  const empty = document.getElementById('blocked-empty');
-  if (!blockedUsers.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
-  empty.style.display = 'none';
-  list.innerHTML = blockedUsers.map(u => `
-    <div class="blocked-item">
-      <img src="${u.avatar||'https://ui-avatars.com/api/?name='+encodeURIComponent(u.name)+'&background=e4e4e7&color=52525b&size=40'}"
-        class="w-10 h-10 rounded-full object-cover shrink-0" />
-      <div class="flex-1 min-w-0">
-        <p class="font-bold text-[14px] truncate">${u.name}</p>
-        <p class="text-[12px] text-zinc-400">محظور</p>
-      </div>
-      <button onclick="unblockUser('${u.uid}')"
-        class="text-[12px] font-bold text-blue-600 bg-blue-50 rounded-full px-3 py-1.5">إلغاء الحظر</button>
+async function renderBlockedList(){
+  if(!MY_UID)return;
+  const snap=await DB.ref(`users/${MY_UID}/blocked`).once('value');
+  const d=snap.val()||{};
+  const list=document.getElementById('blocked-list');
+  const empty=document.getElementById('blocked-empty-p');
+  const entries=Object.entries(d);
+  if(!entries.length){list.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  list.innerHTML=entries.map(([uid,u])=>`
+    <div class="blocked-row">
+      <img src="${escH(u.avatar||avUrl(u.name||'?'))}" onerror="this.src='${avUrl(u.name||'?')}'" class="w-10 h-10 rounded-full object-cover shrink-0"/>
+      <div class="flex-1 min-w-0"><p class="font-bold text-[14px] truncate">${escH(u.name||uid)}</p><p class="text-[12px] text-zinc-400">محظور</p></div>
+      <button onclick="unblockFromSettings('${escH(uid)}','${escH(u.name||uid)}','${escH(u.avatar||'')}')"
+        class="text-[12px] font-bold text-blue-600 bg-blue-50 rounded-full px-3 py-1.5 shrink-0">إلغاء</button>
     </div>`).join('');
 }
-
-function unblockUser(uid) {
-  const idx = blockedUsers.findIndex(u => u.uid === uid);
-  if (idx !== -1) blockedUsers.splice(idx, 1);
-  saveBlocked();
-  renderBlockedList();
-  showToast('تم إلغاء الحظر');
+async function unblockFromSettings(uid,name,avatar){
+  await DB.ref(`users/${MY_UID}/blocked/${uid}`).remove();
+  // send unblock notice
+  const cid=cidOf(MY_UID,uid);
+  const nr=DB.ref(`chats/${cid}/messages`).push();
+  await nr.set({id:nr.key,from:MY_UID,type:'notice',noticeType:'unblock',
+    text:`✅ تم إلغاء الحظر من قِبَل ${MY_NAME} — يمكنك الآن مراسلته`,ts:Date.now(),read:true});
+  showToast('تم إلغاء الحظر');renderBlockedList();updateBDot();
+}
+async function updateBDot(){
+  if(!MY_UID)return;
+  const s=await DB.ref(`users/${MY_UID}/blocked`).once('value');
+  const has=s.val()&&Object.keys(s.val()).length>0;
+  document.getElementById('blocked-dot').classList.toggle('hidden',!has);
+}
+/* ─── AUTO REPLY SETTINGS ─── */
+async function loadAR(){
+  if(!MY_UID)return;
+  const s=await DB.ref(`users/${MY_UID}/autoReply`).once('value');
+  const d=s.val()||{};
+  document.getElementById('ar-tog').checked=!!d.enabled;
+  document.getElementById('ar-txt').value=d.text||'مرحباً بك! سيتم الرد عليك في أقرب وقت ممكن 🙏';
+}
+let _arTimer=null;
+function saveAR(){
+  clearTimeout(_arTimer);
+  _arTimer=setTimeout(async()=>{
+    if(!MY_UID)return;
+    await DB.ref(`users/${MY_UID}/autoReply`).set({
+      enabled:document.getElementById('ar-tog').checked,
+      text:document.getElementById('ar-txt').value.trim()
+    });
+  },600);
 }
 
-// ════════════════════════════════════════
-// مساعدات Sheets
-// ════════════════════════════════════════
-function openSheet(id) {
-  const overlay = document.getElementById(id);
-  overlay.style.display = 'flex';
-  requestAnimationFrame(() => {
-    const sheet = overlay.querySelector('[id$="-sheet"]') || overlay.children[0];
-    if (sheet) sheet.style.transform = 'translateY(0)';
-  });
-}
-function closeSheet(id) {
-  const overlay = document.getElementById(id);
-  const sheet = overlay.querySelector('[id$="-sheet"]') || overlay.children[0];
-  if (sheet) sheet.style.transform = 'translateY(100%)';
-  setTimeout(() => overlay.style.display = 'none', 300);
+/* ─── SHEETS ─── */
+function openAttach(){openSheet('attach-ov');}
+function openChatMenu(){updateBlockLabel();openSheet('chatmenu-ov');}
+function openSheet(id){document.getElementById(id).classList.add('on');}
+function closeSheet(id){
+  const ov=document.getElementById(id);
+  const sh=ov.querySelector('.bsheet');
+  if(sh)sh.style.transform='translateY(100%)';
+  setTimeout(()=>{ov.classList.remove('on');if(sh)sh.style.transform='';},290);
 }
 
-// ════════════════════════════════════════
-// auto resize textarea
-// ════════════════════════════════════════
-function autoResize(el) {
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
-}
+/* ─── IMAGE VIEWER ─── */
+function viewImg(url){document.getElementById('imgv-img').src=url;document.getElementById('imgv').classList.add('on');}
 
-// ════════════════════════════════════════
-// Toast
-// ════════════════════════════════════════
-function showToast(msg, dur) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), dur || 2500);
-}
-
-// ════════════════════════════════════════
-// تهيئة عند التحميل
-// ════════════════════════════════════════
-(function init() {
-  // بيانات تجريبية إذا كان المخزن فارغاً
-  if (!Object.keys(chatsStore).length) {
-    const demoChats = [
-      { uid:'user_sara', name:'أ. سارة المهدي', avatar:'https://randomuser.me/api/portraits/women/44.jpg',
-        messages:[
-          { id:genId(), from:'user_sara', type:'text', text:'السلام عليكم، أرسلتُ لك الملخص الجديد للرياضيات 📚', ts: Date.now()-3600000, read:true },
-          { id:genId(), from:myUid, type:'text', text:'وعليكم السلام، شكراً جزيلاً أستاذة!', ts: Date.now()-3540000, read:true }
-        ], unread:1, lastTs: Date.now()-3540000 },
-      { uid:'inst_riyada', name:'مؤسسة الريادة للتعليم', avatar:'https://randomuser.me/api/portraits/men/32.jpg',
-        messages:[
-          { id:genId(), from:'inst_riyada', type:'text', text:'تم استقبال طلبك بنجاح ✅', ts: Date.now()-7200000, read:false }
-        ], unread:1, lastTs: Date.now()-7200000 },
-      { uid:'user_yousef', name:'يوسف أمين', avatar:'https://randomuser.me/api/portraits/men/65.jpg',
-        messages:[
-          { id:genId(), from:'user_yousef', type:'text', text:'شكراً على التوضيح 🙏', ts: Date.now()-86400000, read:true }
-        ], unread:0, lastTs: Date.now()-86400000 }
-    ];
-    demoChats.forEach(c => { chatsStore[chatId(c.uid)] = c; });
-    saveChatsStore();
+/* ─── INIT ─── */
+(async function init(){
+  if(!MY_UID){
+    document.getElementById('chats-list').innerHTML=`<div class="text-center py-16 text-zinc-400 text-[14px] font-bold">يجب تسجيل الدخول أولاً</div>`;
+    return;
   }
-
-  updateBlockedDot();
-
-  // فتح من URL params
-  const params = new URLSearchParams(window.location.search);
-  const pName   = params.get('chat');
-  const pAvatar = params.get('avatar');
-  const pUid    = params.get('uid');
-  if (pName) {
-    openChatUI(decodeURIComponent(pName), decodeURIComponent(pAvatar || ''), pUid ? decodeURIComponent(pUid) : null);
-  } else {
-    renderChatsList();
-  }
+  updateBDot();
+  listenConvs();
+  // URL params
+  const p=new URLSearchParams(window.location.search);
+  const pUid=p.get('uid'),pName=p.get('chat'),pAv=p.get('avatar');
+  if(pUid&&pName)openChat(decodeURIComponent(pUid),decodeURIComponent(pName),decodeURIComponent(pAv||''));
 })();
 </script>
 </body>
