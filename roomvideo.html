@@ -524,98 +524,118 @@
             padding: 8px 20px; font-size: 12px; cursor: pointer; font-family: 'Tajawal',sans-serif; width: 100%;
         }
 
-        /* بروفايل — تصميم محسّن */
+        /* بروفايل — تصميم مدمج */
         .pm {
             position: fixed; top: 50%; left: 50%;
             transform: translate(-50%,-50%) scale(.9);
-            background: var(--white); width: 88%; max-width: 340px;
+            background: var(--white); width: 88%; max-width: 320px;
             border-radius: 18px; z-index: 1105;
             display: none; opacity: 0; transition: .3s;
-            box-shadow: 0 14px 48px rgba(0,0,0,.18);
+            box-shadow: 0 14px 48px rgba(0,0,0,.22);
             text-align: center; overflow: hidden; padding: 0;
+            max-height: 88vh; overflow-y: auto;
         }
+        .pm::-webkit-scrollbar { display: none; }
         .pm.show { display: block; opacity: 1; transform: translate(-50%,-50%) scale(1); }
         .pmclose {
-            position: absolute; top: 10px; right: 10px; z-index: 10;
-            background: rgba(0,0,0,.35); border: none; width: 28px; height: 28px;
-            border-radius: 50%; color: white; cursor: pointer; font-size: 14px;
+            position: absolute; top: 8px; right: 8px; z-index: 10;
+            background: rgba(0,0,0,.38); border: none; width: 26px; height: 26px;
+            border-radius: 50%; color: white; cursor: pointer; font-size: 13px;
             display: flex; align-items: center; justify-content: center;
         }
-        /* غلاف البروفايل */
-        .pm-cover {
-            width: 100%; height: 80px; object-fit: cover; display: block;
-            background: linear-gradient(135deg,#1877f2,#764ba2);
-        }
-        .pm-cover-placeholder {
-            width: 100%; height: 80px;
-            background: linear-gradient(135deg,#1877f2 0%,#764ba2 100%);
-        }
-        /* صورة الملف الشخصي */
+        /* غلاف */
+        .pm-cover { width: 100%; height: 68px; object-fit: cover; display: block; }
+        .pm-cover-placeholder { width: 100%; height: 68px; background: linear-gradient(135deg,#1877f2 0%,#764ba2 100%); }
+        /* صورة */
         .pmavw {
-            width: 80px; height: 80px; border-radius: 50%;
+            width: 68px; height: 68px; border-radius: 50%;
             position: relative; overflow: hidden;
-            margin: -40px auto 0; border: 3px solid white;
-            box-shadow: 0 2px 10px rgba(0,0,0,.18);
-            background: #e4e6eb;
+            margin: -34px auto 4px; border: 3px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,.15); background: #e4e6eb;
         }
         .pmavw .pmav { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display:block; }
         .pmsh { position:absolute; inset:0; border-radius:50%; }
-        /* badge نوع الحساب */
-        #pmAccountBadge {
-            display: inline-block; padding: 3px 10px;
-            border-radius: 20px; font-size: 11px; font-weight: 700;
-            margin-bottom: 6px; margin-top: 6px;
+        /* الاسم — flex لدعم شارة التوثيق */
+        .pmnm {
+            font-size: 15px; font-weight: 800; color: var(--txt);
+            margin-bottom: 1px; padding: 0 12px;
+            display: flex; align-items: center; justify-content: center; gap: 4px;
+            flex-wrap: wrap;
         }
-        .pmnm { font-size: 16px; font-weight: 800; color: var(--txt); margin-bottom: 2px; padding: 0 16px; }
-        .pmid { font-size: 12px; color: var(--sub); margin-bottom: 4px; }
-        #pmLocation { font-size: 11px; color: #888; margin-bottom: 10px; }
+        .pmid { font-size: 11px; color: var(--sub); margin-bottom: 1px; }
+        #pmLocation { font-size: 10px; color: #999; margin-bottom: 3px; }
+        #pmAccountBadge {
+            display: inline-block; padding: 2px 9px;
+            border-radius: 20px; font-size: 10px; font-weight: 700;
+            margin-bottom: 5px; margin-top: 1px;
+        }
         /* إحصائيات */
         #pmStats {
-            display: flex; justify-content: center; gap: 0;
+            display: flex; justify-content: center;
             border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0;
-            margin: 0 0 14px; padding: 10px 0;
+            margin: 0 0 9px; padding: 6px 0;
         }
-        .pm-stat {
-            flex: 1; display: flex; flex-direction: column; gap: 1px;
-            border-left: 1px solid #f0f0f0;
-        }
+        .pm-stat { flex: 1; display: flex; flex-direction: column; border-left: 1px solid #f0f0f0; }
         .pm-stat:last-child { border-left: none; }
-        .pm-stat-val { font-size: 15px; font-weight: 800; color: #111; }
-        .pm-stat-lbl { font-size: 10px; color: #aaa; }
-        /* بروفايل - أزرار */
-        .pmac { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; padding: 0 14px 14px; }
+        .pm-stat-val { font-size: 13px; font-weight: 800; color: #111; }
+        .pm-stat-lbl { font-size: 9px; color: #bbb; }
+        /* ── أزرار عامة (متابعة وطابور) — grid 2 عمود ── */
+        .pmac {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 6px; padding: 0 12px 10px;
+        }
         .bac {
-            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-            padding: 9px 20px; border-radius: 10px; font-size: 13px; font-weight: 700;
+            display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+            padding: 8px 6px; border-radius: 9px; font-size: 12px; font-weight: 700;
             cursor: pointer; font-family: 'Tajawal',sans-serif; border: none;
-            transition: all .18s ease;
+            transition: filter .15s ease; width: 100%;
         }
-        .bac:active { transform: scale(.96); }
-        .bfl  { background: #1877f2; color: white; flex: 1; }
-        .bfl:hover { background: #1565c0; }
+        .bac:active { filter: brightness(.88); transform: scale(.95); }
+        .bfl  { background: #1877f2; color: white; }
+        .bfl:hover { filter: brightness(.9); }
         .bfl.following { background: #e8f0fe; color: #1877f2; }
-        .bmg  { background: #f0f2f5; color: #444; flex: 1; }
-        .bmg:hover { background: #e4e6eb; }
-        /* زر الخروج من البث / إزالة نفسي */
+        .bmg  { background: #e4e6eb; color: #333; }
+        .bmg:hover { filter: brightness(.95); }
+        /* ── أزرار المالك — grid 2 عمود ── */
+        .pmow { padding: 0 12px 10px; }
+        .pmowrow {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 6px; margin-top: 6px;
+        }
+        .pmobtn {
+            height: 35px; border: none; border-radius: 9px; font-weight: 700;
+            cursor: pointer; font-family: 'Tajawal',sans-serif; font-size: 11px;
+            transition: filter .15s; display: flex; align-items: center;
+            justify-content: center; gap: 4px; width: 100%;
+        }
+        .pmobtn:active { filter: brightness(.86); transform: scale(.95); }
+        /* ألوان موحدة صلبة */
+        .pmobtn.pmoinvite    { background: #16a34a; color: white; }
+        .pmobtn.pmospotlight { background: #1877f2; color: white; }
+        .pmobtn.pmobrd       { background: #7c3aed; color: white; }
+        .pmobtn.pmok         { background: #f59e0b; color: white; }
+        .pmobtn.pmob         { background: #ef4444; color: white; }
+        /* زر الكتم يمتد على عرض كامل عند وجوده وحده */
+        #pmOwnerMuteBtn      { background: #ea580c; color: white; }
+        /* أزرار نفسك */
         #pmSelfLeaveSpotBtn {
-            display: none; width: calc(100% - 28px); margin: 0 14px 10px;
-            padding: 10px; border: none; border-radius: 10px;
-            background: #fff3e0; color: #e65100;
-            font-weight: 700; font-size: 13px; font-family: 'Tajawal',sans-serif;
-            cursor: pointer; transition: background .15s;
+            display: none; width: calc(100% - 24px); margin: 0 12px 6px;
+            padding: 8px; border: none; border-radius: 9px;
+            background: #f59e0b; color: white;
+            font-weight: 700; font-size: 12px; font-family: 'Tajawal',sans-serif;
+            cursor: pointer; transition: filter .15s;
         }
-        #pmSelfLeaveSpotBtn:hover { background: #ffe0b2; }
+        #pmSelfLeaveSpotBtn:active { filter: brightness(.88); }
         #pmSelfLeaveSeatBtn {
-            display: none; width: calc(100% - 28px); margin: 0 14px 10px;
-            padding: 10px; border: none; border-radius: 10px;
-            background: #fce4ec; color: #c62828;
-            font-weight: 700; font-size: 13px; font-family: 'Tajawal',sans-serif;
-            cursor: pointer; transition: background .15s;
+            display: none; width: calc(100% - 24px); margin: 0 12px 6px;
+            padding: 8px; border: none; border-radius: 9px;
+            background: #ef4444; color: white;
+            font-weight: 700; font-size: 12px; font-family: 'Tajawal',sans-serif;
+            cursor: pointer; transition: filter .15s;
         }
-        #pmSelfLeaveSeatBtn:hover { background: #ffcdd2; }
+        #pmSelfLeaveSeatBtn:active { filter: brightness(.88); }
 
-        /* نافذة الخروج */
-        .lm { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) scale(.9); background: var(--white); width: 82%; max-width: 300px; border-radius: 13px; padding: 25px 20px; z-index: 1105; display: none; opacity: 0; transition: .3s; box-shadow: 0 10px 40px rgba(0,0,0,.3); text-align: center; font-family: 'Tajawal',sans-serif; }
+        /* نافذة الخروج */ position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) scale(.9); background: var(--white); width: 82%; max-width: 300px; border-radius: 13px; padding: 25px 20px; z-index: 1105; display: none; opacity: 0; transition: .3s; box-shadow: 0 10px 40px rgba(0,0,0,.3); text-align: center; font-family: 'Tajawal',sans-serif; }
         .lm.show { display: block; opacity: 1; transform: translate(-50%,-50%) scale(1); }
         .lm h3 { margin-bottom: 8px; color: var(--txt); font-size: 17px; }
         .lm p { font-size: 13px; color: var(--sub); margin-bottom: 18px; }
@@ -1455,31 +1475,31 @@
     <div class="pmow" id="pmow" style="display:none;">
         <div class="pmowrow">
             <button class="pmobtn pmoinvite" id="pmInviteBtn">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="9" width="18" height="13" rx="2"/><path d="M12 3v9m-4-4 4-5 4 5"/></svg>
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="9" width="18" height="13" rx="2"/><path d="M12 3v9m-4-4 4-5 4 5"/></svg>
                 دعوة للمقعد
             </button>
             <button class="pmobtn pmospotlight" id="pmSpotBtn">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
                 إظهار في الفيديو
             </button>
         </div>
         <div class="pmowrow">
             <button class="pmobtn pmobrd" id="pmBoardBtn">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
-                منح الكتابة للسبورة
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                منح الكتابة
+            </button>
+            <button class="pmobtn" id="pmOwnerMuteBtn" style="display:none;">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                كتم المايك
             </button>
         </div>
         <div class="pmowrow">
-            <button class="pmobtn" id="pmOwnerMuteBtn" style="background:#fff3e0;color:#e67e22;border:1px solid #f5cba7;display:none;">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-                كتم المايك
-            </button>
             <button class="pmobtn pmok" id="pmKickBtn">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                 طرد مؤقت
             </button>
             <button class="pmobtn pmob" id="pmBanBtn">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
                 حظر نهائي
             </button>
         </div>
@@ -2021,7 +2041,17 @@
                 }
             }
             // بادج رفع اليد — محذوف
-            lb.textContent = name.length > 8 ? name.slice(0,8)+'…' : name;
+            var seatDisplayName = name.length > 8 ? name.slice(0,8)+'…' : name;
+            var seatVerifyBadge = _pmVerifyBadge(data.userId, data.verified || data.isVerified || false);
+            if (seatVerifyBadge) {
+                lb.style.overflow = 'visible';
+                lb.innerHTML = seatDisplayName + seatVerifyBadge;
+            } else {
+                lb.style.overflow = '';
+                lb.textContent = seatDisplayName;
+                // tag للتحديث اللاحق
+                lb.dataset.verifyUid = data.userId;
+            }
             if (i === 0) ci.style.borderColor = '#f1c40f';
         } else {
             ci.classList.remove('active'); ci.classList.remove('loaded');
@@ -3298,6 +3328,45 @@
     }
 
     // ─── الهدايا — متطابقة مع index.html ───
+    // ── شارة التوثيق في النافذة والمقاعد ──
+    var _pmVerifiedCache = {};
+    function _pmVerifyBadge(uid, knownVerified) {
+        if (!uid) return '';
+        if (knownVerified === true) {
+            _pmVerifiedCache[uid] = true;
+        }
+        var v = _pmVerifiedCache[uid];
+        if (v === true) {
+            return '<img src="verify.png" style="width:14px;height:14px;object-fit:contain;flex-shrink:0;display:inline-block;vertical-align:middle;" alt="">';
+        }
+        if (v === false) return '';
+        // غير معروف — جلب من Firebase وتحديث DOM
+        if (typeof db !== 'undefined' && uid) {
+            db.ref('users/' + uid + '/verified').once('value').then(function(snap) {
+                var isV = snap.val() === true;
+                _pmVerifiedCache[uid] = isV;
+                if (isV) {
+                    // تحديث اسم في النافذة إذا كانت مفتوحة لنفس المستخدم
+                    if (window._pmUid === uid) {
+                        var nmEl = document.getElementById('pmnm');
+                        if (nmEl && !nmEl.querySelector('img[src="verify.png"]')) {
+                            nmEl.innerHTML = nmEl.textContent.trim() + '<img src="verify.png" style="width:14px;height:14px;object-fit:contain;flex-shrink:0;display:inline-block;vertical-align:middle;" alt="">';
+                        }
+                    }
+                    // تحديث شارة في المقاعد (تسمية vlb)
+                    document.querySelectorAll('[data-verify-uid="' + uid + '"]').forEach(function(el) {
+                        if (!el.querySelector('img[src="verify.png"]')) {
+                            var cur = el.textContent;
+                            el.style.overflow = 'visible';
+                            el.innerHTML = cur + '<img src="verify.png" style="width:11px;height:11px;object-fit:contain;flex-shrink:0;display:inline-block;vertical-align:middle;" alt="">';
+                        }
+                    });
+                }
+            }).catch(function(){});
+        }
+        return '';
+    }
+
     // ─── بروفايل ───
     function openProfile(name, src, uid, seatIdx, inRoom) {
         const pmav = document.getElementById('pmav');
@@ -3341,7 +3410,7 @@
                 if (pmsh) pmsh.style.display = 'none';
             }
         }
-        document.getElementById('pmnm').textContent = name || 'مستخدم';
+        document.getElementById('pmnm').innerHTML = (name || 'مستخدم') + _pmVerifyBadge(uid);
         document.getElementById('pmid').textContent = '';
 
         // إعادة تعيين الإحصائيات
@@ -3439,6 +3508,16 @@
         if (uid && !uid.startsWith('guest_')) {
             db.ref('users/' + uid).once('value', function(uSnap) {
                 var ud = uSnap.val() || {};
+
+                // تحديث شارة التوثيق بعد معرفة الحالة
+                var isVerified = !!(ud.verified || ud.isVerified);
+                _pmVerifiedCache[uid] = isVerified;
+                if (isVerified) {
+                    var nmEl = document.getElementById('pmnm');
+                    if (nmEl && !nmEl.querySelector('img[src="verify.png"]')) {
+                        nmEl.innerHTML = (name || 'مستخدم') + '<img src="verify.png" style="width:14px;height:14px;object-fit:contain;flex-shrink:0;display:inline-block;vertical-align:middle;" alt="">';
+                    }
+                }
 
                 // اسم المستخدم (@username)
                 var username = ud.username || ud.userName || '';
@@ -3660,7 +3739,29 @@
 
         document.getElementById('pmSpotBtn').onclick = function() {
             const uid = window._pmUid; const nm = window._pmName;
-            if (!uid || !isOwner) return; sendSpotlightInvite(uid, nm);
+            if (!uid || !isOwner) return;
+            // تحقق من حالة الـ peer — إذا كانت سيئة أعِد بناءه أولاً
+            var targetConn = null;
+            for (var k in teacherPeerConns) {
+                var c = teacherPeerConns[k];
+                if (c && c.uid === uid) { targetConn = c; break; }
+            }
+            if (targetConn && targetConn.pc) {
+                var st = targetConn.pc.iceConnectionState;
+                if (st === 'failed' || st === 'disconnected' || st === 'closed' || targetConn.pc.signalingState === 'closed') {
+                    var badKey2 = null;
+                    for (var k2 in teacherPeerConns) { if (teacherPeerConns[k2] === targetConn) { badKey2 = k2; break; } }
+                    if (badKey2) {
+                        showSnack('جاري إعادة الاتصال...', '');
+                        _rebuildPeerForOrganizer(badKey2, uid).then(function() {
+                            setTimeout(function() { sendSpotlightInvite(uid, nm); }, 1200);
+                        }).catch(function() { sendSpotlightInvite(uid, nm); });
+                        closeAll();
+                        return;
+                    }
+                }
+            }
+            sendSpotlightInvite(uid, nm);
         };
         // ─── زر منح الكتابة على السبورة ───
         const pmBoardBtn = document.getElementById('pmBoardBtn');
@@ -4617,9 +4718,45 @@
         }
 
         if (!conn || !conn.pc) {
-            // انتظر قليلاً وحاول مرة أخرى (ربما الاتصال لم يكتمل بعد)
+            // انتظر قليلاً وحاول مرة أخرى — ربما الاتصال لم يكتمل بعد
+            // لكن أولاً: حاول إعادة بناء peer إذا كان uid معروفاً
+            if (spotlightData.uid) {
+                var rebuildKey = null;
+                for (var rk in teacherPeerConns) {
+                    var rc = teacherPeerConns[rk];
+                    if (rc && rc.uid === spotlightData.uid) { rebuildKey = rk; break; }
+                }
+                if (!rebuildKey) {
+                    // البحث في /students عن الـ key
+                    db.ref('rooms/' + roomId + '/students').orderByChild('uid').equalTo(spotlightData.uid).once('value', function(snap) {
+                        var vals = snap.val();
+                        if (vals) {
+                            var firstKey = Object.keys(vals)[0];
+                            _rebuildPeerForOrganizer(firstKey, spotlightData.uid).then(function() {
+                                setTimeout(function() { handleSpotlightChange(spotlightData); }, 1500);
+                            }).catch(function() {});
+                        }
+                    });
+                    return;
+                }
+            }
             setTimeout(() => handleSpotlightChange(spotlightData), 1000);
             return;
+        }
+
+        // إذا كان الاتصال في حالة سيئة — أعِد بناءه أولاً
+        var connState = conn.pc.iceConnectionState;
+        if (connState === 'failed' || connState === 'disconnected' || connState === 'closed' || conn.pc.signalingState === 'closed') {
+            var badKey = null;
+            for (var bk in teacherPeerConns) {
+                if (teacherPeerConns[bk] === conn) { badKey = bk; break; }
+            }
+            if (badKey) {
+                _rebuildPeerForOrganizer(badKey, conn.uid || spotlightData.uid || '').then(function() {
+                    setTimeout(function() { handleSpotlightChange(spotlightData); }, 1500);
+                }).catch(function() {});
+                return;
+            }
         }
 
         // مثل ExempleTools: اقرأ track من getReceivers()
