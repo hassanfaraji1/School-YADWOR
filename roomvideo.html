@@ -524,30 +524,95 @@
             padding: 8px 20px; font-size: 12px; cursor: pointer; font-family: 'Tajawal',sans-serif; width: 100%;
         }
 
-        /* بروفايل */
-        .pm { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) scale(.9); background: var(--white); width: 85%; max-width: 320px; border-radius: 13px; padding: 25px 20px; z-index: 1105; display: none; opacity: 0; transition: .3s; box-shadow: 0 10px 40px rgba(0,0,0,.15); text-align: center; }
+        /* بروفايل — تصميم محسّن */
+        .pm {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%,-50%) scale(.9);
+            background: var(--white); width: 88%; max-width: 340px;
+            border-radius: 18px; z-index: 1105;
+            display: none; opacity: 0; transition: .3s;
+            box-shadow: 0 14px 48px rgba(0,0,0,.18);
+            text-align: center; overflow: hidden; padding: 0;
+        }
         .pm.show { display: block; opacity: 1; transform: translate(-50%,-50%) scale(1); }
-        .pmclose { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 18px; color: #999; cursor: pointer; }
-        .pmav { width: 85px; height: 85px; border-radius: 50%; border: 3px solid var(--blue); object-fit: cover; margin: 0 auto 12px; padding: 3px; display: block; }
-        .pmnm { font-size: 18px; font-weight: 800; color: var(--txt); margin-bottom: 4px; }
-        .pmid { font-size: 12px; color: var(--sub); margin-bottom: 20px; }
+        .pmclose {
+            position: absolute; top: 10px; right: 10px; z-index: 10;
+            background: rgba(0,0,0,.35); border: none; width: 28px; height: 28px;
+            border-radius: 50%; color: white; cursor: pointer; font-size: 14px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        /* غلاف البروفايل */
+        .pm-cover {
+            width: 100%; height: 80px; object-fit: cover; display: block;
+            background: linear-gradient(135deg,#1877f2,#764ba2);
+        }
+        .pm-cover-placeholder {
+            width: 100%; height: 80px;
+            background: linear-gradient(135deg,#1877f2 0%,#764ba2 100%);
+        }
+        /* صورة الملف الشخصي */
+        .pmavw {
+            width: 80px; height: 80px; border-radius: 50%;
+            position: relative; overflow: hidden;
+            margin: -40px auto 0; border: 3px solid white;
+            box-shadow: 0 2px 10px rgba(0,0,0,.18);
+            background: #e4e6eb;
+        }
+        .pmavw .pmav { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display:block; }
+        .pmsh { position:absolute; inset:0; border-radius:50%; }
+        /* badge نوع الحساب */
+        #pmAccountBadge {
+            display: inline-block; padding: 3px 10px;
+            border-radius: 20px; font-size: 11px; font-weight: 700;
+            margin-bottom: 6px; margin-top: 6px;
+        }
+        .pmnm { font-size: 16px; font-weight: 800; color: var(--txt); margin-bottom: 2px; padding: 0 16px; }
+        .pmid { font-size: 12px; color: var(--sub); margin-bottom: 4px; }
+        #pmLocation { font-size: 11px; color: #888; margin-bottom: 10px; }
+        /* إحصائيات */
+        #pmStats {
+            display: flex; justify-content: center; gap: 0;
+            border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0;
+            margin: 0 0 14px; padding: 10px 0;
+        }
+        .pm-stat {
+            flex: 1; display: flex; flex-direction: column; gap: 1px;
+            border-left: 1px solid #f0f0f0;
+        }
+        .pm-stat:last-child { border-left: none; }
+        .pm-stat-val { font-size: 15px; font-weight: 800; color: #111; }
+        .pm-stat-lbl { font-size: 10px; color: #aaa; }
         /* بروفايل - أزرار */
-        .pmac { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; padding: 0 8px; }
+        .pmac { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; padding: 0 14px 14px; }
         .bac {
             display: inline-flex; align-items: center; justify-content: center; gap: 6px;
             padding: 9px 20px; border-radius: 10px; font-size: 13px; font-weight: 700;
             cursor: pointer; font-family: 'Tajawal',sans-serif; border: none;
-            transition: all .18s ease; min-width: 110px;
+            transition: all .18s ease;
         }
         .bac:active { transform: scale(.96); }
-        /* متابعة — أزرق */
-        .bfl  { background: #1877f2; color: white; }
+        .bfl  { background: #1877f2; color: white; flex: 1; }
         .bfl:hover { background: #1565c0; }
-        /* يتابعه ✓ */
         .bfl.following { background: #e8f0fe; color: #1877f2; }
-        /* رسالة — رمادي فاتح */
-        .bmg  { background: #f0f2f5; color: #444; }
+        .bmg  { background: #f0f2f5; color: #444; flex: 1; }
         .bmg:hover { background: #e4e6eb; }
+        /* زر الخروج من البث / إزالة نفسي */
+        #pmSelfLeaveSpotBtn {
+            display: none; width: calc(100% - 28px); margin: 0 14px 10px;
+            padding: 10px; border: none; border-radius: 10px;
+            background: #fff3e0; color: #e65100;
+            font-weight: 700; font-size: 13px; font-family: 'Tajawal',sans-serif;
+            cursor: pointer; transition: background .15s;
+        }
+        #pmSelfLeaveSpotBtn:hover { background: #ffe0b2; }
+        #pmSelfLeaveSeatBtn {
+            display: none; width: calc(100% - 28px); margin: 0 14px 10px;
+            padding: 10px; border: none; border-radius: 10px;
+            background: #fce4ec; color: #c62828;
+            font-weight: 700; font-size: 13px; font-family: 'Tajawal',sans-serif;
+            cursor: pointer; transition: background .15s;
+        }
+        #pmSelfLeaveSeatBtn:hover { background: #ffcdd2; }
 
         /* نافذة الخروج */
         .lm { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) scale(.9); background: var(--white); width: 82%; max-width: 300px; border-radius: 13px; padding: 25px 20px; z-index: 1105; display: none; opacity: 0; transition: .3s; box-shadow: 0 10px 40px rgba(0,0,0,.3); text-align: center; font-family: 'Tajawal',sans-serif; }
@@ -1336,10 +1401,35 @@
 
 <!-- ===== بروفايل ===== -->
 <div class="pm" id="pm">
-    <button class="pmclose" onclick="closeAll()"><i class="fas fa-times"></i></button>
+    <button class="pmclose" onclick="closeAll()">✕</button>
+    <!-- غلاف البروفايل -->
+    <div class="pm-cover-placeholder" id="pmCoverPlaceholder"></div>
+    <img id="pmCoverImg" class="pm-cover" src="" alt="" style="display:none;" onerror="this.style.display='none';document.getElementById('pmCoverPlaceholder').style.display='block';">
+    <!-- صورة الملف + نوع الحساب -->
     <div class="pmavw" id="pmavw"><div class="vsh pmsh" id="pmsh"></div><img src="" class="pmav" id="pmav"></div>
     <div class="pmnm" id="pmnm">الاسم</div>
     <div class="pmid" id="pmid"></div>
+    <div id="pmLocation" style="display:none;"></div>
+    <div id="pmAccountBadge"></div>
+    <!-- إحصائيات -->
+    <div id="pmStats">
+        <div class="pm-stat">
+            <span class="pm-stat-val" id="pmStatFollow">—</span>
+            <span class="pm-stat-lbl">متابِع</span>
+        </div>
+        <div class="pm-stat">
+            <span class="pm-stat-val" id="pmStatFollowing">—</span>
+            <span class="pm-stat-lbl">يتابع</span>
+        </div>
+        <div class="pm-stat" id="pmStatExtraWrap">
+            <span class="pm-stat-val" id="pmStatExtra">—</span>
+            <span class="pm-stat-lbl" id="pmStatExtraLbl">طلاب</span>
+        </div>
+    </div>
+    <!-- أزرار المستخدم الخاص بنفسه -->
+    <button id="pmSelfLeaveSpotBtn" onclick="_selfLeaveSpotlight()">الخروج من البث</button>
+    <button id="pmSelfLeaveSeatBtn" onclick="_selfLeaveSeat()">إزالة نفسي من المقعد</button>
+    <!-- أزرار عامة -->
     <div class="pmac" style="flex-wrap:wrap;gap:8px;justify-content:center;">
         <button class="bac bfl" id="pmFollowBtn">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
@@ -1352,9 +1442,9 @@
         </button>
     </div>
     <!-- زر إخفاء/إظهار الكاميرا عند فتح ملفك الشخصي على مقعدك -->
-    <div class="pmow" id="pmSelfCamWrap" style="display:none; margin-top:12px; padding:0 14px 14px;">
+    <div class="pmow" id="pmSelfCamWrap" style="display:none; margin-top:4px; padding:0 14px 10px;">
         <div class="pmowrow">
-            <button class="pmobtn" id="pmToggleCamBtn" style="background:#e8f0fe;color:#1565c0;flex:1;">
+            <button class="pmobtn" id="pmToggleCamBtn" style="background:#e8f0fe;color:#1565c0;flex:1;" onclick="toggleAvatarOverlay()">
                 <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
                 إخفاء الكاميرا / إظهار ملفي
             </button>
@@ -2108,6 +2198,26 @@
         });
     }
 
+    // ── الأستاذ: إعادة بناء اتصال موجود مع منظم (يُستخدم عند العودة من الخلفية) ──
+    async function _rebuildPeerForOrganizer(studentKey, studentUid) {
+        // أغلق الاتصال القديم إذا وُجد
+        const oldConn = teacherPeerConns[studentKey];
+        if (oldConn) {
+            try { if (oldConn.pc) oldConn.pc.close(); } catch(e) {}
+            try { if (oldConn.audioEl) oldConn.audioEl.remove(); } catch(e) {}
+            delete teacherPeerConns[studentKey];
+        }
+        // احذف بيانات Firebase القديمة أولاً لإجبار المنظم على الرد من جديد
+        try {
+            await db.ref('rooms/' + roomId + '/offers/' + studentKey).remove();
+            await db.ref('rooms/' + roomId + '/answers/' + studentKey).remove();
+            await db.ref('rooms/' + roomId + '/candidates/' + studentKey).remove();
+        } catch(e) {}
+        // انتظر قليلاً ثم أنشئ اتصالاً جديداً
+        await new Promise(function(r){ setTimeout(r, 300); });
+        await createPeerForOrganizer(studentKey, studentUid);
+    }
+
     // ── المنظم: يرد على offer الأستاذ (مثل createStudentPeerAndAnswer) ──
     async function createOrganizerPeerAndAnswer(offerStr) {
         // أغلق أي اتصال قديم
@@ -2381,15 +2491,26 @@
                 document.getElementById('tv').play().catch(() => {});
                 localStream.getAudioTracks().forEach(t => { t.enabled = micOn; });
 
-                // أعِد offer لأي منظم سبق وانضم
+                // أعِد offer لأي منظم سبق وانضم — إذا كان هناك connection موجود
+                // استخدم replaceTrack للـ peers الجيدة، وأعد بناء الـ peers السيئة
                 Object.keys(teacherPeerConns).forEach(async (key) => {
                     const conn = teacherPeerConns[key];
-                    if (conn && conn.pc) {
+                    if (!conn || !conn.pc) return;
+                    const pcSt = conn.pc.iceConnectionState;
+                    if (pcSt === 'failed' || pcSt === 'disconnected' || pcSt === 'closed' || conn.pc.signalingState === 'closed') {
+                        // إعادة بناء كاملة
+                        try { await _rebuildPeerForOrganizer(key, conn.uid || ''); } catch(e) {}
+                    } else {
+                        // استبدل الـ tracks فقط
                         localStream.getTracks().forEach(track => {
-                            try { conn.pc.addTrack(track, localStream); } catch(e) {}
+                            const sender = conn.pc.getSenders().find(s => s.track && s.track.kind === track.kind);
+                            if (sender) { sender.replaceTrack(track).catch(() => {}); }
+                            else { try { conn.pc.addTrack(track, localStream); } catch(e) {} }
                         });
                     }
                 });
+                // إشارة لإجبار جميع المنظمين على إعادة الاتصال (يحل مشكلة الصوت عند العودة)
+                try { db.ref('rooms/' + roomId + '/ownerReoffer').set(Date.now()); } catch(e) {}
             }).catch(() => {});
 
             // مراقبة انضمام المنظمين — مثل child_added في ExempleTools
@@ -2517,6 +2638,33 @@
                         }
                     } catch(e) {}
                 }
+            });
+
+            // مستمع ownerReoffer — يُعيد بناء الاتصال عند رجوع الأستاذ من الصندوق العائم
+            var _lastReoffer = 0;
+            db.ref('rooms/' + roomId + '/ownerReoffer').on('value', async function(reofferSnap) {
+                var ts = reofferSnap.val();
+                if (!ts || ts <= _lastReoffer) return;
+                _lastReoffer = ts;
+                if (Date.now() - ts > 30000) return; // تجاهل الإشارات القديمة
+                // انتظر قليلاً ثم اطلب الـ offer الجديد
+                setTimeout(async function() {
+                    try {
+                        var offerSnap = await db.ref('rooms/' + roomId + '/offers/' + sid).get();
+                        if (offerSnap.exists()) {
+                            await createOrganizerPeerAndAnswer(offerSnap.val());
+                            // أعِد تشغيل الصوت بعد إعادة البناء
+                            setTimeout(function() {
+                                document.querySelectorAll('audio').forEach(function(a) {
+                                    a.muted = !spkOn;
+                                    if (a.paused && a.srcObject) a.play().catch(function(){});
+                                });
+                                var tvEl = document.getElementById('tv');
+                                if (tvEl && tvEl.srcObject && tvEl.paused) tvEl.play().catch(function(){});
+                            }, 800);
+                        }
+                    } catch(e) {}
+                }, 1500);
             });
 
             // ICE من الأستاذ
@@ -3194,24 +3342,64 @@
             }
         }
         document.getElementById('pmnm').textContent = name || 'مستخدم';
-        document.getElementById('pmid').textContent = uid ? '@' + uid.slice(0,10) : '';
+        document.getElementById('pmid').textContent = '';
+
+        // إعادة تعيين الإحصائيات
+        var badgeEl = document.getElementById('pmAccountBadge');
+        var locEl   = document.getElementById('pmLocation');
+        var sfVal   = document.getElementById('pmStatFollow');
+        var sfing   = document.getElementById('pmStatFollowing');
+        var sfex    = document.getElementById('pmStatExtra');
+        var sfexLbl = document.getElementById('pmStatExtraLbl');
+        var sfexWr  = document.getElementById('pmStatExtraWrap');
+        if (badgeEl) { badgeEl.textContent = ''; badgeEl.style.display = 'none'; }
+        if (locEl)   { locEl.textContent = ''; locEl.style.display = 'none'; }
+        if (sfVal)   sfVal.textContent   = '—';
+        if (sfing)   sfing.textContent   = '—';
+        if (sfex)    sfex.textContent    = '—';
+        if (sfexWr)  sfexWr.style.display = 'none';
+
+        // إعادة الغلاف للافتراضي
+        var coverImg = document.getElementById('pmCoverImg');
+        var coverPh  = document.getElementById('pmCoverPlaceholder');
+        if (coverImg) { coverImg.style.display = 'none'; coverImg.src = ''; }
+        if (coverPh)  coverPh.style.display = 'block';
+
+        // إخفاء أزرار نفسك المخصصة
+        var slsBtn  = document.getElementById('pmSelfLeaveSpotBtn');
+        var slseat  = document.getElementById('pmSelfLeaveSeatBtn');
+        if (slsBtn)  slsBtn.style.display  = 'none';
+        if (slseat)  slseat.style.display  = 'none';
 
         // إعادة تعيين الأزرار
         const fb  = document.getElementById('pmFollowBtn');
-        if (fb)  { fb.innerHTML  = 'متابعة <i class="fas fa-plus"></i>'; fb.className  = 'bac bfl'; }
+        if (fb)  { fb.innerHTML  = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> متابعة'; fb.className  = 'bac bfl'; }
 
         // إخفاء أزرار نفسك
         const isSelf = me && uid === me.uid;
         if (fb)  fb.style.display  = isSelf ? 'none' : '';
-        // إخفاء زر إضافة صديق وقائمة الأصدقاء نهائياً — تمت إزالتهم
-
 
         window._pmUid    = uid || '';
         window._pmSeat   = (typeof seatIdx === 'number') ? seatIdx : null;
         window._pmName   = name || '';
         window._pmAvatar = src || '';
-        // هل الشخص موجود في الغرفة فعلاً؟ (من مقعد أو قائمة مشاهدين)
         window._pmInRoom = (inRoom === true) || (typeof seatIdx === 'number');
+
+        // ── أزرار نفسك (تلميذ في البث أو في مقعد) ──
+        if (isSelf && !isOwner) {
+            // فحص: هل هو في البث الآن؟
+            db.ref('rooms/' + roomId + '/spotlight').once('value', function(spSnap) {
+                var spData = spSnap.val();
+                var inSpot = spData && spData.uid && me && spData.uid === me.uid;
+                if (inSpot && slsBtn) {
+                    slsBtn.style.display = 'block';
+                }
+            });
+            // فحص: هل هو في مقعد؟
+            if (mySeatIdx !== null && slseat) {
+                slseat.style.display = 'block';
+            }
+        }
 
         // إظهار/إخفاء زر الكاميرا للمضيف عند الضغط على مقعده الخاص
         var selfCamWrap = document.getElementById('pmSelfCamWrap');
@@ -3219,7 +3407,6 @@
             var showSelfCam = isOwner && isSelf && typeof seatIdx === 'number';
             selfCamWrap.style.display = showSelfCam ? 'block' : 'none';
             if (showSelfCam) {
-                // تحديث نص الزر حسب الحالة الحالية
                 var btn = document.getElementById('pmToggleCamBtn');
                 if (btn) {
                     btn.innerHTML = _avOverlayOn
@@ -3234,10 +3421,7 @@
         if (queueBtn) {
             var showQueue = isOwner && isSelf && typeof seatIdx === 'number';
             queueBtn.style.display = showQueue ? '' : 'none';
-            if (showQueue) {
-                // تحديث حالة الزر (مفعّل / غير مفعّل)
-                _updateQueueBtnUI();
-            }
+            if (showQueue) { _updateQueueBtnUI(); }
         }
 
         // فحص حالة المتابعة من Firebase
@@ -3246,15 +3430,118 @@
                 if (snap.exists()) {
                     if (fb) { fb.innerHTML = 'يتابعه ✓'; fb.className = 'bac bfl following'; }
                 } else {
-                    if (fb) { fb.innerHTML = 'متابعة <i class="fas fa-plus"></i>'; fb.className = 'bac bfl'; }
+                    if (fb) { fb.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> متابعة'; fb.className = 'bac bfl'; }
                 }
             });
-            // زر إضافة صديق مخفي دائماً — لا حاجة لفحص Firebase
+        }
+
+        // جلب بيانات المستخدم من Firebase لعرض الغلاف واسم المستخدم والموقع والنوع
+        if (uid && !uid.startsWith('guest_')) {
+            db.ref('users/' + uid).once('value', function(uSnap) {
+                var ud = uSnap.val() || {};
+
+                // اسم المستخدم (@username)
+                var username = ud.username || ud.userName || '';
+                var pidEl = document.getElementById('pmid');
+                if (pidEl) pidEl.textContent = username ? ('@' + username) : '';
+
+                // المدينة والدولة
+                var city    = ud.city    || ud.location || '';
+                var country = ud.country || '';
+                var locStr  = [city, country].filter(Boolean).join('، ');
+                if (locEl && locStr) { locEl.textContent = locStr; locEl.style.display = 'block'; }
+
+                // نوع الحساب
+                var accType = ud.accountType || ud.type || ud.profileType || '';
+                var badgeMap = {
+                    'teacher':      { label: 'أستاذ',         bg: '#e8f5e9', color: '#2e7d32' },
+                    'student':      { label: 'طالب',          bg: '#e3f2fd', color: '#1565c0' },
+                    'institution':  { label: 'مؤسسة',         bg: '#fff3e0', color: '#e65100' },
+                    'influencer':   { label: 'مؤثر تعليمي',   bg: '#f3e5f5', color: '#6a1b9a' },
+                    'admin':        { label: 'مشرف',          bg: '#fce4ec', color: '#c62828' }
+                };
+                var badge = badgeMap[accType];
+                if (badge && badgeEl) {
+                    badgeEl.textContent = badge.label;
+                    badgeEl.style.background = badge.bg;
+                    badgeEl.style.color      = badge.color;
+                    badgeEl.style.display    = 'inline-block';
+                }
+
+                // الغلاف (cover)
+                var coverUrl = ud.coverUrl || ud.cover || ud.coverPhoto || '';
+                if (coverUrl && coverImg && coverPh) {
+                    coverImg.src = coverUrl;
+                    coverImg.style.display = 'block';
+                    coverPh.style.display  = 'none';
+                    coverImg.onerror = function() { coverImg.style.display='none'; coverPh.style.display='block'; };
+                }
+
+                // إحصائيات المتابعين
+                db.ref('followers').orderByChild('userId').equalTo(uid).once('value', function(fSnap) {
+                    var fCount = fSnap.numChildren ? fSnap.numChildren() : (fSnap.val() ? Object.keys(fSnap.val()).length : 0);
+                    if (sfVal) sfVal.textContent = fCount > 999 ? (Math.floor(fCount/1000)+'k') : String(fCount);
+                });
+                db.ref('followers').orderByChild('followerId').equalTo(uid).once('value', function(fiSnap) {
+                    var fiCount = fiSnap.numChildren ? fiSnap.numChildren() : (fiSnap.val() ? Object.keys(fiSnap.val()).length : 0);
+                    if (sfing) sfing.textContent = fiCount > 999 ? (Math.floor(fiCount/1000)+'k') : String(fiCount);
+                });
+
+                // إحصائيات خاصة بالنوع
+                if (accType === 'teacher' || accType === 'institution') {
+                    var studentsPath = accType === 'institution' ? ('institutions/' + uid + '/students') : ('teachers/' + uid + '/students');
+                    db.ref(studentsPath).once('value', function(stSnap) {
+                        var stCount = stSnap.numChildren ? stSnap.numChildren() : (stSnap.val() ? Object.keys(stSnap.val()).length : 0);
+                        if (sfex) sfex.textContent = stCount > 999 ? (Math.floor(stCount/1000)+'k') : String(stCount);
+                        if (sfexLbl) sfexLbl.textContent = 'طلاب';
+                        if (sfexWr)  sfexWr.style.display = '';
+                    });
+                }
+            });
         }
 
         updateOwnerPanel();
         openOv();
         document.getElementById('pm').classList.add('show');
+    }
+
+    // ── الطالب يخرج من البث بنفسه ──
+    function _selfLeaveSpotlight() {
+        closeAll();
+        showConfirm('الخروج من البث', 'هل تريد الخروج من البث؟ سيعود الفيديو للأستاذ.', async function() {
+            try { await db.ref('rooms/' + roomId + '/spotlight').remove(); } catch(e) {}
+            // إطفاء الكاميرا
+            if (localStream) localStream.getVideoTracks().forEach(function(t){ t.enabled = false; });
+            var scb = document.getElementById('switchCamBtn');
+            if (scb) scb.style.display = 'none';
+            showSnack('خرجت من البث', '');
+        });
+    }
+
+    // ── الطالب يزيل نفسه من المقعد ──
+    function _selfLeaveSeat() {
+        closeAll();
+        showConfirm('إزالة نفسي من المقعد', 'هل تريد ترك المقعد؟', async function() {
+            if (mySeatIdx === null) return;
+            var sIdx = mySeatIdx;
+            // تحقق: إذا كان في البث أيضاً — أزل spotlight أيضاً
+            try {
+                var spSnap = await db.ref('rooms/' + roomId + '/spotlight').get();
+                var spData = spSnap.val();
+                if (spData && spData.uid === me.uid) {
+                    await db.ref('rooms/' + roomId + '/spotlight').remove();
+                }
+            } catch(e) {}
+            // إطفاء الميك والكاميرا
+            micOn = false;
+            if (localStream) localStream.getTracks().forEach(function(t){ t.enabled = false; });
+            var mcBtnRm = document.getElementById('mcBtn');
+            if (mcBtnRm) mcBtnRm.style.display = 'none';
+            // إزالة المقعد
+            try { await db.ref('rooms/' + roomId + '/seats/' + sIdx).remove(); } catch(e) {}
+            mySeatIdx = null;
+            showSnack('تم ترك المقعد', '');
+        });
     }
 
     function updateOwnerPanel() {
@@ -3358,7 +3645,7 @@
             const snap = await db.ref('followers/' + followId).once('value');
             if (snap.exists()) {
                 await db.ref('followers/' + followId).remove();
-                this.innerHTML = 'متابعة <i class="fas fa-plus"></i>';
+                this.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> متابعة';
                 this.className = 'bac bfl';
                 showSnack('تم إلغاء المتابعة', '');
             } else {
@@ -4307,6 +4594,8 @@
                         if (sender) sender.replaceTrack(localStream.getVideoTracks()[0]).catch(() => {});
                     }
                 }
+                // أبلغ المشاهدين بالعودة للفيديو الأصلي
+                try { db.ref('rooms/' + roomId + '/spotlightTrackTs').set(Date.now()); } catch(e) {}
             }
             if (backBtn) backBtn.style.display = 'none';
             return;
@@ -4357,6 +4646,8 @@
                     if (sender) sender.replaceTrack(studentVideoTrack).catch(() => {});
                 }
             }
+            // أبلغ المشاهدين بأن الـ track تغيّر — يعيدون تشغيل #tv
+            try { db.ref('rooms/' + roomId + '/spotlightTrackTs').set(Date.now()); } catch(e) {}
         } else {
             // Track غير جاهز بعد — استمع على ontrack مباشرة لإمساك الـ track عند وصوله
             if (!conn._spotWaiting) {
@@ -4429,6 +4720,8 @@
                     if (sender) sender.replaceTrack(localStream.getVideoTracks()[0]).catch(() => {});
                 }
             }
+            // أبلغ المشاهدين بالعودة للكاميرا الأصلية
+            try { db.ref('rooms/' + roomId + '/spotlightTrackTs').set(Date.now()); } catch(e) {}
             // أبلغ Firebase بإخفاء overlay
             try { db.ref('rooms/' + roomId + '/ownerOverlay').set({ on: false, ts: Date.now() }); } catch(e) {}
         } else {
@@ -4459,6 +4752,38 @@
     }
 
         function listenSpotlight() {
+        // مستمع spotlightTrackTs — للمشاهدين فقط — يعيد تشغيل #tv عند كل تغيير track
+        if (!isOwner) {
+            var _lastSpotTs = 0;
+            db.ref('rooms/' + roomId + '/spotlightTrackTs').on('value', function(tsSnap) {
+                var ts = tsSnap.val();
+                if (!ts || ts <= _lastSpotTs) return;
+                _lastSpotTs = ts;
+                // إذا كان التغيير حديثاً (خلال 15 ثانية) أعِد تشغيل #tv
+                if (Date.now() - ts > 15000) return;
+                setTimeout(function() {
+                    var tvEl = document.getElementById('tv');
+                    if (tvEl && tvEl.srcObject) {
+                        tvEl.muted = !spkOn;
+                        if (tvEl.paused) {
+                            tvEl.play().catch(function() {});
+                        } else {
+                            // أوقف وأعِد — يضمن تحميل الـ track الجديد
+                            tvEl.pause();
+                            tvEl.currentTime = 0;
+                            tvEl.play().catch(function() {});
+                        }
+                    }
+                    // أعِد تشغيل الصوت المنفصل إن وُجد
+                    var sra = document.getElementById('studentRemoteAudio');
+                    if (sra && sra.srcObject) {
+                        sra.muted = !spkOn;
+                        if (sra.paused) sra.play().catch(function() {});
+                    }
+                }, 400);
+            });
+        }
+
         // مستمع spotlight لجميع المستخدمين
         db.ref('rooms/' + roomId + '/spotlight').on('value', snap => {
             const sp = snap.val() || null;
@@ -4784,12 +5109,17 @@
                             localStream = retStream;
                             localStream.getAudioTracks().forEach(function(t){ t.enabled = micOn; });
                             if (tvElRet && !_avOverlayOn) { tvElRet.srcObject = retStream; tvElRet.muted = true; tvElRet.play().catch(function(){}); }
-                            // استبدل track في peers
+                            // استبدل track في peers — إذا حالة الاتصال سيئة أعد بناءه كاملاً
                             var newVT = retStream.getVideoTracks()[0];
                             var newAT = retStream.getAudioTracks()[0];
                             for (var retKey in teacherPeerConns) {
                                 var retConn = teacherPeerConns[retKey];
-                                if (retConn && retConn.pc && retConn.pc.signalingState !== 'closed') {
+                                if (!retConn || !retConn.pc) continue;
+                                var pcSt = retConn.pc.iceConnectionState;
+                                if (pcSt === 'failed' || pcSt === 'disconnected' || pcSt === 'closed' || retConn.pc.signalingState === 'closed') {
+                                    // إعادة بناء كاملة للـ peer الذي انقطع
+                                    (function(rk, ru){ _rebuildPeerForOrganizer(rk, ru).catch(function(){}); })(retKey, retConn.uid || '');
+                                } else {
                                     retConn.pc.getSenders().forEach(function(sender) {
                                         if (sender.track) {
                                             if (sender.track.kind === 'video' && newVT) sender.replaceTrack(newVT).catch(function(){});
@@ -5033,6 +5363,23 @@
             setTimeout(function() {
                 db.ref('rooms/' + roomId).remove().catch(function(){});
             }, 3000);
+        } else {
+            // الطالب يغادر: أزل مقعده فوراً من Firebase
+            if (mySeatIdx !== null) {
+                try { db.ref('rooms/' + roomId + '/seats/' + mySeatIdx).remove(); } catch(e) {}
+                mySeatIdx = null;
+            }
+            // إذا كان في البث — أزل spotlight
+            try {
+                db.ref('rooms/' + roomId + '/spotlight').once('value', function(spSnap) {
+                    var spData = spSnap.val();
+                    if (spData && spData.uid && me && spData.uid === me.uid) {
+                        db.ref('rooms/' + roomId + '/spotlight').remove().catch(function(){});
+                    }
+                });
+            } catch(e) {}
+            // أزل من المشاهدين
+            try { db.ref('rooms/' + roomId + '/viewers/' + me.uid).remove(); } catch(e) {}
         }
         cleanup();
         location.href = 'roomhom.html';
@@ -5040,6 +5387,22 @@
 
     // ─── الذهاب للرئيسية مع الإبقاء في الغرفة ───
     function goHomeKeepRoom() {
+        // إذا كان الطالب في البث — امنعه من المغادرة
+        if (!isOwner) {
+            db.ref('rooms/' + roomId + '/spotlight').once('value', function(spSnap) {
+                var spData = spSnap.val();
+                if (spData && spData.uid && me && spData.uid === me.uid) {
+                    showToast('لا يمكنك مغادرة الغرفة وأنت في البث. اضغط على مقعدك لإزالة نفسك من البث أولاً.');
+                    return;
+                }
+                // ليس في البث — اسمح بالخروج
+                _doGoHomeKeepRoom();
+            });
+            return;
+        }
+        _doGoHomeKeepRoom();
+    }
+    function _doGoHomeKeepRoom() {
         // إذا كان الأستاذ — أظهر صورته (أخفِ الكاميرا) عند الذهاب للرئيسية
         if (isOwner && !_avOverlayOn) {
             try { showAvatarOverlay(); } catch(e) {}
