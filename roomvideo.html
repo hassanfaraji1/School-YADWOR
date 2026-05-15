@@ -829,16 +829,18 @@
         }
         @keyframes vshMove { 0%{background-position:100% 50%} 100%{background-position:-100% 50%} }
 
-        /* بادج المايك — فوق الصورة زاوية سفلية يمنى، مرئي دائماً */
+        /* بادج المايك — على .vsb خارج vci لكي لا يُقطع بـ overflow:hidden */
         .vmic {
-            position: absolute; bottom: 2px; right: 2px;
-            width: 15px; height: 15px; border-radius: 50%;
+            position: absolute;
+            bottom: 22px;   /* فوق الـ label بقليل، على حافة الدائرة */
+            right: 0px;
+            width: 16px; height: 16px; border-radius: 50%;
             border: 2px solid white;
             display: flex; align-items: center; justify-content: center;
-            font-size: 6px; z-index: 35;
-            pointer-events: none; /* لا يُضغط عليه — فقط مؤشر */
+            font-size: 6px; z-index: 40;
+            pointer-events: none;
         }
-        .vmic.me { pointer-events: auto; cursor: pointer; } /* فقط للمستخدم نفسه */
+        .vmic.me { pointer-events: auto; cursor: pointer; }
         .vmic.on  { background: #16a34a; color: white; }
         .vmic.off { background: #dc2626; color: white; }
         .vmic.owner-muted { background: #ea580c; color: white; }
@@ -1482,19 +1484,11 @@
                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
                     إخفاء الكاميرا
                 </button>
-                <button class="pmobtn" id="pmOwnerSelfSpotBtn"
-                    style="background:#15803d;color:#fff;"
-                    onclick="_ownerShowSelfInSpot()">
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-                    إظهار في البث
-                </button>
-            </div>
-            <div class="pmowrow">
                 <button id="pmQueueBtn"
-                    style="display:none;position:relative;border:none;border-radius:9px;height:34px;font-family:'Tajawal',sans-serif;font-size:11px;font-weight:700;cursor:pointer;align-items:center;justify-content:center;gap:4px;background:#6d28d9;color:#fff;width:100%;grid-column:1/-1;">
+                    style="display:none;position:relative;border:none;border-radius:9px;height:36px;font-family:'Tajawal',sans-serif;font-size:11px;font-weight:700;cursor:pointer;align-items:center;justify-content:center;gap:4px;background:#6d28d9;color:#fff;width:100%;">
                     <span id="pmQueueIcon"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="8,12 11,15 16,9"/></svg></span>
                     <span id="pmQueueLabel">تفعيل الطابور</span>
-                    <span id="pmQueueDot" style="position:absolute;top:-4px;left:-4px;width:10px;height:10px;background:#dc2626;border-radius:50%;display:none;"></span>
+                    <span id="pmQueueDot" style="position:absolute;top:-4px;left:-4px;width:9px;height:9px;background:#dc2626;border-radius:50%;display:none;"></span>
                 </button>
             </div>
         </div>
@@ -1512,27 +1506,27 @@
         <!-- ④ أزرار المالك على ملف شخص آخر -->
         <div class="pmow" id="pmow" style="display:none;">
             <div class="pmowrow">
-                <button class="pmobtn" id="pmInviteBtn" style="background:#166534;color:#fff;">
+                <button class="pmobtn" id="pmInviteBtn" style="background:#0f4c81;color:#fff;">
                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="9" width="18" height="13" rx="2"/><path d="M12 3v9m-4-4 4-5 4 5"/></svg>
                     دعوة للمقعد
                 </button>
-                <button class="pmobtn" id="pmSpotBtn" style="background:#1e40af;color:#fff;">
+                <button class="pmobtn" id="pmSpotBtn" style="background:#0f4c81;color:#fff;">
                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
                     في البث
                 </button>
             </div>
             <div class="pmowrow">
-                <button class="pmobtn" id="pmBoardBtn" style="background:#5b21b6;color:#fff;">
+                <button class="pmobtn" id="pmBoardBtn" style="background:#0f4c81;color:#fff;">
                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
                     الكتابة
                 </button>
-                <button class="pmobtn" id="pmOwnerMuteBtn" style="display:none;background:#c2410c;color:#fff;">
+                <button class="pmobtn" id="pmOwnerMuteBtn" style="display:none;background:#0f4c81;color:#fff;">
                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-                    كتم
+                    كتم المايك
                 </button>
             </div>
             <div class="pmowrow">
-                <button class="pmobtn" id="pmKickBtn" style="background:#92400e;color:#fff;">
+                <button class="pmobtn" id="pmKickBtn" style="background:#b45309;color:#fff;">
                     <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                     طرد مؤقت
                 </button>
@@ -2060,7 +2054,7 @@
                 mc.innerHTML = micOn
                     ? '<i class="fas fa-microphone" style="font-size:6px"></i>'
                     : '<i class="fas fa-microphone-slash" style="font-size:6px"></i>';
-                ci.appendChild(mc);
+                sb.appendChild(mc);  // على vsb لكي لا يُقطع بـ overflow:hidden
                 var mcBtnEl2 = document.getElementById('mcBtn');
                 if (mcBtnEl2) mcBtnEl2.style.display = '';
             } else {
@@ -2075,7 +2069,7 @@
                             ? '<i class="fas fa-microphone" style="font-size:6px"></i>'
                             : '<i class="fas fa-microphone-slash" style="font-size:6px"></i>';
                     }
-                    ci.appendChild(omc);
+                    sb.appendChild(omc);  // على vsb لكي لا يُقطع
                 }
             }
             // بادج رفع اليد — محذوف
@@ -3692,7 +3686,7 @@
                             mb.style.background = '#166534'; mb.style.color = '#fff';
                         } else {
                             mb.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> كتم المايك';
-                            mb.style.background = '#c2410c'; mb.style.color = '#fff';
+                            mb.style.background = '#0f4c81'; mb.style.color = '#fff';
                         }
                     });
                 } else {
