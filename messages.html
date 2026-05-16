@@ -397,10 +397,9 @@ function fmtTime(ts){
   if(!ts)return'';
   const d=new Date(ts),n=new Date();
   if(d.toDateString()===n.toDateString()){
-    const h=d.getHours(),mi=d.getMinutes();
-    const ampm=h<12?'ص':'م';
-    const h12=h%12||12;
-    return h12+':'+String(mi).padStart(2,'0')+' '+ampm;
+    const h=String(d.getHours()).padStart(2,'0');
+    const mi=String(d.getMinutes()).padStart(2,'0');
+    return h+':'+mi;
   }
   const diff=Math.floor((n-d)/86400000);
   if(diff===1)return'أمس';
