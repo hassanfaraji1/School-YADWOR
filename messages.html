@@ -45,7 +45,7 @@ button{border:none;background:none;cursor:pointer;font-family:inherit}
 #chat-view.open{transform:translateX(0)}
 
 /* bubbles */
-.bwrap{display:flex;margin-bottom:3px;padding:0 12px}
+.bwrap{display:flex;margin-bottom:8px;padding:0 12px}
 .bwrap.me{justify-content:flex-start}
 .bwrap.them{justify-content:flex-end}
 .bubble{max-width:75%;padding:9px 13px;font-size:14px;line-height:1.55;
@@ -460,9 +460,8 @@ function listenConvs(){
     const allUids=[...new Set(rowsWithUid.map(r=>r.theirUid).filter(Boolean))];
     await Promise.all(allUids.map(uid=>fetchVerified(uid)));
 
-    // رسم القائمة
-    const list=document.getElementById('chats-list');
-    list.innerHTML=rowsWithUid.map(m=>{
+    // دالة بناء صف المحادثة
+    function buildRow(m){
       const unread=d[m.cid]?.unread||0, isNew=unread>0;
       let last=m.lastMsg||'';
       if(m.lastType==='image')last='📷 صورة';
@@ -489,7 +488,10 @@ function listenConvs(){
           </div>
         </div>
       </div>`;
-    }).join('');
+    }
+    // رسم القائمة بعد اكتمال جلب التوثيق
+    const list=document.getElementById('chats-list');
+    list.innerHTML=rowsWithUid.map(m=>buildRow(m)).join('');
   });
 }
 function shimmerList(){
