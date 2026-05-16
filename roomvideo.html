@@ -64,8 +64,8 @@
         #roomLabelBar {
             position: absolute;
             top: 10px;
-            /* RTL: يظهر بجانب مؤشر الشبكة (يمين) */
-            right: 55px;
+            /* RTL: 4px مسافة فقط بين roomLabelBar وpCount (الذي عرضه ~70px + right:10px) */
+            right: 84px;
             left: auto;
             z-index: 30;
             background: rgba(0,0,0,0.40);
@@ -76,7 +76,7 @@
             display: flex; align-items: center; gap: 5px;
             border-bottom: none;
             width: auto;
-            max-width: 55%;
+            max-width: 45%;
             flex-shrink: 0;
         }
         /* LTR: نقل الشريط لليسار بجانب LIVE badge */
@@ -97,14 +97,14 @@
         }
         #netInfo { position: absolute; bottom: 10px; right: 10px; z-index: 30; background: rgba(0,0,0,.4); border-radius: 6px; padding: 3px 9px; font-size: 11px; color: white; display: flex; align-items: center; gap: 4px; }
         #pCount { position: absolute; top: 10px; right: 10px; z-index: 30; background: rgba(0,0,0,.4); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: white; display: none; align-items: center; gap: 5px; cursor: pointer; overflow: visible; }
+        /* المسافة 4px بين roomLabelBar وpCount — نحرك roomLabelBar لليسار */
 
-        /* دردشة تراكبية على الفيديو — الجانب الأيسر الفعلي */
+        /* دردشة تراكبية على الفيديو — الجانب الأيمن فوق مؤشر الشبكة */
         #chatWin {
             position: absolute;
-            /* نضعها في الجزء السفلي من الفيديو بعيداً عن المنتصف */
             bottom: 34px; top: auto;
-            left: 0 !important; right: auto !important;
-            width: 60%; max-height: 55%;
+            right: 0 !important; left: auto !important;
+            width: 62%; max-height: 55%;
             display: none; flex-direction: column; overflow: hidden; z-index: 35;
             -webkit-mask-image: linear-gradient(to top, black 55%, transparent 100%);
             mask-image: linear-gradient(to top, black 55%, transparent 100%);
@@ -114,7 +114,6 @@
             flex: 1; overflow-y: auto; padding: 6px 8px 4px;
             display: flex; flex-direction: column; gap: 4px;
             justify-content: flex-end; scroll-behavior: smooth;
-            /* نعود للـ RTL داخل chatArea للرسائل */
             direction: rtl;
         }
         #chatArea::-webkit-scrollbar { display: none; }
@@ -150,9 +149,9 @@
             line-height: 1.35;
         }
 
-        /* زر Chat — أعلى يسار الفيديو بجانب مؤشر عدد المشاهدين */
+        /* زر Chat — أسفل الفيديو بين LIVE وCam */
         #chatToggleBtn {
-            position: absolute; top: 10px; left: 10px; z-index: 30;
+            position: absolute; bottom: 10px; left: 80px; z-index: 30;
             background: rgba(0,0,0,.5); color: white;
             padding: 3px 10px; border-radius: 6px; font-size: 11px;
             font-weight: 500; border: none; cursor: pointer;
@@ -165,8 +164,8 @@
         }
         @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
 
-        #switchCamBtn { position: absolute; bottom: 10px; left: 150px; z-index: 30; background: rgba(0,0,0,.5); color: white; padding: 3px 10px; border-radius: 6px; font-size: 11px; border: none; cursor: pointer; display: none; align-items: center; gap: 4px; font-family: 'Tajawal',sans-serif; }
-        #boardBtn { position: absolute; bottom: 10px; left: 225px; z-index: 30; background: rgba(0,0,0,.5); color: white; padding: 3px 10px; border-radius: 6px; font-size: 11px; border: none; cursor: pointer; display: none; align-items: center; gap: 4px; font-family: 'Tajawal',sans-serif; }
+        #switchCamBtn { position: absolute; bottom: 10px; left: 160px; z-index: 30; background: rgba(0,0,0,.5); color: white; padding: 3px 10px; border-radius: 6px; font-size: 11px; border: none; cursor: pointer; display: none; align-items: center; gap: 4px; font-family: 'Tajawal',sans-serif; }
+        #boardBtn { position: absolute; bottom: 10px; left: 240px; z-index: 30; background: rgba(0,0,0,.5); color: white; padding: 3px 10px; border-radius: 6px; font-size: 11px; border: none; cursor: pointer; display: none; align-items: center; gap: 4px; font-family: 'Tajawal',sans-serif; }
 
         /* ===== السبورة العائمة ===== */
         #boardWindow {
@@ -2955,14 +2954,23 @@
                             localStream.getVideoTracks().forEach(t => { t.enabled = true; });
                             localStream.getAudioTracks().forEach(t => { t.enabled = micOn !== false; });
                             if (studentPC && studentPC.signalingState !== 'closed') {
-                                for (const sender of studentPC.getSenders()) {
-                                    if (sender.track && sender.track.kind === 'video') {
-                                        const vt = localStream.getVideoTracks()[0];
-                                        if (vt) await sender.replaceTrack(vt).catch(() => {});
-                                    } else if (sender.track && sender.track.kind === 'audio') {
-                                        const at = localStream.getAudioTracks()[0];
-                                        if (at) await sender.replaceTrack(at).catch(() => {});
-                                    }
+                                const senders = studentPC.getSenders();
+                                const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+                                const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
+                                const vt = localStream.getVideoTracks()[0];
+                                const at = localStream.getAudioTracks()[0];
+                                // استبدل أو أضف video track
+                                if (videoSender && vt) {
+                                    await videoSender.replaceTrack(vt).catch(() => {});
+                                } else if (vt) {
+                                    // لا يوجد sender للفيديو — أضفه مباشرة
+                                    try { studentPC.addTrack(vt, localStream); } catch(e) {}
+                                }
+                                // استبدل أو أضف audio track
+                                if (audioSender && at) {
+                                    await audioSender.replaceTrack(at).catch(() => {});
+                                } else if (at) {
+                                    try { studentPC.addTrack(at, localStream); } catch(e) {}
                                 }
                             }
                         }
@@ -5025,7 +5033,20 @@
             }
             tv.srcObject = mainStream;
             tv.muted = true;
-            try { tv.play(); } catch(e) {}
+            tv.playsInline = true;
+            tv.autoplay = true;
+            tv.style.visibility = '';
+            // تشغيل مع إعادة محاولات لضمان ظهور الفيديو (يحل مشكلة الشاشة السوداء)
+            const _tryPlaySpot = function(n) {
+                tv.play().catch(function() {
+                    if (n < 8) setTimeout(function() { _tryPlaySpot(n + 1); }, 400);
+                });
+            };
+            _tryPlaySpot(1);
+            // تأكيد إضافي بعد 800ms
+            setTimeout(function() {
+                if (tv.paused && tv.srcObject) tv.play().catch(function(){});
+            }, 800);
             if (backBtn) backBtn.style.display = 'flex';
 
             // استبدل video track في كل PCs للبث
