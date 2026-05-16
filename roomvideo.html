@@ -2362,24 +2362,32 @@
             }
         };
 
-        // أضف tracks المنظم (localStream جاهز بـ video+audio)
+        // أضف tracks المنظم إذا كانت localStream متاحة
         if (localStream) {
             localStream.getTracks().forEach(track => {
                 try { studentPC.addTrack(track, localStream); } catch(e) {}
             });
+        } else if (window.__pendingAudioTrack && window.__pendingAudioTrack.readyState !== 'ended') {
+            // الميك جاهز لكن localStream لم يُعيَّن بعد
+            try { studentPC.addTrack(window.__pendingAudioTrack, new MediaStream([window.__pendingAudioTrack])); } catch(e) {}
         }
-
-        // استمع على localStream — إذا أُضيف audio track لاحقاً (بعد إنشاء الـ peer) أضفه تلقائياً
-        if (localStream) {
-            localStream.addEventListener('addtrack', (e) => {
-                if (e.track && studentPC && studentPC.signalingState !== 'closed') {
-                    const senders = studentPC.getSenders();
-                    const alreadyHas = senders.some(s => s.track === e.track);
-                    if (!alreadyHas) {
-                        try { studentPC.addTrack(e.track, localStream); } catch(err) {}
+        // إذا لم يكن الميك متاحاً بعد، انتظر حتى يصبح متاحاً وأضف track لاحقاً
+        if (!localStream && !window.__pendingAudioTrack) {
+            var _addAudioWhenReady = setInterval(function() {
+                if (localStream || window.__pendingAudioTrack) {
+                    clearInterval(_addAudioWhenReady);
+                    var track = (localStream && localStream.getAudioTracks()[0]) || window.__pendingAudioTrack;
+                    if (!track) return;
+                    if (studentPC && studentPC.signalingState !== 'closed') {
+                        var senders = studentPC.getSenders();
+                        if (!senders.some(function(s){ return s.track && s.track.kind === 'audio'; })) {
+                            try { studentPC.addTrack(track, localStream || new MediaStream([track])); } catch(e) {}
+                        }
                     }
                 }
-            });
+            }, 300);
+            // توقف بعد 10 ثوانٍ
+            setTimeout(function(){ clearInterval(_addAudioWhenReady); }, 10000);
         }
 
         studentPC.onicecandidate = e => {
@@ -2452,24 +2460,6 @@
             }
         };
 
-        // أضف أي audio track معلّق قبل setRemoteDescription لضمان وصول صوت الطالب للأستاذ
-        if (window.__pendingAudioTrack && window.__pendingAudioTrack.readyState !== 'ended') {
-            const senders = studentPC.getSenders();
-            const hasAudio = senders.some(s => s.track && s.track.kind === 'audio');
-            if (!hasAudio) {
-                try { studentPC.addTrack(window.__pendingAudioTrack, localStream); } catch(e) {}
-            }
-        } else if (localStream) {
-            // إذا لم يكن هناك __pendingAudioTrack لكن localStream متاح
-            const audioTracks = localStream.getAudioTracks();
-            if (audioTracks.length > 0) {
-                const senders = studentPC.getSenders();
-                const hasAudio = senders.some(s => s.track && s.track.kind === 'audio');
-                if (!hasAudio) {
-                    try { studentPC.addTrack(audioTracks[0], localStream); } catch(e) {}
-                }
-            }
-        }
         await studentPC.setRemoteDescription(new RTCSessionDescription(JSON.parse(offerStr)));
         const answer = await studentPC.createAnswer();
         await studentPC.setLocalDescription(answer);
@@ -2622,33 +2612,29 @@
                 try { db.ref('rooms/' + roomId + '/ownerReoffer').set(Date.now()); } catch(e) {}
             }).catch(() => {});
 
-            // مراقبة انضمام المنظمين — مثل child_added في ExempleTools
-            const initialKeys = new Set();
+            // مراقبة انضمام المنظمين
+            // أنشئ connections لمن كان موجوداً قبل دخول الأستاذ
             db.ref('rooms/' + roomId + '/students').once('value', snap => {
-                snap.forEach(c => initialKeys.add(c.key));
-                // أنشئ connections لمن كان موجوداً مسبقاً
                 snap.forEach(c => {
                     const v = c.val();
-                    if (v) createPeerForOrganizer(c.key, v.uid || v.userId);
+                    if (v && !teacherPeerConns[c.key]) {
+                        createPeerForOrganizer(c.key, v.uid || v.userId);
+                    }
                 });
             });
+
+            // عند دخول منظم/مشاهد جديد بعد الأستاذ
             db.ref('rooms/' + roomId + '/students').on('child_added', snap => {
                 const key = snap.key;
                 const val = snap.val();
-                if (!val) return;
-                if (!initialKeys.has(key)) initialKeys.add(key);
-                // إذا peer موجود بالفعل — تجاهل
-                if (teacherPeerConns[key]) return;
-                // انتظر ثانية واحدة لضمان تسجيل المشاهد في Firebase أولاً
+                if (!val || teacherPeerConns[key]) return;
+                // انتظر 800ms للتأكد من أن المشاهد بدأ يستمع للـ offer
                 setTimeout(async () => {
-                    if (teacherPeerConns[key]) return; // تحقق مرة أخرى بعد الانتظار
+                    if (teacherPeerConns[key]) return;
                     await createPeerForOrganizer(key, val.uid || val.userId);
-                    // أرسل ownerReoffer بعد 500ms لإبلاغ المشاهد
-                    setTimeout(() => {
-                        try { db.ref('rooms/' + roomId + '/ownerReoffer').set(Date.now()); } catch(e) {}
-                    }, 500);
-                }, 1000);
+                }, 800);
             });
+
             db.ref('rooms/' + roomId + '/students').on('child_removed', snap => {
                 const key = snap.key;
                 const conn = teacherPeerConns[key];
@@ -2657,30 +2643,28 @@
                     if (conn.audioEl) conn.audioEl.remove();
                     delete teacherPeerConns[key];
                 }
-                // نظّف Firebase
                 db.ref('rooms/' + roomId + '/offers/' + key).remove();
                 db.ref('rooms/' + roomId + '/answers/' + key).remove();
                 db.ref('rooms/' + roomId + '/candidates/' + key).remove();
             });
 
-            // ── مستمع connectRequest — المشاهد الجديد يطلب اتصالاً مباشراً ──
+            // ── connectRequest: المشاهد الجديد يطلب اتصالاً مباشراً ──
+            // هذا هو الآلية الرئيسية — تضمن الاتصال حتى لو فات child_added
             db.ref('rooms/' + roomId + '/connectRequest').on('child_added', async function(reqSnap) {
-                var reqKey = reqSnap.key; // هو نفس sid المشاهد
+                var reqKey = reqSnap.key;
                 var reqVal = reqSnap.val();
                 if (!reqVal || !reqKey) return;
-                // احذف الطلب فور استلامه
                 db.ref('rooms/' + roomId + '/connectRequest/' + reqKey).remove();
-                // إذا peer موجود بالفعل — أعِد بناءه إذا كان سيئاً
-                if (teacherPeerConns[reqKey]) {
-                    var existing = teacherPeerConns[reqKey];
-                    var st = existing.pc ? existing.pc.iceConnectionState : 'closed';
-                    if (st !== 'connected' && st !== 'connecting' && st !== 'checking') {
-                        await _rebuildPeerForOrganizer(reqKey, reqVal.uid || '');
-                    }
-                    return;
+                var existing = teacherPeerConns[reqKey];
+                if (existing && existing.pc) {
+                    var st = existing.pc.iceConnectionState;
+                    if (st === 'connected' || st === 'completed') return; // اتصال جيد
+                    // اتصال سيئ — أعِد بناءه
+                    await _rebuildPeerForOrganizer(reqKey, reqVal.uid || '');
+                } else {
+                    // لا يوجد peer — أنشئه الآن
+                    await createPeerForOrganizer(reqKey, reqVal.uid || '');
                 }
-                // أنشئ peer جديد مباشرة (دون انتظار child_added)
-                await createPeerForOrganizer(reqKey, reqVal.uid || '');
             });
 
         } else {
@@ -2723,76 +2707,62 @@
             // عند انقطاع الاتصال فجأة — أزل سجل الطالب من /students تلقائياً
             studentRef.onDisconnect().remove();
 
-            // فتح الميكروفون والكاميرا — tracks مطفأة في البداية
-            // نطلب الصوت فقط أولاً (أسرع وأكثر قبولاً من المتصفح) ثم نضيف الكاميرا
+            // ① أرسل connectRequest فوراً قبل أي شيء آخر
+            // الأستاذ سيُرسل offer فور استلامه
+            try {
+                db.ref('rooms/' + roomId + '/connectRequest/' + sid).set({ uid: me.uid, ts: Date.now() });
+                db.ref('rooms/' + roomId + '/connectRequest/' + sid).onDisconnect().remove();
+            } catch(e) {}
+
+            // ② مستمع offer من الأستاذ — يُعالَج فور الوصول
+            db.ref('rooms/' + roomId + '/offers/' + sid).on('value', async snap => {
+                if (!snap.exists()) return;
+                try {
+                    if (!studentPC || !studentPC.currentRemoteDescription || studentPC.signalingState === 'closed') {
+                        await createOrganizerPeerAndAnswer(snap.val());
+                    }
+                } catch(e) {}
+            });
+
+            // ③ طلب الميكروفون — بعد تسجيل المستمعين
+            // إذا وصل offer قبل الميك، سيُعالَج بـ __pendingAudioTrack = null (يُضاف لاحقاً)
             navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
             .then(audioStream => {
                 localStream = audioStream;
-                localStream.getAudioTracks().forEach(t => { t.enabled = false; }); // مطفأ حتى يضغط المايك
-                // أضف الـ audio track للـ peer connection — نستخدم _ensureAudioTrackInPeers لضمان الإضافة الصحيحة
+                localStream.getAudioTracks().forEach(t => { t.enabled = false; });
                 const at = localStream.getAudioTracks()[0];
                 if (at) {
-                    window.__pendingAudioTrack = at; // احفظه لاستخدامه عند إنشاء الـ answer
+                    window.__pendingAudioTrack = at;
+                    // إذا كان studentPC جاهزاً — أضف track الميك فوراً
                     if (studentPC && studentPC.signalingState !== 'closed') {
-                        // تحقق من عدم وجود track مسبق
-                        const existingSenders = studentPC.getSenders();
-                        const hasAudio = existingSenders.some(s => s.track && s.track.kind === 'audio');
+                        const senders = studentPC.getSenders();
+                        const hasAudio = senders.some(s => s.track && s.track.kind === 'audio');
                         if (!hasAudio) {
                             try { studentPC.addTrack(at, localStream); } catch(e) {}
                         }
                     }
                 }
-                // حاول إضافة الكاميرا في الخلفية
-                const vidConstraints = { video: { facingMode: usingFrontCamera ? 'user' : 'environment' }, audio: false };
-                navigator.mediaDevices.getUserMedia(vidConstraints).then(vidStream => {
-                    vidStream.getVideoTracks().forEach(vt => {
-                        vt.enabled = false;
-                        localStream.addTrack(vt);
-                    });
-                }).catch(() => {}); // الكاميرا اختيارية
+                // طلب الكاميرا في الخلفية (اختياري)
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: usingFrontCamera ? 'user' : 'environment' }, audio: false })
+                .then(vidStream => {
+                    vidStream.getVideoTracks().forEach(vt => { vt.enabled = false; localStream.addTrack(vt); });
+                }).catch(() => {});
             }).catch(() => {
-                // آخر محاولة — طلب بسيط
                 navigator.mediaDevices.getUserMedia({ audio: true }).then(s => {
                     localStream = s;
                     localStream.getTracks().forEach(t => { t.enabled = false; });
-                    // احفظ الـ track للاستخدام عند إنشاء الـ answer
                     const at = localStream.getAudioTracks()[0];
-                    if (at) window.__pendingAudioTrack = at;
-                    if (studentPC && studentPC.signalingState !== 'closed') {
-                        if (at) { try { studentPC.addTrack(at, localStream); } catch(e) {} }
-                    }
-                }).catch(() => {
-                    // المتصفح رفض — سيطلب الإذن عند ضغط زر المايك
-                    console.warn('لم يتم الحصول على الميكروفون — سيُطلب عند الضغط على زر المايك');
-                });
-            });
-
-            // مستمع offer من الأستاذ
-            db.ref('rooms/' + roomId + '/offers/' + sid).on('value', async snap => {
-                if (snap.exists()) {
-                    try {
-                        if (!studentPC || !studentPC.currentRemoteDescription ||
-                            studentPC.signalingState === 'closed') {
-                            await createOrganizerPeerAndAnswer(snap.val());
+                    if (at) {
+                        window.__pendingAudioTrack = at;
+                        if (studentPC && studentPC.signalingState !== 'closed') {
+                            const senders = studentPC.getSenders();
+                            if (!senders.some(s => s.track && s.track.kind === 'audio')) {
+                                try { studentPC.addTrack(at, localStream); } catch(e) {}
+                            }
                         }
-                    } catch(e) {}
-                }
+                    }
+                }).catch(() => {});
             });
-
-            // اكتب طلب اتصال خاص — الأستاذ سيرد عليه مباشرة بـ offer
-            // هذا يحل مشكلة ownerReoffer المشترك الذي قد يُتجاهَل
-            setTimeout(function() {
-                try {
-                    db.ref('rooms/' + roomId + '/connectRequest/' + sid).set({
-                        uid: me.uid, ts: Date.now()
-                    });
-                    // احذف الطلب بعد 30 ثانية
-                    db.ref('rooms/' + roomId + '/connectRequest/' + sid).onDisconnect().remove();
-                    setTimeout(function() {
-                        db.ref('rooms/' + roomId + '/connectRequest/' + sid).remove();
-                    }, 30000);
-                } catch(e) {}
-            }, 500);
 
             // مستمع ownerReoffer — يُعيد بناء الاتصال عند رجوع الأستاذ من الصندوق العائم
             var _lastReoffer = 0;
