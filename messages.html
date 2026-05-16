@@ -414,7 +414,19 @@ function arResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollH
 function cidOf(a,b){return[a,b].sort().join('_')}
 
 /* ─── CONVERSATIONS LIST ─── */
-const _badgeHtml='<img src="verify.png" style="width:13px;height:13px;object-fit:contain;flex-shrink:0;display:inline-block;margin-right:2px;" alt=""/>';
+const _badgeHtml='<img src="verify.png" style="width:13px;height:13px;object-fit:contain;flex-shrink:0;display:inline-block;vertical-align:middle;margin-right:2px;" alt=""/>';
+// كاش التوثيق المستقل داخل messages.html
+const _msgVerifiedCache={};
+
+async function fetchVerified(uid){
+  if(!uid) return false;
+  if(_msgVerifiedCache[uid]!==undefined) return _msgVerifiedCache[uid];
+  try{
+    const s=await DB.ref(`users/${uid}/verified`).once('value');
+    _msgVerifiedCache[uid]=(s.val()===true);
+  }catch(e){ _msgVerifiedCache[uid]=false; }
+  return _msgVerifiedCache[uid];
+}
 
 function listenConvs(){
   if(!MY_UID){renderEmpty();return;}
@@ -423,42 +435,49 @@ function listenConvs(){
     const d=snap.val()||{};
     const cids=Object.keys(d);
     if(!cids.length){renderEmpty();return;}
-    const metas=await Promise.all(cids.map(cid=>DB.ref(`chats/${cid}/meta`).once('value').then(s=>({cid,...(s.val()||{})}))));
+
+    const metas=await Promise.all(cids.map(cid=>
+      DB.ref(`chats/${cid}/meta`).once('value').then(s=>({cid,...(s.val()||{})}))
+    ));
     const rows=metas.filter(m=>m&&m.lastTs).sort((a,b)=>b.lastTs-a.lastTs);
     if(!rows.length){renderEmpty();return;}
 
-    // جلب حالة التوثيق لجميع الـ UIDs دفعةً واحدة
-    const uids=[...new Set(rows.map(m=>m[`peerFor_${MY_UID}_uid`]||m.cid.split('_').find(u=>u!==MY_UID)||'').filter(Boolean))];
-    await Promise.all(uids.map(async uid=>{
-      if(typeof _verifiedCache!=='undefined' && _verifiedCache[uid]!==undefined) return;
-      try{
-        const s=await DB.ref(`users/${uid}/verified`).once('value');
-        if(typeof _verifiedCache!=='undefined') _verifiedCache[uid]=s.val()===true;
-      }catch(e){}
-    }));
+    // استخراج uid الطرف الآخر لكل محادثة
+    const rowsWithUid=rows.map(m=>{
+      // أولاً: من حقل peerFor المخصص
+      let theirUid=m[`peerFor_${MY_UID}_uid`]||'';
+      // ثانياً: من تقسيم cid
+      if(!theirUid){
+        const parts=(m.cid||'').split('_');
+        theirUid=parts.find(u=>u&&u!==MY_UID)||'';
+      }
+      const tName=m[`peerFor_${MY_UID}_name`]||m.peerName||'...';
+      const tAv=m[`peerFor_${MY_UID}_avatar`]||m.peerAvatar||avUrl(tName);
+      return{...m,theirUid,tName,tAv};
+    });
 
+    // جلب التوثيق لجميع الـ UIDs بالتوازي
+    const allUids=[...new Set(rowsWithUid.map(r=>r.theirUid).filter(Boolean))];
+    await Promise.all(allUids.map(uid=>fetchVerified(uid)));
+
+    // رسم القائمة
     const list=document.getElementById('chats-list');
-    list.innerHTML=rows.map(m=>{
+    list.innerHTML=rowsWithUid.map(m=>{
       const unread=d[m.cid]?.unread||0, isNew=unread>0;
-      const tName   = m[`peerFor_${MY_UID}_name`]   || m.peerName   || '...';
-      const tAv     = m[`peerFor_${MY_UID}_avatar`]  || m.peerAvatar || avUrl(tName);
-      const theirUid= m[`peerFor_${MY_UID}_uid`]    || m.cid.split('_').find(u=>u!==MY_UID)||'';
       let last=m.lastMsg||'';
       if(m.lastType==='image')last='📷 صورة';
       if(m.lastType==='audio')last='🎙️ رسالة صوتية';
       if(m.lastType==='notice')last='';
-      // علامة التوثيق — نقرأ من الكاش مباشرة بعد جلبها أعلاه
-      const isV = (typeof _verifiedCache!=='undefined' && _verifiedCache[theirUid]===true);
-      const badge = isV ? _badgeHtml : '';
-      return`<div class="chat-row ${isNew?'unread':''}" onclick="openChat('${escH(theirUid)}','${escH(tName)}','${escH(tAv)}')">
+      const badge=(_msgVerifiedCache[m.theirUid]===true)?_badgeHtml:'';
+      return`<div class="chat-row ${isNew?'unread':''}" onclick="openChat('${escH(m.theirUid)}','${escH(m.tName)}','${escH(m.tAv)}')">
         <div class="relative shrink-0" style="width:52px;height:52px">
-          <img src="${escH(tAv)}" onerror="this.src='${avUrl(tName)}'" class="w-full h-full rounded-full object-cover"/>
+          <img src="${escH(m.tAv)}" onerror="this.src='${avUrl(m.tName)}'" class="w-full h-full rounded-full object-cover"/>
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center justify-between gap-2 mb-0.5">
-            <h3 class="row-name text-[14px] font-bold flex items-center gap-0.5" style="min-width:0;overflow:hidden">
-              <span class="truncate">${escH(tName)}</span>${badge}
-            </h3>
+            <div class="flex items-center gap-1 min-w-0">
+              <span class="row-name text-[14px] font-bold truncate">${escH(m.tName)}</span>${badge}
+            </div>
             <div class="flex items-center gap-1.5 shrink-0">
               ${isNew?'<span class="new-tag">جديد</span>':''}
               <span class="text-[11px] text-zinc-400">${fmtTime(m.lastTs)}</span>
