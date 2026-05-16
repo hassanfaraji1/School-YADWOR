@@ -427,19 +427,23 @@ function listenConvs(){
     const list=document.getElementById('chats-list');
     list.innerHTML=rows.map(m=>{
       const unread=d[m.cid]?.unread||0, isNew=unread>0;
-      const theirUid=m.cid.split('_').find(u=>u!==MY_UID)||'';
-      const tName=m.peerName||'...', tAv=m.peerAvatar||avUrl(tName);
+      // نقرأ منظور المستخدم الحالي: الطرف الآخر في هذه المحادثة
+      const tName  = m[`peerFor_${MY_UID}_name`]   || m.peerName   || '...';
+      const tAv    = m[`peerFor_${MY_UID}_avatar`]  || m.peerAvatar || avUrl(tName);
+      const theirUid = m[`peerFor_${MY_UID}_uid`]   || m.cid.split('_').find(u=>u!==MY_UID) || '';
       let last=m.lastMsg||'';
       if(m.lastType==='image')last='📷 صورة';
       if(m.lastType==='audio')last='🎙️ رسالة صوتية';
       if(m.lastType==='notice')last='';
+      // علامة التوثيق من الكاش أو Firebase
+      const verifySpan = (typeof _verifySpan==='function') ? _verifySpan(theirUid,null) : '';
       return`<div class="chat-row ${isNew?'unread':''}" onclick="openChat('${escH(theirUid)}','${escH(tName)}','${escH(tAv)}')">
         <div class="relative shrink-0" style="width:52px;height:52px">
           <img src="${escH(tAv)}" onerror="this.src='${avUrl(tName)}'" class="w-full h-full rounded-full object-cover"/>
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center justify-between gap-2 mb-0.5">
-            <h3 class="row-name truncate text-[14px] font-bold">${escH(tName)}</h3>
+            <h3 class="row-name truncate text-[14px] font-bold flex items-center gap-1">${escH(tName)}${verifySpan}</h3>
             <div class="flex items-center gap-1.5 shrink-0">
               ${isNew?'<span class="new-tag">جديد</span>':''}
               <span class="text-[11px] text-zinc-400">${fmtTime(m.lastTs)}</span>
@@ -472,7 +476,27 @@ function openChat(uid,name,avatar){
   const cid=cidOf(MY_UID,uid);
   AC={uid,name,avatar,cid};
   document.getElementById('ch-av').src=avatar||avUrl(name);
-  document.getElementById('ch-name').textContent=name;
+  // اسم الطرف الآخر + علامة التوثيق في الشريط العلوي
+  const nameEl=document.getElementById('ch-name');
+  nameEl.innerHTML=escH(name);
+  // جلب حالة التوثيق وتحديث الاسم
+  if(typeof _isVerified==='function'){
+    const isVNow=_isVerified(uid,null);
+    if(isVNow){
+      nameEl.innerHTML=`${escH(name)}<span style="display:inline-flex;align-items:center;margin-right:3px;" data-verify-uid="${escH(uid)}"><img src="verify.png" style="width:14px;height:14px;object-fit:contain;flex-shrink:0;" alt=""/></span>`;
+    } else {
+      // placeholder span يتحدّث تلقائياً من _isVerified عبر DOM
+      nameEl.innerHTML=`${escH(name)}<span data-verify-uid="${escH(uid)}" style="display:inline-flex;align-items:center;margin-right:3px;"></span>`;
+      // طلب Firebase للحصول على الحالة الفعلية
+      DB.ref(`users/${uid}/verified`).once('value').then(snap=>{
+        if(snap.val()===true && document.getElementById('ch-name')){
+          document.querySelectorAll(`[data-verify-uid="${uid}"]`).forEach(el=>{
+            if(typeof _verifiedBadgeHtml!=='undefined') el.innerHTML=_verifiedBadgeHtml;
+          });
+        }
+      });
+    }
+  }
   DB.ref(`users/${MY_UID}/chats/${cid}/unread`).set(0);
   updateBlockLabel();
   document.getElementById('list-view').style.display='none';
@@ -591,14 +615,20 @@ async function pushMsg(msg){
   const ref=DB.ref(`chats/${cid}/messages`).push();
   msg.id=ref.key;
   await ref.set(msg);
-  // meta
+  // meta — نخزّن كلا المنظورين: peerFor_<uid>_name/avatar
   const isTextLike=msg.type==='text'||msg.type==='notice';
   await DB.ref(`chats/${cid}/meta`).update({
     lastMsg   : isTextLike?(msg.text||''):'',
     lastType  : msg.type,
     lastTs    : msg.ts,
-    peerName  : AC.name,      peerAvatar: AC.avatar,
-    myName    : MY_NAME,      myAvatar  : MY_AVATAR,
+    // منظور المرسل (أنا): الطرف الآخر هو AC
+    [`peerFor_${MY_UID}_name`]  : AC.name,
+    [`peerFor_${MY_UID}_avatar`]: AC.avatar,
+    [`peerFor_${MY_UID}_uid`]   : AC.uid,
+    // منظور المستقبل (AC): الطرف الآخر هو أنا
+    [`peerFor_${AC.uid}_name`]  : MY_NAME,
+    [`peerFor_${AC.uid}_avatar`]: MY_AVATAR,
+    [`peerFor_${AC.uid}_uid`]   : MY_UID,
     [`participants/${MY_UID}`]:true,
     [`participants/${AC.uid}`]:true
   });
@@ -606,24 +636,20 @@ async function pushMsg(msg){
   await DB.ref(`users/${MY_UID}/chats/${cid}`).update({lastTs:msg.ts});
   // peer chat entry + unread (not for notices)
   if(msg.type!=='notice'){
-    // update peer meta so their list shows MY name/avatar
-    await DB.ref(`chats/${cid}/meta`).update({peerName:MY_NAME, peerAvatar:MY_AVATAR});
-    // for MY list I want to see THEIR name
-    await DB.ref(`chats/${cid}/meta`).update({});
     await DB.ref(`users/${AC.uid}/chats/${cid}`).transaction(cur=>({lastTs:msg.ts,unread:((cur&&cur.unread)||0)+1}));
   }
 }
 
-/* Meta helper: we store two perspectives in meta.
-   When I open my list I query chats and I need THEIR name/avatar.
-   Solution: store peerFor_<uid> fields. */
+/* Meta helper: نخزّن منظور كل طرف بشكل منفصل حتى تظهر لكل شخص بيانات الطرف الآخر */
 async function updateMetaPerspectives(){
   if(!AC)return;
   await DB.ref(`chats/${AC.cid}/meta`).update({
     [`peerFor_${MY_UID}_name`]  : AC.name,
     [`peerFor_${MY_UID}_avatar`]: AC.avatar,
+    [`peerFor_${MY_UID}_uid`]   : AC.uid,
     [`peerFor_${AC.uid}_name`]  : MY_NAME,
     [`peerFor_${AC.uid}_avatar`]: MY_AVATAR,
+    [`peerFor_${AC.uid}_uid`]   : MY_UID,
   });
 }
 
