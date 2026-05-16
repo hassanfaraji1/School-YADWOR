@@ -2339,15 +2339,21 @@
         sAudio.muted = !spkOn;
 
         // ── استقبال الفيديو والصوت من الأستاذ ──
+        // نحتفظ بـ stream واحد ونضيف tracks إليه
+        const remoteStream = new MediaStream();
         studentPC.ontrack = e => {
             const tv = document.getElementById('tv');
+            // أضف الـ track للـ remoteStream
+            if (!remoteStream.getTracks().find(t => t.id === e.track.id)) {
+                remoteStream.addTrack(e.track);
+            }
+
             if (e.track.kind === 'video') {
                 if (tv) {
-                    tv.srcObject = e.streams[0];
+                    tv.srcObject = remoteStream;
                     tv.muted = true;
                     tv.style.visibility = '';
                     tv.play().catch(() => {});
-                    // أخفِ overlay ترحيبي إذا لم يكن الأستاذ قد فعّله عمداً
                     setTimeout(() => {
                         db.ref('rooms/' + roomId + '/ownerOverlay').once('value', s => {
                             const d = s.val();
@@ -2359,7 +2365,8 @@
                     }, 800);
                 }
             } else if (e.track.kind === 'audio') {
-                sAudio.srcObject = e.streams[0];
+                // صوت منفصل في عنصر audio مخصص لضمان التشغيل
+                sAudio.srcObject = new MediaStream([e.track]);
                 sAudio.muted = !spkOn;
                 const tryPlay = n => sAudio.play().catch(() => { if (n < 8) setTimeout(() => tryPlay(n+1), 600); });
                 tryPlay(1);
@@ -2375,16 +2382,31 @@
         studentPC.oniceconnectionstatechange = () => {
             if (studentPC && (studentPC.iceConnectionState === 'connected' || studentPC.iceConnectionState === 'completed')) {
                 setTimeout(() => {
-                    if (sAudio.paused) sAudio.play().catch(() => {});
+                    var sAudioEl = document.getElementById('studentRemoteAudio');
+                    if (sAudioEl && sAudioEl.paused) sAudioEl.play().catch(() => {});
                     const tv = document.getElementById('tv');
                     if (tv && tv.paused && tv.srcObject) tv.play().catch(() => {});
                 }, 400);
+                // إعادة محاولة إضافية بعد ثانية
+                setTimeout(() => {
+                    var sAudioEl = document.getElementById('studentRemoteAudio');
+                    if (sAudioEl && sAudioEl.paused) sAudioEl.play().catch(() => {});
+                }, 1200);
+            }
+            // عند الانقطاع — أعِد بناء الاتصال
+            if (studentPC && (studentPC.iceConnectionState === 'failed' || studentPC.iceConnectionState === 'disconnected')) {
+                setTimeout(async () => {
+                    try {
+                        const snap = await db.ref('rooms/' + roomId + '/offers/' + myKey).get();
+                        if (snap.exists()) await createOrganizerPeerAndAnswer(snap.val());
+                    } catch(e) {}
+                }, 2500);
             }
         };
 
-        // ── إعادة الاتصال إذا انقطع ──
+        // ── إعادة الاتصال إذا انقطع (connectionState) ──
         studentPC.onconnectionstatechange = () => {
-            if (studentPC && (studentPC.connectionState === 'failed' || studentPC.connectionState === 'disconnected')) {
+            if (studentPC && studentPC.connectionState === 'failed') {
                 setTimeout(async () => {
                     try {
                         const snap = await db.ref('rooms/' + roomId + '/offers/' + myKey).get();
@@ -2679,15 +2701,16 @@
             });
 
             // ③ طلب الميكروفون — بعد تسجيل المستمعين
-            // إذا وصل offer قبل الميك، سيُعالَج بـ __pendingAudioTrack = null (يُضاف لاحقاً)
             navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
             .then(audioStream => {
                 localStream = audioStream;
-                localStream.getAudioTracks().forEach(t => { t.enabled = false; });
                 const at = localStream.getAudioTracks()[0];
                 if (at) {
+                    // الـ track يبقى enabled=true في الـ stream
+                    // نتحكم بالكتم عبر track.enabled فقط عند الإرسال (في _applyMicState)
+                    // لكن نبدأ بكتم مبدئي للـ track قبل الإرسال للأستاذ
+                    at.enabled = false; // مكتوم مبدئياً — يُفتح عند ضغط المايك
                     window.__pendingAudioTrack = at;
-                    // إذا كان studentPC جاهزاً — أضف track الميك فوراً
                     if (studentPC && studentPC.signalingState !== 'closed') {
                         const senders = studentPC.getSenders();
                         const hasAudio = senders.some(s => s.track && s.track.kind === 'audio');
@@ -2696,17 +2719,20 @@
                         }
                     }
                 }
-                // طلب الكاميرا في الخلفية (اختياري)
+                // طلب الكاميرا في الخلفية
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: usingFrontCamera ? 'user' : 'environment' }, audio: false })
                 .then(vidStream => {
-                    vidStream.getVideoTracks().forEach(vt => { vt.enabled = false; localStream.addTrack(vt); });
+                    vidStream.getVideoTracks().forEach(vt => {
+                        vt.enabled = true; // video track مفعّل دائماً للـ spotlight
+                        localStream.addTrack(vt);
+                    });
                 }).catch(() => {});
             }).catch(() => {
                 navigator.mediaDevices.getUserMedia({ audio: true }).then(s => {
                     localStream = s;
-                    localStream.getTracks().forEach(t => { t.enabled = false; });
                     const at = localStream.getAudioTracks()[0];
                     if (at) {
+                        at.enabled = false; // مكتوم مبدئياً
                         window.__pendingAudioTrack = at;
                         if (studentPC && studentPC.signalingState !== 'closed') {
                             const senders = studentPC.getSenders();
@@ -4845,6 +4871,9 @@
         const receivers = conn.pc.getReceivers();
         const videoReceiver = receivers.find(r => r.track && r.track.kind === 'video');
         const studentVideoTrack = videoReceiver ? videoReceiver.track : null;
+
+        // فعّل الـ track إذا كان معطّلاً
+        if (studentVideoTrack) studentVideoTrack.enabled = true;
 
         if (studentVideoTrack && studentVideoTrack.readyState !== 'ended') {
             // مثل ExempleTools: ابنِ stream جديد بـ video المنظم + audio الأستاذ
