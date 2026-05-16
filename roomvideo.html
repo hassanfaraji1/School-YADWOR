@@ -100,14 +100,14 @@
 
         /* دردشة تراكبية على الفيديو — الجانب الأيسر الفعلي */
         #chatWin {
-            position: absolute; bottom: 34px;
-            /* نستخدم right:auto + left بـ !important لتجاوز RTL */
+            position: absolute;
+            /* نضعها في الجزء السفلي من الفيديو بعيداً عن المنتصف */
+            bottom: 34px; top: auto;
             left: 0 !important; right: auto !important;
-            width: 60%; max-height: 65%;
+            width: 60%; max-height: 55%;
             display: none; flex-direction: column; overflow: hidden; z-index: 35;
             -webkit-mask-image: linear-gradient(to top, black 55%, transparent 100%);
             mask-image: linear-gradient(to top, black 55%, transparent 100%);
-            /* تعطيل RTL على هذا العنصر فقط */
             direction: ltr;
         }
         #chatArea {
@@ -150,9 +150,9 @@
             line-height: 1.35;
         }
 
-        /* زر Chat بجانب LIVE */
+        /* زر Chat — أعلى يسار الفيديو بجانب مؤشر عدد المشاهدين */
         #chatToggleBtn {
-            position: absolute; bottom: 10px; left: 80px; z-index: 30;
+            position: absolute; top: 10px; left: 10px; z-index: 30;
             background: rgba(0,0,0,.5); color: white;
             padding: 3px 10px; border-radius: 6px; font-size: 11px;
             font-weight: 500; border: none; cursor: pointer;
@@ -2249,93 +2249,125 @@
     async function createPeerForOrganizer(studentKey, studentUid) {
         if (teacherPeerConns[studentKey]) return;
 
-        // لا تُنشئ peer إذا لم يكن localStream جاهزاً — انتظر حد أقصى 8 ثوانٍ
+        // لا تُنشئ peer إذا لم يكن localStream جاهزاً — انتظر حد أقصى 10 ثوانٍ
         if (!localStream) {
             let waited = 0;
             await new Promise(resolve => {
                 const check = setInterval(() => {
                     waited += 200;
-                    if (localStream || waited >= 8000) { clearInterval(check); resolve(); }
+                    if (localStream || waited >= 10000) { clearInterval(check); resolve(); }
                 }, 200);
             });
         }
-        // إذا فات وقت طويل ولا stream — أخرج
         if (!localStream) return;
 
-        // تحقق مرة أخرى بعد الانتظار — قد يكون أُنشئ بينما كنا ننتظر
+        // تحقق مرة أخرى بعد الانتظار
         if (teacherPeerConns[studentKey]) return;
 
         const pc = new RTCPeerConnection(servers);
         const audioEl = document.createElement('audio');
         audioEl.autoplay = true; audioEl.playsInline = true; audioEl.muted = !spkOn;
         document.body.appendChild(audioEl);
-        teacherPeerConns[studentKey] = { pc, audioEl, uid: studentUid || '' };
 
-        // ── ICE candidate buffer: نحفظ candidates التي تصل قبل setRemoteDescription ──
+        // ── ICE candidate buffer محلي لهذا الـ peer تحديداً ──
         var _tcIceBuf = [];
         var _tcRemoteSet = false;
+        var _tcAnswerRef = db.ref('rooms/' + roomId + '/answers/' + studentKey);
+        var _tcIceRef    = db.ref('rooms/' + roomId + '/candidates/' + studentKey + '/fromStudent');
+
+        teacherPeerConns[studentKey] = { pc, audioEl, uid: studentUid || '',
+            _offRef: _tcAnswerRef, _iceRef: _tcIceRef };
 
         pc.onicecandidate = e => {
             if (e.candidate) db.ref('rooms/' + roomId + '/candidates/' + studentKey + '/fromTeacher').push(JSON.stringify(e.candidate));
         };
 
+        // استقبال audio من المنظم + حفظ video receiver للـ spotlight
         pc.ontrack = e => {
             if (e.track.kind === 'audio') {
-                audioEl.srcObject = e.streams[0] || new MediaStream([e.track]);
+                const aStream = e.streams[0] || new MediaStream([e.track]);
+                audioEl.srcObject = aStream;
                 audioEl.muted = !spkOn;
-                const tryPlay = n => audioEl.play().catch(() => { if (n < 5) setTimeout(() => tryPlay(n+1), 800); });
+                audioEl.playsInline = true;
+                audioEl.autoplay = true;
+                const tryPlay = n => audioEl.play().catch(() => { if (n < 8) setTimeout(() => tryPlay(n+1), 600); });
                 tryPlay(1);
             }
+            // video track: يُخزّن تلقائياً في getReceivers() — لا حاجة لعمل إضافي هنا
         };
 
         // مراقبة حالة الاتصال — إعادة بناء عند الفشل
         pc.oniceconnectionstatechange = () => {
-            if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+            const st = pc.iceConnectionState;
+            if (st === 'connected' || st === 'completed') {
+                // تأكد من تشغيل الصوت عند اكتمال الاتصال
+                setTimeout(() => {
+                    if (audioEl.paused && audioEl.srcObject) audioEl.play().catch(() => {});
+                }, 400);
+            }
+            if (st === 'failed' || st === 'disconnected') {
                 setTimeout(async () => {
                     if (teacherPeerConns[studentKey] && teacherPeerConns[studentKey].pc === pc) {
                         await _rebuildPeerForOrganizer(studentKey, studentUid || '');
                     }
-                }, 3000);
+                }, 2500);
             }
         };
 
-        // أضف جميع tracks الأستاذ قبل createOffer
+        pc.onconnectionstatechange = () => {
+            if (pc.connectionState === 'failed') {
+                setTimeout(async () => {
+                    if (teacherPeerConns[studentKey] && teacherPeerConns[studentKey].pc === pc) {
+                        await _rebuildPeerForOrganizer(studentKey, studentUid || '');
+                    }
+                }, 2000);
+            }
+        };
+
+        // أضف جميع tracks الأستاذ قبل createOffer — مع offerToReceiveVideo:true لاستقبال فيديو المنظم
         localStream.getTracks().forEach(track => {
             try { pc.addTrack(track, localStream); } catch(e) {}
         });
 
-        // أنشئ offer وأرسله
+        // أنشئ offer مع دعم استقبال الفيديو من المنظم
         try {
-            const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
+            const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
             await pc.setLocalDescription(offer);
             await db.ref('rooms/' + roomId + '/offers/' + studentKey).set(JSON.stringify(offer));
         } catch(err) {
+            try { _tcAnswerRef.off(); _tcIceRef.off(); } catch(_) {}
             delete teacherPeerConns[studentKey];
             audioEl.remove();
             return;
         }
 
         // انتظر answer — مع دعم ICE buffer
-        db.ref('rooms/' + roomId + '/answers/' + studentKey).on('value', async snap => {
-            if (snap.exists() && !pc.currentRemoteDescription) {
-                try {
-                    await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(snap.val())));
+        _tcAnswerRef.on('value', async snap => {
+            if (!snap.exists()) return;
+            // قبل setRemoteDescription أو إذا تغيّر الـ answer
+            const answerStr = snap.val();
+            if (!answerStr) return;
+            try {
+                const answerDesc = new RTCSessionDescription(JSON.parse(answerStr));
+                // تطبيق فقط إذا لم يكن هناك remote description أو كان الـ signalingState يسمح
+                if (!pc.currentRemoteDescription && pc.signalingState !== 'closed') {
+                    await pc.setRemoteDescription(answerDesc);
                     _tcRemoteSet = true;
                     // طبّق الـ candidates المحجوزة
-                    for (var ci = 0; ci < _tcIceBuf.length; ci++) {
-                        try { await pc.addIceCandidate(new RTCIceCandidate(_tcIceBuf[ci])); } catch(e) {}
+                    const buffered = _tcIceBuf.splice(0);
+                    for (var ci = 0; ci < buffered.length; ci++) {
+                        try { await pc.addIceCandidate(new RTCIceCandidate(buffered[ci])); } catch(e) {}
                     }
-                    _tcIceBuf = [];
-                } catch(e) {}
-            }
+                }
+            } catch(e) {}
         });
 
         // ICE من المشاهد — مع buffer للـ candidates المبكرة
-        db.ref('rooms/' + roomId + '/candidates/' + studentKey + '/fromStudent').on('child_added', async snap => {
+        _tcIceRef.on('child_added', async snap => {
             if (!snap.val()) return;
             try {
                 var cand = JSON.parse(snap.val());
-                if (_tcRemoteSet && pc.remoteDescription) {
+                if (_tcRemoteSet && pc.remoteDescription && pc.signalingState !== 'closed') {
                     await pc.addIceCandidate(new RTCIceCandidate(cand));
                 } else {
                     _tcIceBuf.push(cand);
@@ -2346,71 +2378,77 @@
 
     // ── الأستاذ: إعادة بناء اتصال موجود مع منظم (يُستخدم عند العودة من الخلفية) ──
     async function _rebuildPeerForOrganizer(studentKey, studentUid) {
-        // أغلق الاتصال القديم إذا وُجد
+        // أغلق الاتصال القديم إذا وُجد + أوقف المستمعات القديمة
         const oldConn = teacherPeerConns[studentKey];
         if (oldConn) {
-            try { if (oldConn.pc) oldConn.pc.close(); } catch(e) {}
+            try { if (oldConn._offRef) oldConn._offRef.off(); } catch(e) {}
+            try { if (oldConn._iceRef)  oldConn._iceRef.off(); } catch(e) {}
+            try { if (oldConn.pc) { oldConn.pc.ontrack = null; oldConn.pc.onicecandidate = null; oldConn.pc.oniceconnectionstatechange = null; oldConn.pc.onconnectionstatechange = null; oldConn.pc.close(); } } catch(e) {}
             try { if (oldConn.audioEl) oldConn.audioEl.remove(); } catch(e) {}
             delete teacherPeerConns[studentKey];
         }
         // احذف بيانات Firebase القديمة أولاً لإجبار المنظم على الرد من جديد
         try {
-            await db.ref('rooms/' + roomId + '/offers/' + studentKey).remove();
-            await db.ref('rooms/' + roomId + '/answers/' + studentKey).remove();
+            await db.ref('rooms/' + roomId + '/offers/'     + studentKey).remove();
+            await db.ref('rooms/' + roomId + '/answers/'    + studentKey).remove();
             await db.ref('rooms/' + roomId + '/candidates/' + studentKey).remove();
         } catch(e) {}
         // انتظر قليلاً ثم أنشئ اتصالاً جديداً
-        await new Promise(function(r){ setTimeout(r, 300); });
+        await new Promise(function(r){ setTimeout(r, 350); });
         await createPeerForOrganizer(studentKey, studentUid);
     }
 
     // ── المنظم: يرد على offer الأستاذ ──
-    // _scIceBuf: buffer للـ ICE candidates التي تصل قبل setRemoteDescription
+    // متغيرات ICE buffer لهذا الـ peer (تُعاد تهيئتها في كل استدعاء)
     var _scIceBuf = [];
     var _scRemoteSet = false;
-    var _scAnswerListener = null; // مرجع مستمع ICE الحالي للتنظيف
+    var _scAnswerRef = null; // مرجع مستمع ICE الحالي للتنظيف
+    var _scIceRef   = null;
 
     async function createOrganizerPeerAndAnswer(offerStr) {
-        // أغلق أي اتصال قديم
+        // أغلق أي اتصال قديم + أوقف المستمعات القديمة
         if (studentPC) {
-            try { studentPC.close(); } catch(e) {}
+            try { if (_scAnswerRef) _scAnswerRef.off(); } catch(e) {}
+            try { if (_scIceRef)   _scIceRef.off();   } catch(e) {}
+            try { studentPC.ontrack = null; studentPC.onicecandidate = null; studentPC.oniceconnectionstatechange = null; studentPC.onconnectionstatechange = null; studentPC.close(); } catch(e) {}
             studentPC = null;
         }
-        // إعادة تهيئة buffer الـ ICE
+        // إعادة تهيئة buffer الـ ICE لهذا الـ peer الجديد
         _scIceBuf = [];
         _scRemoteSet = false;
 
-        studentPC = new RTCPeerConnection(servers);
         const myKey = studentRef ? studentRef.key : null;
         if (!myKey) return;
+
+        studentPC = new RTCPeerConnection(servers);
 
         // ── عنصر صوت لاستقبال صوت الأستاذ ──
         let sAudio = document.getElementById('studentRemoteAudio');
         if (!sAudio) {
             sAudio = document.createElement('audio');
             sAudio.id = 'studentRemoteAudio';
-            sAudio.autoplay = true; sAudio.playsInline = true;
             document.body.appendChild(sAudio);
         }
+        sAudio.autoplay = true;
+        sAudio.playsInline = true;
         sAudio.muted = !spkOn;
 
         // ── استقبال الفيديو والصوت من الأستاذ ──
         const remoteStream = new MediaStream();
         studentPC.ontrack = e => {
             const tv = document.getElementById('tv');
-            // أضف الـ track للـ remoteStream إذا لم يكن موجوداً
             var existing = remoteStream.getTracks().find(t => t.id === e.track.id);
-            if (!existing) {
-                remoteStream.addTrack(e.track);
-            }
+            if (!existing) remoteStream.addTrack(e.track);
 
             if (e.track.kind === 'video') {
                 if (tv) {
                     tv.srcObject = remoteStream;
                     tv.muted = true;
+                    tv.playsInline = true;
+                    tv.autoplay = true;
                     tv.style.visibility = '';
                     var tryPlayTV = function(n) {
-                        tv.play().catch(function() { if (n < 8) setTimeout(function() { tryPlayTV(n+1); }, 600); });
+                        tv.play().catch(function() { if (n < 10) setTimeout(function() { tryPlayTV(n+1); }, 500); });
                     };
                     tryPlayTV(1);
                     // إخفاء avatar overlay عند وصول الفيديو
@@ -2428,7 +2466,7 @@
                 // صوت منفصل في عنصر audio مخصص لضمان التشغيل
                 sAudio.srcObject = new MediaStream([e.track]);
                 sAudio.muted = !spkOn;
-                const tryPlay = n => sAudio.play().catch(() => { if (n < 10) setTimeout(() => tryPlay(n+1), 500); });
+                const tryPlay = n => sAudio.play().catch(() => { if (n < 12) setTimeout(() => tryPlay(n+1), 500); });
                 tryPlay(1);
             }
         };
@@ -2443,16 +2481,14 @@
             const st = studentPC ? studentPC.iceConnectionState : '';
             if (st === 'connected' || st === 'completed') {
                 // تأكد من تشغيل الوسائط عند اكتمال الاتصال
-                setTimeout(() => {
+                const _ensurePlay = () => {
                     var sAudioEl = document.getElementById('studentRemoteAudio');
                     if (sAudioEl && sAudioEl.paused && sAudioEl.srcObject) sAudioEl.play().catch(() => {});
                     const tv = document.getElementById('tv');
                     if (tv && tv.paused && tv.srcObject) tv.play().catch(() => {});
-                }, 300);
-                setTimeout(() => {
-                    var sAudioEl = document.getElementById('studentRemoteAudio');
-                    if (sAudioEl && sAudioEl.paused && sAudioEl.srcObject) sAudioEl.play().catch(() => {});
-                }, 1000);
+                };
+                setTimeout(_ensurePlay, 350);
+                setTimeout(_ensurePlay, 1200);
             }
             if (st === 'failed' || st === 'disconnected') {
                 setTimeout(async () => {
@@ -2462,7 +2498,7 @@
                             if (snap.exists()) await createOrganizerPeerAndAnswer(snap.val());
                         } catch(e) {}
                     }
-                }, 3000);
+                }, 2500);
             }
         };
 
@@ -2492,10 +2528,10 @@
             await studentPC.setRemoteDescription(new RTCSessionDescription(JSON.parse(offerStr)));
             _scRemoteSet = true;
             // طبّق الـ ICE candidates المحجوزة
-            for (var bi = 0; bi < _scIceBuf.length; bi++) {
-                try { await studentPC.addIceCandidate(new RTCIceCandidate(_scIceBuf[bi])); } catch(e) {}
+            const buffered = _scIceBuf.splice(0);
+            for (var bi = 0; bi < buffered.length; bi++) {
+                try { await studentPC.addIceCandidate(new RTCIceCandidate(buffered[bi])); } catch(e) {}
             }
-            _scIceBuf = [];
             const answer = await studentPC.createAnswer();
             await studentPC.setLocalDescription(answer);
             await db.ref('rooms/' + roomId + '/answers/' + myKey).set(JSON.stringify(answer));
@@ -2517,6 +2553,10 @@
             }, 300);
             setTimeout(() => clearInterval(_waitMic), 15000);
         }
+
+        // ── احفظ مراجع المستمعات للتنظيف لاحقاً ──
+        _scAnswerRef = null; // لا نستمع لـ answer هنا (الـ answer كُتب بالفعل)
+        _scIceRef    = db.ref('rooms/' + roomId + '/candidates/' + myKey + '/fromTeacher');
     }
 
     var roomJoinTime = null;
@@ -2636,14 +2676,38 @@
 
             // فتح الكاميرا فوراً وعرضها في #tv
             const constraints = { video: { facingMode: usingFrontCamera ? 'user' : 'environment' }, audio: { echoCancellation: true, noiseSuppression: true } };
-            navigator.mediaDevices.getUserMedia(constraints).then(s => {
+            navigator.mediaDevices.getUserMedia(constraints).then(async s => {
                 localStream = s;
-                document.getElementById('tv').srcObject = s;
-                document.getElementById('tv').muted = true;
-                document.getElementById('tv').play().catch(() => {});
+                const tvEl = document.getElementById('tv');
+                if (tvEl) {
+                    tvEl.srcObject = s;
+                    tvEl.muted = true;
+                    tvEl.playsInline = true;
+                    tvEl.autoplay = true;
+                    tvEl.play().catch(() => {});
+                }
                 localStream.getAudioTracks().forEach(t => { t.enabled = micOn; });
 
-                // بعد الحصول على localStream — أنشئ connections لمن كانوا موجودين مسبقاً
+                // ── إعادة بناء أو تحديث الـ tracks لكل peers موجودين ──
+                const existingKeys = Object.keys(teacherPeerConns);
+                for (const key of existingKeys) {
+                    const conn = teacherPeerConns[key];
+                    if (!conn || !conn.pc) continue;
+                    const pcSt = conn.pc.iceConnectionState;
+                    const sigSt = conn.pc.signalingState;
+                    if (pcSt === 'failed' || pcSt === 'disconnected' || pcSt === 'closed' || sigSt === 'closed') {
+                        await _rebuildPeerForOrganizer(key, conn.uid || '');
+                    } else {
+                        // الـ peer متصل — استبدل tracks مباشرة
+                        for (const track of localStream.getTracks()) {
+                            const sender = conn.pc.getSenders().find(s => s.track && s.track.kind === track.kind);
+                            if (sender) { try { await sender.replaceTrack(track); } catch(e) {} }
+                            else { try { conn.pc.addTrack(track, localStream); } catch(e) {} }
+                        }
+                    }
+                }
+
+                // بعد الحصول على localStream — أنشئ connections لمن كانوا موجودين مسبقاً ولا يوجد لهم peer
                 db.ref('rooms/' + roomId + '/students').once('value', snap => {
                     snap.forEach(c => {
                         const v = c.val();
@@ -2653,11 +2717,10 @@
                     });
                 });
 
-                // استمع لمن يدخل بعد الأستاذ — بدون delay مفرط
+                // استمع لمن يدخل بعد الأستاذ
                 db.ref('rooms/' + roomId + '/students').on('child_added', snap => {
                     const key = snap.key; const val = snap.val();
                     if (!val || teacherPeerConns[key]) return;
-                    // لا نضيف delay هنا — المشاهد يبدأ مستمعاته قبل التسجيل في /students
                     createPeerForOrganizer(key, val.uid || val.userId);
                 });
 
@@ -2665,12 +2728,14 @@
                     const key = snap.key;
                     const conn = teacherPeerConns[key];
                     if (conn) {
-                        if (conn.pc) conn.pc.close();
-                        if (conn.audioEl) conn.audioEl.remove();
+                        try { if (conn._offRef) conn._offRef.off(); } catch(e) {}
+                        try { if (conn._iceRef)  conn._iceRef.off(); } catch(e) {}
+                        try { if (conn.pc) conn.pc.close(); } catch(e) {}
+                        try { if (conn.audioEl) conn.audioEl.remove(); } catch(e) {}
                         delete teacherPeerConns[key];
                     }
-                    db.ref('rooms/' + roomId + '/offers/' + key).remove();
-                    db.ref('rooms/' + roomId + '/answers/' + key).remove();
+                    db.ref('rooms/' + roomId + '/offers/'     + key).remove();
+                    db.ref('rooms/' + roomId + '/answers/'    + key).remove();
                     db.ref('rooms/' + roomId + '/candidates/' + key).remove();
                 });
 
@@ -2689,22 +2754,7 @@
                     }
                 });
 
-                // عند العودة من الخلفية — أعِد offer لمن حالتهم سيئة
-                Object.keys(teacherPeerConns).forEach(async (key) => {
-                    const conn = teacherPeerConns[key];
-                    if (!conn || !conn.pc) return;
-                    const pcSt = conn.pc.iceConnectionState;
-                    if (pcSt === 'failed' || pcSt === 'disconnected' || pcSt === 'closed' || conn.pc.signalingState === 'closed') {
-                        await _rebuildPeerForOrganizer(key, conn.uid || '');
-                    } else {
-                        localStream.getTracks().forEach(track => {
-                            const sender = conn.pc.getSenders().find(s => s.track && s.track.kind === track.kind);
-                            if (sender) sender.replaceTrack(track).catch(() => {});
-                            else { try { conn.pc.addTrack(track, localStream); } catch(e) {} }
-                        });
-                    }
-                });
-
+                // أشعر المشاهدين بعودة الأستاذ — يُعيد بناء الـ peers من جانبهم
                 try { db.ref('rooms/' + roomId + '/ownerReoffer').set(Date.now()); } catch(e) {}
             }).catch(() => {});
 
@@ -2755,12 +2805,12 @@
             studentRef = db.ref('rooms/' + roomId + '/students/' + sid);
 
             // ② ابدأ مستمع ICE من الأستاذ أولاً (قبل أي شيء)
-            // استخدام _scIceBuf المعرّف في createOrganizerPeerAndAnswer لتخزين candidates المبكرة
+            // كل candidate يصل قبل setRemoteDescription يُخزّن في _scIceBuf (المعرّف في createOrganizerPeerAndAnswer)
             db.ref('rooms/' + roomId + '/candidates/' + sid + '/fromTeacher').on('child_added', async function(snap) {
                 if (!snap.val()) return;
                 try {
                     var cand = JSON.parse(snap.val());
-                    if (studentPC && studentPC.remoteDescription && _scRemoteSet) {
+                    if (studentPC && _scRemoteSet && studentPC.remoteDescription && studentPC.signalingState !== 'closed') {
                         await studentPC.addIceCandidate(new RTCIceCandidate(cand));
                     } else {
                         // buffer المبكر — سيُطبّق في createOrganizerPeerAndAnswer بعد setRemoteDescription
@@ -2770,14 +2820,20 @@
             });
 
             // ③ ابدأ مستمع offer من الأستاذ
+            var _lastOfferStr = null;
             db.ref('rooms/' + roomId + '/offers/' + sid).on('value', async snap => {
                 if (!snap.exists()) return;
-                try {
-                    // أنشئ اتصال جديد إذا لم يكن هناك اتصال ناجح
-                    if (!studentPC || !studentPC.currentRemoteDescription || studentPC.signalingState === 'closed') {
-                        await createOrganizerPeerAndAnswer(snap.val());
-                    }
-                } catch(e) {}
+                const offerStr = snap.val();
+                if (!offerStr) return;
+                // إذا تغيّر الـ offer أو لا يوجد اتصال ناجح — ابنِ اتصالاً جديداً
+                const needNew = !studentPC
+                    || studentPC.signalingState === 'closed'
+                    || !studentPC.currentRemoteDescription
+                    || offerStr !== _lastOfferStr;
+                if (needNew) {
+                    _lastOfferStr = offerStr;
+                    try { await createOrganizerPeerAndAnswer(offerStr); } catch(e) {}
+                }
             });
 
             // ④ سجّل في /students — هذا يُبلّغ الأستاذ بوجودك ويبدأ signaling
@@ -2842,24 +2898,30 @@
                 if (!ts || ts <= _lastReoffer) return;
                 _lastReoffer = ts;
                 if (Date.now() - ts > 30000) return; // تجاهل الإشارات القديمة
-                // انتظر قليلاً ثم اطلب الـ offer الجديد
+                // انتظر قليلاً ثم اطلب الـ offer الجديد — امسح buffer الـ ICE أولاً
                 setTimeout(async function() {
                     try {
+                        _scIceBuf = [];       // مسح candidates المخزنة القديمة
+                        _scRemoteSet = false;  // إعادة تهيئة flag
                         var offerSnap = await db.ref('rooms/' + roomId + '/offers/' + sid).get();
                         if (offerSnap.exists()) {
                             await createOrganizerPeerAndAnswer(offerSnap.val());
-                            // أعِد تشغيل الصوت بعد إعادة البناء
+                            // أعِد تشغيل الصوت والفيديو بعد إعادة البناء
                             setTimeout(function() {
                                 document.querySelectorAll('audio').forEach(function(a) {
                                     a.muted = !spkOn;
                                     if (a.paused && a.srcObject) a.play().catch(function(){});
                                 });
                                 var tvEl = document.getElementById('tv');
-                                if (tvEl && tvEl.srcObject && tvEl.paused) tvEl.play().catch(function(){});
+                                if (tvEl && tvEl.srcObject) {
+                                    tvEl.playsInline = true;
+                                    tvEl.autoplay = true;
+                                    if (tvEl.paused) tvEl.play().catch(function(){});
+                                }
                             }, 800);
                         }
                     } catch(e) {}
-                }, 1000);
+                }, 800);
             });
 
             // مستمع spotlight_requests — يستقبل الدعوات الموجهة بـ uid المستخدم الحالي
@@ -5847,13 +5909,28 @@
         if (studentRef) studentRef.remove();
         db.ref('rooms/' + roomId + '/viewers/' + me.uid).remove();
         db.ref('rooms/' + roomId).off();
+        // إيقاف جميع مستمعات Firebase الفرعية
+        try { db.ref('rooms/' + roomId + '/students').off(); } catch(e) {}
+        try { db.ref('rooms/' + roomId + '/connectRequest').off(); } catch(e) {}
+        try { db.ref('rooms/' + roomId + '/ownerReoffer').off(); } catch(e) {}
+        try { db.ref('rooms/' + roomId + '/cameraFlip').off(); } catch(e) {}
+        try { db.ref('rooms/' + roomId + '/spotlight').off(); } catch(e) {}
+        try { db.ref('rooms/' + roomId + '/spotlightTrackTs').off(); } catch(e) {}
         if (localStream) localStream.getTracks().forEach(t => t.stop());
-        // مثل ExempleTools: أغلق studentPC (جهة المنظم)
-        if (studentPC) { try { studentPC.close(); } catch(e) {} studentPC = null; }
-        // مثل ExempleTools: أغلق teacherPeerConns (جهة الأستاذ)
+        // أغلق studentPC (جهة المنظم)
+        if (studentPC) {
+            try { if (_scAnswerRef) _scAnswerRef.off(); } catch(e) {}
+            try { if (_scIceRef)   _scIceRef.off();   } catch(e) {}
+            try { studentPC.ontrack = null; studentPC.onicecandidate = null; studentPC.oniceconnectionstatechange = null; studentPC.onconnectionstatechange = null; studentPC.close(); } catch(e) {}
+            studentPC = null;
+        }
+        // أغلق teacherPeerConns (جهة الأستاذ)
         for (const key in teacherPeerConns) {
-            try { if (teacherPeerConns[key].pc) teacherPeerConns[key].pc.close(); } catch(e) {}
-            try { if (teacherPeerConns[key].audioEl) teacherPeerConns[key].audioEl.remove(); } catch(e) {}
+            const conn = teacherPeerConns[key];
+            try { if (conn._offRef) conn._offRef.off(); } catch(e) {}
+            try { if (conn._iceRef)  conn._iceRef.off(); } catch(e) {}
+            try { if (conn.pc) { conn.pc.ontrack = null; conn.pc.onicecandidate = null; conn.pc.oniceconnectionstatechange = null; conn.pc.onconnectionstatechange = null; conn.pc.close(); } } catch(e) {}
+            try { if (conn.audioEl) conn.audioEl.remove(); } catch(e) {}
             delete teacherPeerConns[key];
         }
     }
