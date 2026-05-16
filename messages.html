@@ -350,6 +350,38 @@ const CLD_NAME='dlujoziwz', CLD_PRESET='my_app_upload';
 <!-- image viewer -->
 <div id="imgv" onclick="this.classList.remove('on')"><img id="imgv-img" src="" alt=""/></div>
 
+<!-- نافذة معاينة الصورة قبل الإرسال -->
+<div id="img-preview-ov" style="position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.88);display:none;flex-direction:column;align-items:center;justify-content:center;padding:16px">
+  <div style="width:100%;max-width:420px;background:#1c1c1e;border-radius:20px;overflow:hidden;display:flex;flex-direction:column;max-height:90vh">
+    <!-- شريط الأدوات -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.1)">
+      <button onclick="cancelImgPreview()" style="color:#fff;background:rgba(255,255,255,0.12);border:none;border-radius:10px;padding:6px 14px;font-size:13px;font-weight:700;font-family:Tajawal,sans-serif;cursor:pointer">إلغاء</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <!-- زر أداة الرسم -->
+        <button id="draw-toggle" onclick="toggleDraw()" title="أداة التغطية" style="background:rgba(255,255,255,0.12);border:none;border-radius:10px;padding:6px 10px;cursor:pointer;display:flex;align-items:center;gap:5px;color:#fff;font-size:12px;font-weight:700;font-family:Tajawal,sans-serif">
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l11.5 11.5"/><circle cx="10" cy="10" r="1.5" fill="currentColor"/></svg>
+          تغطية
+        </button>
+        <!-- حجم الفرشاة -->
+        <select id="brush-size" style="background:rgba(255,255,255,0.12);border:none;border-radius:10px;padding:6px 8px;color:#fff;font-size:12px;font-weight:700;font-family:Tajawal,sans-serif;cursor:pointer">
+          <option value="12">S</option>
+          <option value="24" selected>M</option>
+          <option value="40">L</option>
+        </select>
+        <!-- تراجع -->
+        <button onclick="undoDraw()" title="تراجع" style="background:rgba(255,255,255,0.12);border:none;border-radius:10px;padding:6px 10px;cursor:pointer;color:#fff;font-size:13px;font-weight:700;font-family:Tajawal,sans-serif">↩</button>
+      </div>
+      <button onclick="confirmImgSend()" style="color:#fff;background:#2563eb;border:none;border-radius:10px;padding:6px 14px;font-size:13px;font-weight:700;font-family:Tajawal,sans-serif;cursor:pointer">إرسال ✓</button>
+    </div>
+    <!-- منطقة Canvas للمعاينة والرسم -->
+    <div style="position:relative;flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;min-height:0">
+      <canvas id="preview-canvas" style="max-width:100%;max-height:62vh;object-fit:contain;display:block;touch-action:none"></canvas>
+    </div>
+    <!-- تلميح -->
+    <p id="draw-hint" style="text-align:center;color:rgba(255,255,255,0.45);font-size:11px;font-weight:700;padding:8px;font-family:Tajawal,sans-serif;display:none">✏️ ارسم فوق الصورة لتغطية ما تريد</p>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <!-- BOTTOM NAV -->
@@ -467,13 +499,13 @@ function listenConvs(){
     // دالة بناء صف المحادثة
     function buildRow(m){
       const unread=d[m.cid]?.unread||0, isNew=unread>0;
-      let last=m.lastMsg||'';
+      let lastHtml='';
       const _svgImg='<svg viewBox="0 0 24 24" style="width:13px;height:13px;display:inline-block;vertical-align:middle;margin-left:3px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
       const _svgAud='<svg viewBox="0 0 24 24" style="width:13px;height:13px;display:inline-block;vertical-align:middle;margin-left:3px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>';
-      let lastHtml=escH(last);
       if(m.lastType==='image')lastHtml=_svgImg+' صورة';
-      if(m.lastType==='audio')lastHtml=_svgAud+' رسالة صوتية';
-      if(m.lastType==='notice')lastHtml='';
+      else if(m.lastType==='audio')lastHtml=_svgAud+' رسالة صوتية';
+      else if(m.lastType==='notice')lastHtml='';
+      else lastHtml=escH(m.lastMsg||'');
       const badge=(_msgVerifiedCache[m.theirUid]===true)?_badgeHtml:'';
       return`<div class="chat-row ${isNew?'unread':''}" onclick="openChat('${escH(m.theirUid)}','${escH(m.tName)}','${escH(m.tAv)}')">
         <div class="relative shrink-0" style="width:52px;height:52px">
@@ -738,23 +770,118 @@ async function triggerAutoReply(){
   },1000+Math.random()*1500);
 }
 
-/* ─── SEND IMAGE ─── */
+/* ─── SEND IMAGE — مع نافذة معاينة ورسم ─── */
+let _previewFile=null, _drawMode=false, _drawHistory=[], _isDrawing=false;
+
 async function onImgPick(e){
   const file=e.target.files[0];if(!file)return;e.target.value='';
   if(!AC)return;
   const bs=await DB.ref(`users/${AC.uid}/blocked/${MY_UID}`).once('value');
   if(bs.val()){showToast('⛔ أنت محظور، لا يمكنك الإرسال');return;}
+  _previewFile=file;
+  _drawMode=false;_drawHistory=[];
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const canvas=document.getElementById('preview-canvas');
+      // ضبط حجم canvas
+      const maxW=Math.min(img.width, window.innerWidth-40);
+      const maxH=Math.floor(window.innerHeight*0.62);
+      let w=img.width,h=img.height;
+      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+      if(h>maxH){w=Math.round(w*maxH/h);h=maxH;}
+      canvas.width=w;canvas.height=h;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,w,h);
+      _drawHistory=[ctx.getImageData(0,0,w,h)];
+      // أحداث الرسم
+      canvas.onmousedown=startDrawEvt;canvas.onmousemove=drawEvt;canvas.onmouseup=endDrawEvt;
+      canvas.ontouchstart=startDrawEvt;canvas.ontouchmove=drawEvt;canvas.ontouchend=endDrawEvt;
+      // إظهار النافذة
+      document.getElementById('draw-toggle').style.background='rgba(255,255,255,0.12)';
+      document.getElementById('draw-hint').style.display='none';
+      document.getElementById('img-preview-ov').style.display='flex';
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function _getPos(e,canvas){
+  const r=canvas.getBoundingClientRect();
+  const scaleX=canvas.width/r.width,scaleY=canvas.height/r.height;
+  const src=e.touches?e.touches[0]:e;
+  return{x:(src.clientX-r.left)*scaleX,y:(src.clientY-r.top)*scaleY};
+}
+function startDrawEvt(e){
+  if(!_drawMode)return;
+  e.preventDefault();_isDrawing=true;
+  const canvas=document.getElementById('preview-canvas');
+  const ctx=canvas.getContext('2d');
+  const pos=_getPos(e,canvas);
+  const sz=parseInt(document.getElementById('brush-size').value||24);
+  ctx.fillStyle='#ffffff';ctx.strokeStyle='#ffffff';
+  ctx.lineWidth=sz;ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.beginPath();ctx.arc(pos.x,pos.y,sz/2,0,Math.PI*2);ctx.fill();
+  ctx._lastPos=pos;
+}
+function drawEvt(e){
+  if(!_drawMode||!_isDrawing)return;
+  e.preventDefault();
+  const canvas=document.getElementById('preview-canvas');
+  const ctx=canvas.getContext('2d');
+  const pos=_getPos(e,canvas);
+  const sz=parseInt(document.getElementById('brush-size').value||24);
+  ctx.fillStyle='#ffffff';ctx.strokeStyle='#ffffff';
+  ctx.lineWidth=sz;ctx.lineCap='round';ctx.lineJoin='round';
+  if(ctx._lastPos){
+    ctx.beginPath();ctx.moveTo(ctx._lastPos.x,ctx._lastPos.y);
+    ctx.lineTo(pos.x,pos.y);ctx.stroke();
+  }
+  ctx._lastPos=pos;
+}
+function endDrawEvt(e){
+  if(!_isDrawing)return;_isDrawing=false;
+  const canvas=document.getElementById('preview-canvas');
+  const ctx=canvas.getContext('2d');
+  ctx._lastPos=null;
+  _drawHistory.push(ctx.getImageData(0,0,canvas.width,canvas.height));
+  if(_drawHistory.length>30)_drawHistory.shift();
+}
+function toggleDraw(){
+  _drawMode=!_drawMode;
+  document.getElementById('draw-toggle').style.background=_drawMode?'#2563eb':'rgba(255,255,255,0.12)';
+  document.getElementById('draw-hint').style.display=_drawMode?'block':'none';
+  document.getElementById('preview-canvas').style.cursor=_drawMode?'crosshair':'default';
+}
+function undoDraw(){
+  if(_drawHistory.length<=1)return;
+  _drawHistory.pop();
+  const canvas=document.getElementById('preview-canvas');
+  canvas.getContext('2d').putImageData(_drawHistory[_drawHistory.length-1],0,0);
+}
+function cancelImgPreview(){
+  document.getElementById('img-preview-ov').style.display='none';
+  _previewFile=null;_drawMode=false;_drawHistory=[];
+}
+async function confirmImgSend(){
+  if(!AC)return;
+  const canvas=document.getElementById('preview-canvas');
+  document.getElementById('img-preview-ov').style.display='none';
   showToast('جاري رفع الصورة…');
-  try{
-    const fd=new FormData();fd.append('file',file);fd.append('upload_preset',CLD_PRESET);
-    const r=await fetch(`https://api.cloudinary.com/v1_1/${CLD_NAME}/image/upload`,{method:'POST',body:fd});
-    const d=await r.json();const url=d.secure_url||'';
-    if(!url){showToast('فشل الرفع');return;}
-    await updateMetaPerspectives();
-    await pushMsg({id:genId(),from:MY_UID,type:'image',url,ts:Date.now(),read:false,
-      replyTo:replyTo?{...replyTo}:null,senderName:MY_NAME,senderAvatar:MY_AVATAR});
-    cancelReply();showToast('✓ تم إرسال الصورة');
-  }catch(e){showToast('خطأ في الرفع');}
+  canvas.toBlob(async blob=>{
+    try{
+      const fd=new FormData();fd.append('file',blob,'img.jpg');fd.append('upload_preset',CLD_PRESET);
+      const r=await fetch(`https://api.cloudinary.com/v1_1/${CLD_NAME}/image/upload`,{method:'POST',body:fd});
+      const d=await r.json();const url=d.secure_url||'';
+      if(!url){showToast('فشل الرفع');return;}
+      await updateMetaPerspectives();
+      await pushMsg({id:genId(),from:MY_UID,type:'image',url,ts:Date.now(),read:false,
+        replyTo:replyTo?{...replyTo}:null,senderName:MY_NAME,senderAvatar:MY_AVATAR});
+      cancelReply();showToast('✓ تم إرسال الصورة');
+    }catch(err){showToast('خطأ في الرفع');}
+  },'image/jpeg',0.92);
 }
 
 /* ─── VOICE RECORDING ─── */
