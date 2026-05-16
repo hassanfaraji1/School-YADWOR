@@ -102,8 +102,11 @@
       <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M20 21a8 8 0 0 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>
       الملف
     </a>
-    <a href="messages.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
-      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <a href="messages.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500" style="position:relative">
+      <span style="position:relative;display:inline-flex;align-items:center;justify-content:center">
+        <svg viewBox="0 0 24 24" class="h-5 w-5 fill-none stroke-current" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span id="nav-msg-badge" style="display:none;position:absolute;top:-5px;right:-7px;background:#ef4444;color:#fff;font-size:9px;font-weight:800;border-radius:999px;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 3px;border:2px solid #fff;font-family:Tajawal,sans-serif"></span>
+      </span>
       الرسائل
     </a>
     <a href="roomhom.html" class="flex flex-col items-center justify-center gap-1 rounded-[12px] py-2 text-[10px] font-bold text-zinc-500">
@@ -3301,5 +3304,24 @@ async function syncJoinRequestsFromFirebase() {
 })();
 </script>
 <script src="floating-room.js"></script>
+<script>
+(function(){
+  function initMsgBadge(){
+    const uid=localStorage.getItem('yadwor-uid')||'';
+    if(!uid||typeof firebase==='undefined')return;
+    firebase.database().ref('users/'+uid+'/chats').on('value',snap=>{
+      const d=snap.val()||{};
+      let total=0;
+      Object.values(d).forEach(c=>{if(c&&c.unread>0)total+=c.unread;});
+      const badge=document.getElementById('nav-msg-badge');
+      if(!badge)return;
+      if(total>0){badge.textContent=total>99?'99+':total;badge.style.display='inline-block';}
+      else{badge.style.display='none';}
+    });
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initMsgBadge);
+  else initMsgBadge();
+})();
+</script>
 </body>
 </html>
