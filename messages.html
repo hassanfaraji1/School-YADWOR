@@ -396,7 +396,12 @@ function avUrl(n){return`https://ui-avatars.com/api/?background=e4e4e7&color=525
 function fmtTime(ts){
   if(!ts)return'';
   const d=new Date(ts),n=new Date();
-  if(d.toDateString()===n.toDateString())return d.toLocaleTimeString('ar',{hour:'2-digit',minute:'2-digit'});
+  if(d.toDateString()===n.toDateString()){
+    const h=d.getHours(),mi=d.getMinutes();
+    const ampm=h<12?'ص':'م';
+    const h12=h%12||12;
+    return h12+':'+String(mi).padStart(2,'0')+' '+ampm;
+  }
   const diff=Math.floor((n-d)/86400000);
   if(diff===1)return'أمس';
   if(diff<7)return d.toLocaleDateString('ar',{weekday:'short'});
@@ -464,9 +469,12 @@ function listenConvs(){
     function buildRow(m){
       const unread=d[m.cid]?.unread||0, isNew=unread>0;
       let last=m.lastMsg||'';
-      if(m.lastType==='image')last='📷 صورة';
-      if(m.lastType==='audio')last='🎙️ رسالة صوتية';
-      if(m.lastType==='notice')last='';
+      const _svgImg='<svg viewBox="0 0 24 24" style="width:13px;height:13px;display:inline-block;vertical-align:middle;margin-left:3px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+      const _svgAud='<svg viewBox="0 0 24 24" style="width:13px;height:13px;display:inline-block;vertical-align:middle;margin-left:3px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>';
+      let lastHtml=escH(last);
+      if(m.lastType==='image')lastHtml=_svgImg+' صورة';
+      if(m.lastType==='audio')lastHtml=_svgAud+' رسالة صوتية';
+      if(m.lastType==='notice')lastHtml='';
       const badge=(_msgVerifiedCache[m.theirUid]===true)?_badgeHtml:'';
       return`<div class="chat-row ${isNew?'unread':''}" onclick="openChat('${escH(m.theirUid)}','${escH(m.tName)}','${escH(m.tAv)}')">
         <div class="relative shrink-0" style="width:52px;height:52px">
@@ -483,7 +491,7 @@ function listenConvs(){
             </div>
           </div>
           <div class="flex items-center justify-between gap-2">
-            <p class="last-msg truncate text-[12px] text-zinc-500">${escH(last)}</p>
+            <p class="last-msg truncate text-[12px] text-zinc-500 flex items-center gap-0.5">${lastHtml}</p>
             ${unread>1?`<span class="unread-badge">${unread}</span>`:isNew?'<span class="unread-dot"></span>':''}
           </div>
         </div>
@@ -602,7 +610,13 @@ function buildBubble(m){
   if(del){inner=`<span>🗑️ تم حذف هذه الرسالة</span>`;extraCls='deleted-msg';}
   else if(isBlk){inner=`<span>⛔ تعذّر إرسال الرسالة</span>`;extraCls='blocked-msg';}
   else{
-    if(m.replyTo)inner+=`<div class="rp"><span style="font-size:11px;font-weight:800;opacity:.7">${escH(m.replyTo.senderName||'')}</span><br><span>${escH(m.replyTo.preview||'')}</span></div>`;
+    if(m.replyTo){
+      let rpContent='';
+      if(m.replyTo.msgType==='image')rpContent=_rpSvgImg+' <span>صورة</span>';
+      else if(m.replyTo.msgType==='audio')rpContent=_rpSvgAud+' <span>رسالة صوتية</span>';
+      else rpContent=`<span>${escH(m.replyTo.preview||'')}</span>`;
+      inner+=`<div class="rp" style="cursor:pointer" onclick="scrollToMsg('${escH(m.replyTo.id||'')}')"><span style="font-size:11px;font-weight:800;opacity:.7">${escH(m.replyTo.senderName||'')}</span><br><span style="display:inline-flex;align-items:center;gap:3px">${rpContent}</span></div>`;
+    }
     if(m.type==='image')inner+=`<img class="bimg" src="${escH(m.url||'')}" onclick="viewImg('${escH(m.url||'')}')"/>`;
     else if(m.type==='audio')inner+=buildAP(m);
     else inner+=`<span>${escH(m.text||'')}</span>`;
@@ -795,16 +809,39 @@ function chkSendBtn(){
 }
 
 /* ─── REPLY ─── */
+// SVG مصغّرة للاستخدام داخل بار الرد والفقاعة
+const _rpSvgImg='<svg viewBox="0 0 24 24" style="width:14px;height:14px;display:inline-block;vertical-align:middle;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+const _rpSvgAud='<svg viewBox="0 0 24 24" style="width:14px;height:14px;display:inline-block;vertical-align:middle;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>';
+
 function setReply(id){
-  const el=document.querySelector(`[data-id="${id}"] .bubble`);if(!el)return;
-  const txt=el.textContent.trim().slice(0,60);
+  const wrap=document.querySelector(`[data-id="${id}"]`);
+  const el=wrap?.querySelector('.bubble');if(!el)return;
   const isMe=el.classList.contains('me');
-  replyTo={id,senderName:isMe?MY_NAME:(AC?.name||''),preview:txt};
-  document.getElementById('rp-txt').textContent=txt;
+  // تحديد نوع الرسالة
+  const hasImg=el.querySelector('img.bimg');
+  const hasAud=el.querySelector('.ap');
+  let preview='',previewHtml='',msgType='text';
+  if(hasImg){msgType='image';preview='صورة';previewHtml=_rpSvgImg+' صورة';}
+  else if(hasAud){msgType='audio';preview='رسالة صوتية';previewHtml=_rpSvgAud+' رسالة صوتية';}
+  else{preview=el.textContent.trim().slice(0,60);previewHtml=escH(preview);}
+  replyTo={id,senderName:isMe?MY_NAME:(AC?.name||''),preview,msgType};
+  // تحديث بار الرد
+  const rpTxt=document.getElementById('rp-txt');
+  rpTxt.innerHTML=previewHtml;
   document.getElementById('reply-bar').classList.add('on');
   document.getElementById('ci').focus();
 }
 function cancelReply(){replyTo=null;document.getElementById('reply-bar').classList.remove('on');}
+
+// التمرير للرسالة الأصلية عند الضغط على قسم الرد
+function scrollToMsg(id){
+  const el=document.querySelector(`[data-id="${id}"]`);
+  if(!el)return;
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  el.style.transition='background .2s';
+  el.querySelector('.bubble').style.filter='brightness(0.85)';
+  setTimeout(()=>{el.querySelector('.bubble').style.filter='';},700);
+}
 
 /* ─── CONTEXT MENU ─── */
 let _lpT=null;
