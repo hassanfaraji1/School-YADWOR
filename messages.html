@@ -353,32 +353,35 @@ const CLD_NAME='dlujoziwz', CLD_PRESET='my_app_upload';
 <!-- نافذة معاينة الصورة قبل الإرسال -->
 <div id="img-preview-ov" style="position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.88);display:none;flex-direction:column;align-items:center;justify-content:center;padding:16px">
   <div style="width:100%;max-width:420px;background:#1c1c1e;border-radius:20px;overflow:hidden;display:flex;flex-direction:column;max-height:90vh">
-    <!-- شريط الأدوات -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.1)">
-      <button onclick="cancelImgPreview()" style="color:#fff;background:rgba(255,255,255,0.12);border:none;border-radius:10px;padding:6px 14px;font-size:13px;font-weight:700;font-family:Tajawal,sans-serif;cursor:pointer">إلغاء</button>
-      <div style="display:flex;align-items:center;gap:8px">
-        <!-- زر أداة الرسم -->
-        <button id="draw-toggle" onclick="toggleDraw()" title="أداة التغطية" style="background:rgba(255,255,255,0.12);border:none;border-radius:10px;padding:6px 10px;cursor:pointer;display:flex;align-items:center;gap:5px;color:#fff;font-size:12px;font-weight:700;font-family:Tajawal,sans-serif">
-          <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l11.5 11.5"/><circle cx="10" cy="10" r="1.5" fill="currentColor"/></svg>
-          تغطية
-        </button>
-        <!-- حجم الفرشاة -->
-        <select id="brush-size" style="background:rgba(255,255,255,0.12);border:none;border-radius:10px;padding:6px 8px;color:#fff;font-size:12px;font-weight:700;font-family:Tajawal,sans-serif;cursor:pointer">
-          <option value="12">S</option>
-          <option value="24" selected>M</option>
-          <option value="40">L</option>
-        </select>
-        <!-- تراجع -->
-        <button onclick="undoDraw()" title="تراجع" style="background:rgba(255,255,255,0.12);border:none;border-radius:10px;padding:6px 10px;cursor:pointer;color:#fff;font-size:13px;font-weight:700;font-family:Tajawal,sans-serif">↩</button>
-      </div>
-      <button onclick="confirmImgSend()" style="color:#fff;background:#2563eb;border:none;border-radius:10px;padding:6px 14px;font-size:13px;font-weight:700;font-family:Tajawal,sans-serif;cursor:pointer">إرسال ✓</button>
+
+    <!-- شريط الأدوات العلوي (تغطية + حجم + تراجع) -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.1)">
+      <button id="draw-toggle" onclick="toggleDraw()" style="background:rgba(255,255,255,0.12);border:none;border-radius:10px;padding:7px 14px;cursor:pointer;display:flex;align-items:center;gap:5px;color:#fff;font-size:13px;font-weight:700;font-family:Tajawal,sans-serif">
+        <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l11.5 11.5"/></svg>
+        تغطية
+      </button>
+      <select id="brush-size" style="background:rgba(255,255,255,0.12);border:none;border-radius:10px;padding:7px 10px;color:#fff;font-size:13px;font-weight:700;font-family:Tajawal,sans-serif;cursor:pointer">
+        <option value="12">S</option>
+        <option value="24" selected>M</option>
+        <option value="40">L</option>
+      </select>
+      <button onclick="undoDraw()" style="background:rgba(255,255,255,0.12);border:none;border-radius:10px;padding:7px 14px;cursor:pointer;color:#fff;font-size:15px;font-weight:700;font-family:Tajawal,sans-serif">↩</button>
     </div>
-    <!-- منطقة Canvas للمعاينة والرسم -->
+
+    <!-- منطقة Canvas -->
     <div style="position:relative;flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;min-height:0">
-      <canvas id="preview-canvas" style="max-width:100%;max-height:62vh;object-fit:contain;display:block;touch-action:none"></canvas>
+      <canvas id="preview-canvas" style="max-width:100%;max-height:58vh;object-fit:contain;display:block;touch-action:none"></canvas>
     </div>
-    <!-- تلميح -->
-    <p id="draw-hint" style="text-align:center;color:rgba(255,255,255,0.45);font-size:11px;font-weight:700;padding:8px;font-family:Tajawal,sans-serif;display:none">✏️ ارسم فوق الصورة لتغطية ما تريد</p>
+
+    <!-- تلميح الرسم -->
+    <p id="draw-hint" style="text-align:center;color:rgba(255,255,255,0.45);font-size:11px;font-weight:700;padding:4px 0 0;font-family:Tajawal,sans-serif;display:none">✏️ ارسم فوق الصورة لتغطية ما تريد</p>
+
+    <!-- شريط الأزرار السفلي -->
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-top:1px solid rgba(255,255,255,0.1)">
+      <button onclick="cancelImgPreview()" style="flex:1;color:#fff;background:rgba(255,255,255,0.12);border:none;border-radius:12px;padding:12px;font-size:15px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">إلغاء</button>
+      <button onclick="confirmImgSend()" style="flex:2;color:#fff;background:#2563eb;border:none;border-radius:12px;padding:12px;font-size:15px;font-weight:800;font-family:Tajawal,sans-serif;cursor:pointer">إرسال ✓</button>
+    </div>
+
   </div>
 </div>
 
