@@ -114,19 +114,20 @@
         }
         #chatArea {
             flex: 1;
-            overflow-y: scroll;          /* scroll دائماً مرئي */
-            -webkit-overflow-scrolling: touch; /* سلاسة على iOS/Android */
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
             overscroll-behavior: contain;
-            padding: 28px 8px 4px;      /* padding علوي يعوّض منطقة الـ fade */
+            padding: 28px 8px 4px;
             display: flex; flex-direction: column; gap: 4px;
-            /* لا نستخدم justify-content:flex-end حتى يعمل scroll للأعلى */
             justify-content: flex-start;
             scroll-behavior: smooth;
             direction: rtl;
             min-height: 0;
+            /* إخفاء الـ scrollbar في جميع المتصفحات */
+            scrollbar-width: none;        /* Firefox */
+            -ms-overflow-style: none;     /* IE/Edge */
         }
-        #chatArea::-webkit-scrollbar { width: 2px; }
-        #chatArea::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 2px; }
+        #chatArea::-webkit-scrollbar { display: none; width: 0; }
         /* فقاعة الرسالة */
         .vmsg {
             display: inline-flex; flex-direction: column; gap: 2px;
@@ -2296,23 +2297,37 @@
             if (e.track.kind === 'audio') {
                 const aStream = e.streams[0] || new MediaStream([e.track]);
                 audioEl.srcObject = aStream;
-                audioEl.muted = !spkOn;
+                audioEl.muted = false;   // لا نكتم الصوت — المستخدم يتحكم بـ spkOn عبر volume
+                audioEl.volume = spkOn ? 1.0 : 0.0;
                 audioEl.playsInline = true;
                 audioEl.autoplay = true;
-                const tryPlay = n => audioEl.play().catch(() => { if (n < 8) setTimeout(() => tryPlay(n+1), 600); });
-                tryPlay(1);
+                var _apTry = 0;
+                var _apPlay = function() {
+                    _apTry++;
+                    audioEl.play().catch(function() {
+                        if (_apTry < 12) setTimeout(_apPlay, 500);
+                    });
+                };
+                _apPlay();
             }
-            // video track: يُخزّن تلقائياً في getReceivers() — لا حاجة لعمل إضافي هنا
+            // video track يُخزّن في getReceivers() تلقائياً
         };
 
         // مراقبة حالة الاتصال — إعادة بناء عند الفشل
         pc.oniceconnectionstatechange = () => {
             const st = pc.iceConnectionState;
             if (st === 'connected' || st === 'completed') {
-                // تأكد من تشغيل الصوت عند اكتمال الاتصال
-                setTimeout(() => {
-                    if (audioEl.paused && audioEl.srcObject) audioEl.play().catch(() => {});
-                }, 400);
+                // تشغيل الصوت فور الاتصال
+                var _ensureAudio = function() {
+                    if (audioEl && audioEl.srcObject && audioEl.paused) {
+                        audioEl.muted = false;
+                        audioEl.volume = spkOn ? 1.0 : 0.0;
+                        audioEl.play().catch(function(){});
+                    }
+                };
+                _ensureAudio();
+                setTimeout(_ensureAudio, 400);
+                setTimeout(_ensureAudio, 1200);
             }
             if (st === 'failed' || st === 'disconnected') {
                 setTimeout(async () => {
@@ -2959,37 +2974,40 @@
                 }).catch(() => {});
             });
 
-            // مستمع ownerReoffer — يُعيد بناء الاتصال عند رجوع الأستاذ من الصندوق العائم
+            // مستمع ownerReoffer — يُعيد بناء الاتصال عند رجوع الأستاذ من الصندوق العائم أو تغيير الكاميرا
             var _lastReoffer = 0;
             db.ref('rooms/' + roomId + '/ownerReoffer').on('value', async function(reofferSnap) {
                 var ts = reofferSnap.val();
                 if (!ts || ts <= _lastReoffer) return;
                 _lastReoffer = ts;
-                if (Date.now() - ts > 30000) return; // تجاهل الإشارات القديمة
-                // انتظر قليلاً ثم اطلب الـ offer الجديد — امسح buffer الـ ICE أولاً
+                if (Date.now() - ts > 30000) return;
                 setTimeout(async function() {
                     try {
-                        _scIceBuf = [];       // مسح candidates المخزنة القديمة
-                        _scRemoteSet = false;  // إعادة تهيئة flag
+                        _scIceBuf = [];
+                        _scRemoteSet = false;
                         var offerSnap = await db.ref('rooms/' + roomId + '/offers/' + sid).get();
                         if (offerSnap.exists()) {
                             await createOrganizerPeerAndAnswer(offerSnap.val());
-                            // أعِد تشغيل الصوت والفيديو بعد إعادة البناء
-                            setTimeout(function() {
-                                document.querySelectorAll('audio').forEach(function(a) {
-                                    a.muted = !spkOn;
-                                    if (a.paused && a.srcObject) a.play().catch(function(){});
-                                });
-                                var tvEl = document.getElementById('tv');
-                                if (tvEl && tvEl.srcObject) {
-                                    tvEl.playsInline = true;
-                                    tvEl.autoplay = true;
-                                    if (tvEl.paused) tvEl.play().catch(function(){});
-                                }
-                            }, 800);
                         }
+                        // تأكيد تشغيل الصوت والفيديو في أوقات متعددة
+                        var _forcePlay = function() {
+                            document.querySelectorAll('audio').forEach(function(a) {
+                                a.muted = false;
+                                a.volume = 1.0;
+                                if (a.paused && a.srcObject) a.play().catch(function(){});
+                            });
+                            var tvEl = document.getElementById('tv');
+                            if (tvEl && tvEl.srcObject) {
+                                tvEl.playsInline = true;
+                                tvEl.autoplay = true;
+                                if (tvEl.paused) tvEl.play().catch(function(){});
+                            }
+                        };
+                        setTimeout(_forcePlay, 500);
+                        setTimeout(_forcePlay, 1200);
+                        setTimeout(_forcePlay, 2500);
                     } catch(e) {}
-                }, 800);
+                }, 600);
             });
 
             // مستمع spotlight_requests — يستقبل الدعوات الموجهة بـ uid المستخدم الحالي
@@ -3398,21 +3416,21 @@
     }
     function toggleSpk() {
         spkOn = !spkOn;
+        const vol = spkOn ? 1.0 : 0.0;
         const tv = document.getElementById('tv');
-        // #tv يحتوي على فيديو الأستاذ — لا نكتمه للمشاهدين
-        if (!isOwner && tv) tv.muted = !spkOn;
-        // الصوت البعيد
-        const ra = document.getElementById('remoteAudio');
-        if (ra) ra.muted = !spkOn;
-        // عنصر صوت الطالب المخصص
-        const sra = document.getElementById('studentRemoteAudio');
-        if (sra) sra.muted = !spkOn;
-        // audio elements للمنظمين (جهة الأستاذ)
-        document.querySelectorAll('audio[id^="remoteAudio"], audio:not([id])').forEach(el => { el.muted = !spkOn; });
+        if (!isOwner && tv) { tv.muted = !spkOn; }
+        // تحديث جميع عناصر الصوت بـ volume بدلاً من muted
+        document.querySelectorAll('audio').forEach(function(el) {
+            el.volume = vol;
+            // لا نستخدم muted لأنه يمنع التشغيل على Android
+            if (spkOn && el.srcObject && el.paused) el.play().catch(function(){});
+        });
         // teacherPeerConns audio elements
         for (const key in teacherPeerConns) {
-            if (teacherPeerConns[key] && teacherPeerConns[key].audioEl) {
-                teacherPeerConns[key].audioEl.muted = !spkOn;
+            const ae = teacherPeerConns[key] && teacherPeerConns[key].audioEl;
+            if (ae) {
+                ae.volume = vol;
+                if (spkOn && ae.srcObject && ae.paused) ae.play().catch(function(){});
             }
         }
         const ico = document.getElementById('spkIco');
@@ -3616,9 +3634,10 @@
             if (isOwner) {
                 // استبدل track في كل peers
                 await Promise.all(Object.values(teacherPeerConns).map(conn => replaceInPeer(conn && conn.pc)));
-                // أبلغ المشاهدين بتغيير الكاميرا
+                // أبلغ المشاهدين — ownerReoffer يُعيد بناء الـ peers كاملاً (يحل مشكلة الصوت)
                 try {
                     if (db && roomId) {
+                        db.ref('rooms/' + roomId + '/ownerReoffer').set(Date.now());
                         db.ref('rooms/' + roomId + '/cameraFlip').set({ ts: Date.now(), facing: usingFrontCamera ? 'user' : 'environment' });
                         db.ref('rooms/' + roomId + '/spotlightTrackTs').set(Date.now());
                     }
@@ -5110,58 +5129,72 @@
         }
 
         // الأستاذ: ابحث عن connection المنظم
-        // spotlightData.studentId هو الـ key في /students
         let conn = teacherPeerConns[spotlightData.studentId];
-
-        // إذا لم يُوجد بـ studentId، ابحث عن طريق uid
         if (!conn && spotlightData.uid) {
             for (const key in teacherPeerConns) {
-                // نحتاج للتحقق من uid — نبحث في /students
                 const c = teacherPeerConns[key];
                 if (c && c.uid && c.uid === spotlightData.uid) { conn = c; break; }
             }
         }
 
-        if (!conn || !conn.pc) {
-            // انتظر قليلاً وحاول مرة أخرى — ربما الاتصال لم يكتمل بعد
-            // لكن أولاً: حاول إعادة بناء peer إذا كان uid معروفاً
-            if (spotlightData.uid) {
-                var rebuildKey = null;
-                for (var rk in teacherPeerConns) {
-                    var rc = teacherPeerConns[rk];
-                    if (rc && rc.uid === spotlightData.uid) { rebuildKey = rk; break; }
-                }
-                if (!rebuildKey) {
-                    // البحث في /students عن الـ key
-                    db.ref('rooms/' + roomId + '/students').orderByChild('uid').equalTo(spotlightData.uid).once('value', function(snap) {
-                        var vals = snap.val();
-                        if (vals) {
-                            var firstKey = Object.keys(vals)[0];
-                            _rebuildPeerForOrganizer(firstKey, spotlightData.uid).then(function() {
-                                setTimeout(function() { handleSpotlightChange(spotlightData); }, 1500);
-                            }).catch(function() {});
-                        }
-                    });
-                    return;
-                }
+        // إيجاد الـ key الخاص بهذا الـ connection
+        var spotKey = spotlightData.studentId || null;
+        if (!spotKey && conn) {
+            for (var sk in teacherPeerConns) {
+                if (teacherPeerConns[sk] === conn) { spotKey = sk; break; }
             }
+        }
+        if (!spotKey && spotlightData.uid) {
+            // البحث في /students
+            try {
+                var sSnap = await db.ref('rooms/' + roomId + '/students').orderByChild('uid').equalTo(spotlightData.uid).get();
+                var sVals = sSnap.val();
+                if (sVals) spotKey = Object.keys(sVals)[0];
+            } catch(e) {}
+        }
+
+        if (!spotKey) {
             setTimeout(() => handleSpotlightChange(spotlightData), 1000);
             return;
         }
 
-        // إذا كان الاتصال في حالة سيئة — أعِد بناءه أولاً
-        var connState = conn.pc.iceConnectionState;
-        if (connState === 'failed' || connState === 'disconnected' || connState === 'closed' || conn.pc.signalingState === 'closed') {
-            var badKey = null;
-            for (var bk in teacherPeerConns) {
-                if (teacherPeerConns[bk] === conn) { badKey = bk; break; }
+        // ── الإصلاح الجذري: تحقق أولاً من وجود video receiver ──
+        // إذا لم يكن الـ peer موجوداً أو لم يكن له video receiver — أعِد البناء
+        var hasVideoReceiver = false;
+        if (conn && conn.pc && conn.pc.signalingState !== 'closed') {
+            var recvs = conn.pc.getReceivers();
+            hasVideoReceiver = recvs.some(function(r) {
+                return r.track && r.track.kind === 'video' && r.track.readyState !== 'ended';
+            });
+        }
+
+        if (!conn || !conn.pc || conn.pc.signalingState === 'closed' ||
+            conn.pc.iceConnectionState === 'failed' || !hasVideoReceiver) {
+            // إعادة بناء الـ peer بالكامل مع video transceiver
+            try {
+                await _rebuildPeerForOrganizer(spotKey, spotlightData.uid || '');
+                // انتظر اكتمال الاتصال ثم حاول مرة أخرى
+                var _spRetry = 0;
+                var _spPoll = setInterval(async function() {
+                    _spRetry++;
+                    if (_spRetry > 20) { clearInterval(_spPoll); return; }
+                    var newConn = teacherPeerConns[spotKey];
+                    if (!newConn || !newConn.pc) return;
+                    var newRecvs = newConn.pc.getReceivers();
+                    var hasVid = newRecvs.some(function(r) {
+                        return r.track && r.track.kind === 'video' && r.track.readyState !== 'ended';
+                    });
+                    var iceOk = newConn.pc.iceConnectionState === 'connected' ||
+                                newConn.pc.iceConnectionState === 'completed';
+                    if (hasVid && iceOk) {
+                        clearInterval(_spPoll);
+                        handleSpotlightChange(spotlightData);
+                    }
+                }, 500);
+            } catch(e) {
+                setTimeout(() => handleSpotlightChange(spotlightData), 1500);
             }
-            if (badKey) {
-                _rebuildPeerForOrganizer(badKey, conn.uid || spotlightData.uid || '').then(function() {
-                    setTimeout(function() { handleSpotlightChange(spotlightData); }, 1500);
-                }).catch(function() {});
-                return;
-            }
+            return;
         }
 
         // مثل ExempleTools: اقرأ track من getReceivers()
@@ -5292,24 +5325,27 @@
         };
         try { await db.ref('rooms/' + roomId + '/spotlight').set(spData); } catch(e) {}
 
-        // استبدل track في peers الموجودة
+        // استبدل video + audio tracks في peers الموجودة
         var vt = localStream ? localStream.getVideoTracks()[0] : null;
         var at = localStream ? localStream.getAudioTracks()[0]  : null;
         for (var k in teacherPeerConns) {
-            var conn = teacherPeerConns[k];
-            if (!conn || !conn.pc || conn.pc.signalingState === 'closed') continue;
-            var pcSt = conn.pc.iceConnectionState;
-            if (pcSt === 'failed' || pcSt === 'disconnected' || pcSt === 'closed') {
-                (function(rk, ru){ _rebuildPeerForOrganizer(rk, ru).catch(function(){}); })(k, conn.uid || '');
+            var conn2 = teacherPeerConns[k];
+            if (!conn2 || !conn2.pc || conn2.pc.signalingState === 'closed') continue;
+            var pcSt2 = conn2.pc.iceConnectionState;
+            if (pcSt2 === 'failed' || pcSt2 === 'disconnected' || pcSt2 === 'closed') {
+                (function(rk, ru){ _rebuildPeerForOrganizer(rk, ru).catch(function(){}); })(k, conn2.uid || '');
             } else {
-                conn.pc.getSenders().forEach(function(sender) {
-                    if (!sender.track) return;
-                    if (sender.track.kind === 'video' && vt) sender.replaceTrack(vt).catch(function(){});
-                    if (sender.track.kind === 'audio' && at) sender.replaceTrack(at).catch(function(){});
-                });
+                var senders2 = conn2.pc.getSenders();
+                var vSender2 = senders2.find(function(s){ return s.track && s.track.kind === 'video'; });
+                var aSender2 = senders2.find(function(s){ return s.track && s.track.kind === 'audio'; });
+                if (vSender2 && vt) vSender2.replaceTrack(vt).catch(function(){});
+                else if (vt && !vSender2) { try { conn2.pc.addTrack(vt, localStream); } catch(e) {} }
+                if (aSender2 && at) aSender2.replaceTrack(at).catch(function(){});
+                else if (at && !aSender2) { try { conn2.pc.addTrack(at, localStream); } catch(e) {} }
             }
         }
-        // أبلغ المشاهدين بتحديث track
+        // أبلغ المشاهدين بتحديث track — ownerReoffer يُعيد بناء الـ peer عندهم
+        try { db.ref('rooms/' + roomId + '/ownerReoffer').set(Date.now()); } catch(e) {}
         try { db.ref('rooms/' + roomId + '/spotlightTrackTs').set(Date.now()); } catch(e) {}
 
         showSnack('أنت الآن في البث', '');
@@ -5345,17 +5381,28 @@
                 tv.style.visibility = '';
                 try { await tv.play(); } catch(e) {}
             }
-            // إعادة track الأستاذ لجميع PCs
+            // إعادة video + audio tracks لجميع PCs
+            var ownerVT = localStream.getVideoTracks()[0];
+            var ownerAT = localStream.getAudioTracks()[0];
             for (const key in teacherPeerConns) {
-                const pc = teacherPeerConns[key] && teacherPeerConns[key].pc;
-                if (pc && pc.signalingState !== 'closed' && localStream.getVideoTracks()[0]) {
-                    const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-                    if (sender) sender.replaceTrack(localStream.getVideoTracks()[0]).catch(() => {});
+                const conn = teacherPeerConns[key];
+                if (!conn || !conn.pc || conn.pc.signalingState === 'closed') continue;
+                const pcSt = conn.pc.iceConnectionState;
+                if (pcSt === 'failed' || pcSt === 'disconnected' || pcSt === 'closed') {
+                    _rebuildPeerForOrganizer(key, conn.uid || '').catch(function(){});
+                } else {
+                    const senders = conn.pc.getSenders();
+                    const vSender = senders.find(s => s.track && s.track.kind === 'video');
+                    const aSender = senders.find(s => s.track && s.track.kind === 'audio');
+                    if (vSender && ownerVT) vSender.replaceTrack(ownerVT).catch(() => {});
+                    else if (ownerVT && !vSender) { try { conn.pc.addTrack(ownerVT, localStream); } catch(e) {} }
+                    if (aSender && ownerAT) aSender.replaceTrack(ownerAT).catch(() => {});
+                    else if (ownerAT && !aSender) { try { conn.pc.addTrack(ownerAT, localStream); } catch(e) {} }
                 }
             }
-            // أبلغ المشاهدين بالعودة للكاميرا الأصلية
+            // أبلغ المشاهدين بالعودة + إعادة بناء الـ peer من جانبهم
+            try { db.ref('rooms/' + roomId + '/ownerReoffer').set(Date.now()); } catch(e) {}
             try { db.ref('rooms/' + roomId + '/spotlightTrackTs').set(Date.now()); } catch(e) {}
-            // أبلغ Firebase بإخفاء overlay
             try { db.ref('rooms/' + roomId + '/ownerOverlay').set({ on: false, ts: Date.now() }); } catch(e) {}
         } else {
             // localStream غير جاهز — أعِد تشغيل الكاميرا
