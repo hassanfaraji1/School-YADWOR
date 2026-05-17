@@ -5,24 +5,15 @@
     <title>YADWOR — الغرف</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script>
-  if (!firebase.apps.length) {
-    firebase.initializeApp({
-      apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
-      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com"
-    });
-  }
-</script>
     <style>
         :root {
             --primary: #0d47a1;
             --primary-light: #1976d2;
             --red: #f44336;
             --border: #e0e6ed;
-            --bg: #f5f7fa;
+            --bg: #f0f2f8;
+            --header-h: 72px;
+            --nav-h: 64px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body {
@@ -32,128 +23,305 @@
             direction: rtl;
             overflow: hidden;
         }
+
+        /* ══════════════════════════════════════
+           TOP BAR — أبيض، المستخدم يمين، الزر يسار
+        ══════════════════════════════════════ */
         .top-bar {
             background: #fff;
             padding: 0 14px;
-            height: 64px;
+            height: var(--header-h);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            border-bottom: 1px solid var(--border);
             position: sticky; top: 0; z-index: 100;
-            gap: 12px;
+            gap: 10px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+            border-bottom: 1px solid #eef0f6;
         }
-        .user-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+        /* زر إنشاء غرفة — على اليسار (justify-content:space-between يضعه أول عنصر RTL يعني يسار) */
+        .create-btn {
+            display: flex; align-items: center; gap: 7px;
+            padding: 10px 18px; border: none; border-radius: 14px;
+            font-family: 'Tajawal', sans-serif; font-weight: 800; font-size: 0.88rem;
+            cursor: pointer; transition: all 0.18s; white-space: nowrap;
+            /* لون أفتح وأناقة أكثر */
+            background: linear-gradient(135deg, #4f7ef8, #2563eb);
+            color: #fff;
+            box-shadow: 0 3px 12px rgba(79,126,248,0.32);
+        }
+        .create-btn:active { transform: scale(0.96); opacity: 0.9; }
+        .create-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+        /* معلومات المستخدم — يمين (العنصر الأول في flex RTL) */
+        .user-info {
+            display: flex; align-items: center; gap: 9px;
+            /* الصورة على أقصى اليمين ثم النص */
+        }
         #headerAvatar {
-            width: 44px; height: 44px; border-radius: 50%;
-            border: 2px solid var(--primary); background: #e8f0ff;
+            width: 46px; height: 46px; border-radius: 50%;
+            border: 2px solid #e8edff;
+            background: #e8f0ff;
             background-size: cover; background-position: center;
             flex-shrink: 0; overflow: hidden; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 8px rgba(13,71,161,0.14);
         }
-        .user-texts { display: flex; flex-direction: column; gap: 1px; min-width:0; }
-        #headerName { font-weight: 700; font-size: 0.95rem; color: #1a1a2e; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .online-dot {
+            position: absolute; bottom: 1px; left: 1px;
+            width: 11px; height: 11px; border-radius: 50%;
+            background: #22c55e; border: 2px solid #fff;
+            z-index: 2;
+        }
+        /* النص: اسم + badge — يكون على يمين الصورة */
+        .user-texts {
+            display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+        }
+        #headerName { font-weight: 800; font-size: 0.98rem; color: #1a1a2e; }
         .header-type-badge {
-            font-size: 0.72rem; font-weight: 700; color: var(--primary);
-            background: #e8f0ff; padding: 1px 7px; border-radius: 10px; width: fit-content;
+            font-size: 0.68rem; font-weight: 700; color: #2563eb;
+            background: #eef3ff; border: 1px solid #d0dbff;
+            padding: 2px 8px; border-radius: 20px; width: fit-content;
+            display: flex; align-items: center; gap: 4px;
         }
-        .create-btns { display: flex; flex-direction: row; gap: 8px; flex-shrink: 0; }
-        .create-btn {
-            display: flex; align-items: center; justify-content: center; gap: 5px;
-            padding: 8px 12px; border: none; border-radius: 10px;
-            font-family: 'Tajawal', sans-serif; font-weight: 700; font-size: 0.8rem;
-            cursor: pointer; transition: all 0.2s; white-space: nowrap;
-        }
-        .create-btn:active { transform: scale(0.95); opacity:.85; }
-        .btn-video { background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(13,71,161,0.25); }
-        .create-btn svg { width: 15px; height: 15px; fill: currentColor; flex-shrink: 0; }
+        .header-type-badge svg { width: 11px; height: 11px; }
+
+        /* ══════════════════════════════════════
+           CONTENT AREA
+        ══════════════════════════════════════ */
         .content-area {
-            height: calc(100vh - 64px - 64px);
-            overflow-y: auto; padding: 12px 12px 16px;
+            height: calc(100vh - var(--header-h) - var(--nav-h));
+            overflow-y: auto; padding: 14px 12px 10px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
         }
-        .search-tabs-wrap {
-            background: #fff; border-radius: 14px; padding: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.04); margin-bottom: 12px;
-        }
+        .content-area::-webkit-scrollbar { display: none; }
+
+        /* ══════════════════════════════════════
+           SEARCH ROW
+        ══════════════════════════════════════ */
         .search-row {
-            display: flex; gap: 8px; margin-bottom: 10px;
-            background: #f8f9fa; padding: 5px; border-radius: 10px; border: 1px solid var(--border);
+            display: flex; gap: 8px; margin-bottom: 12px; align-items: center;
+            /* البحث يمين، الفلتر يسار — مناسب RTL */
+            flex-direction: row-reverse;
         }
+        .search-field-wrap {
+            flex: 1; display: flex; align-items: center; gap: 8px;
+            background: #fff; border-radius: 14px;
+            padding: 0 14px;
+            border: 1.5px solid #e4e8f5;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            transition: border-color 0.2s;
+        }
+        .search-field-wrap:focus-within { border-color: #7b9ff5; }
         .search-row input {
-            flex: 1; padding: 9px 12px; border: none; background: transparent;
-            font-family: 'Tajawal', sans-serif; font-size: 0.9rem; outline: none; direction: rtl;
+            flex: 1; padding: 12px 0; border: none; background: transparent;
+            font-family: 'Tajawal', sans-serif; font-size: 0.9rem; outline: none;
+            direction: rtl; color: #222;
         }
-        .search-row button {
-            padding: 8px 14px; background: #fff; border: none; border-radius: 8px;
-            font-family: 'Tajawal', sans-serif; font-weight: 700; font-size: 0.88rem;
-            cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.08); color: #212529;
-        }
-        .tabs-row { display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; }
-        .tabs-row::-webkit-scrollbar { display: none; }
-        .tab-btn {
-            display: flex; flex-direction: column; align-items: center; gap: 4px;
-            padding: 9px 14px; border: none; border-radius: 14px; flex-shrink: 0;
-            font-family: 'Tajawal', sans-serif; font-weight: 700; font-size: 0.78rem;
-            cursor: pointer; transition: all 0.22s; background: #f0f2f5; color: #777;
-            min-width: 64px;
-        }
-        .tab-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: all 0.22s; }
-        .tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 4px 14px rgba(13,71,161,0.28); }
-        .tab-btn:not(.active):hover { background: #e4e6eb; color: #444; }
-        .section-title {
-            font-size: 0.93rem; font-weight: 700; color: #333; margin-bottom: 8px;
-            display: flex; align-items: center; gap: 5px;
-        }
-        .room-card {
-            display: flex; background: #fff; border-radius: 18px; margin-bottom: 14px;
-            box-shadow: 0 3px 12px rgba(0,0,0,0.05); overflow: hidden; min-height: 105px;
-            border: 1px solid #f0f0f0; direction: rtl;
-        }
-        .card-body {
-            flex: 1; padding: 10px 14px; display: flex;
-            flex-direction: column; justify-content: space-between; gap: 4px;
-        }
-        .card-top { display: flex; justify-content: space-between; align-items: flex-start; }
-        .room-id-label { font-size: 0.65rem; color: var(--primary); font-weight: 900; letter-spacing: 1px; margin-bottom: 2px; }
-        .room-name-label { font-weight: 800; font-size: 0.88rem; color: #222; }
-        .meta-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-        .type-badge { font-size: 0.68rem; padding: 2px 8px; border-radius: 6px; font-weight: 700; }
-        .type-public { background: #e3f2fd; color: var(--primary); }
-        .type-private { background: #fff3e0; color: #ef6c00; }
-        .type-voice { background: #f3e5f5; color: #7b1fa2; }
-        .card-time { font-size: 0.75rem; color: #777; font-weight: 700; font-family: Arial, sans-serif; }
-        .owner-name-row { font-size: 0.82rem; color: #555; font-weight: 600; }
-        .owner-avatar-wrap { position: relative; width: 52px; height: 52px; flex-shrink: 0; }
-        .owner-pfp { width: 100%; height: 100%; border-radius: 50%; border: 2px solid #eee; object-fit: cover; }
-        .owner-initial {
-            width: 100%; height: 100%; border-radius: 50%; border: 2px solid #eee;
-            background: linear-gradient(135deg,#0d47a1,#1976d2);
+        .search-row input::placeholder { color: #b0b8cc; }
+        .filter-btn {
+            width: 46px; height: 46px; background: #fff;
+            border: 1.5px solid #e4e8f5; border-radius: 14px;
             display: flex; align-items: center; justify-content: center;
-            color: #fff; font-weight: 800; font-size: 1.1rem;
+            cursor: pointer; flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         }
-        .live-tag {
-            position: absolute; bottom: -5px; right: 4px; background: var(--red); color: #fff;
-            font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: 900;
+        .filter-btn:active { background: #f0f4ff; }
+
+        /* ══════════════════════════════════════
+           CATEGORY CARDS — 4 ثابتة
+        ══════════════════════════════════════ */
+        .cats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .cat-card {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 5px; padding: 10px 4px; border: none; border-radius: 16px;
+            font-family: 'Tajawal', sans-serif; font-weight: 700; font-size: 0.78rem;
+            cursor: pointer; transition: all 0.2s;
+            background: #fff; color: #6b7a99;
+            border: 1.5px solid #eaecf5;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            min-height: 72px;
+        }
+        .cat-card .cat-icon {
+            width: 38px; height: 38px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: all 0.2s;
+        }
+        /* ── inactive icon bg ── */
+        .cat-all  .cat-icon { background: #eef3ff; }
+        .cat-inst .cat-icon { background: #eff6ff; }
+        .cat-pub  .cat-icon { background: #ecfdf5; }
+        .cat-chal .cat-icon { background: #fffbeb; }
+
+        /* ── active state — لون فاتح وأنيق، الأيقونة تبقى ظاهرة ── */
+        .cat-card.active {
+            border-color: transparent;
+        }
+        /* ألوان التحديد الفاتحة */
+        .cat-card.active.cat-all {
+            background: #EEF3FF; color: #2563eb;
+            box-shadow: 0 4px 14px rgba(37,99,235,0.14);
+            border-color: #c7d7ff;
+        }
+        .cat-card.active.cat-inst {
+            background: #EFF6FF; color: #2563eb;
+            box-shadow: 0 4px 14px rgba(37,99,235,0.12);
+            border-color: #bfdbfe;
+        }
+        .cat-card.active.cat-pub {
+            background: #ECFDF5; color: #059669;
+            box-shadow: 0 4px 14px rgba(5,150,105,0.12);
+            border-color: #a7f3d0;
+        }
+        .cat-card.active.cat-chal {
+            background: #FFFBEB; color: #d97706;
+            box-shadow: 0 4px 14px rgba(217,119,6,0.13);
+            border-color: #fde68a;
+        }
+        /* الأيقونة تبقى بنفس لون الأيقونة المناسب عند التحديد */
+        .cat-card.active.cat-all  .cat-icon { background: rgba(37,99,235,0.1); }
+        .cat-card.active.cat-inst .cat-icon { background: rgba(37,99,235,0.1); }
+        .cat-card.active.cat-pub  .cat-icon { background: rgba(5,150,105,0.1); }
+        .cat-card.active.cat-chal .cat-icon { background: rgba(217,119,6,0.1); }
+
+        /* ══════════════════════════════════════
+           SECTION TITLE — محاذاة يمين
+        ══════════════════════════════════════ */
+        .section-title {
+            font-size: 0.97rem; font-weight: 800; color: #1a2240;
+            margin-bottom: 10px;
+            display: flex; align-items: center;
+            /* محاذاة يمين — العنوان أولاً ثم الأيقونة */
+            justify-content: flex-start;
+            flex-direction: row;
+            gap: 8px;
+        }
+        .wave-anim {
+            display: flex; align-items: center; gap: 2.5px;
+        }
+        .wave-bar {
+            width: 3px; border-radius: 3px;
+            background: #2563eb;
+            animation: waveDance 1.1s ease-in-out infinite;
+        }
+        .wave-bar:nth-child(1) { height: 8px; animation-delay: 0s; }
+        .wave-bar:nth-child(2) { height: 14px; animation-delay: 0.15s; }
+        .wave-bar:nth-child(3) { height: 10px; animation-delay: 0.3s; }
+        .wave-bar:nth-child(4) { height: 16px; animation-delay: 0.45s; }
+        .wave-bar:nth-child(5) { height: 8px; animation-delay: 0.6s; }
+        @keyframes waveDance {
+            0%,100% { transform: scaleY(0.4); opacity: 0.5; }
+            50% { transform: scaleY(1); opacity: 1; }
+        }
+
+        /* ══════════════════════════════════════
+           ROOM CARDS
+        ══════════════════════════════════════ */
+        .room-card {
+            display: flex; background: #fff; border-radius: 20px; margin-bottom: 12px;
+            box-shadow: 0 2px 14px rgba(0,0,0,0.06);
+            border: 1.5px solid #f0f2fa;
+            direction: rtl; overflow: hidden;
+            transition: box-shadow 0.18s;
+        }
+        .room-card:active { box-shadow: 0 1px 6px rgba(0,0,0,0.08); }
+
+        /* لوحة الصورة — يسار */
+        .card-illus {
+            width: 108px; min-width: 108px; position: relative;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 10px 8px 24px;
+            border-radius: 0 16px 16px 0;
+        }
+        .card-illus img,
+        .card-illus .illus-svg {
+            width: 72px; height: 72px; object-fit: contain;
+        }
+        /* عداد المستمعين */
+        .listeners-badge {
+            position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+            display: flex; align-items: center; gap: 3px; white-space: nowrap;
+            padding: 2px 7px; border-radius: 20px;
+            background: rgba(255,255,255,0.35); backdrop-filter: blur(4px);
+        }
+        .listeners-badge svg { flex-shrink: 0; }
+        .listeners-badge span { font-size: 0.65rem; font-weight: 800; }
+
+        /* معلومات الغرفة */
+        .card-body {
+            flex: 1; padding: 10px 12px 10px 6px; min-width: 0;
+            display: flex; flex-direction: column; gap: 2px; cursor: pointer;
+        }
+        .room-id-label {
+            font-size: 0.62rem; font-weight: 900; letter-spacing: 0.6px;
+            margin-bottom: 1px;
+        }
+        .room-name-label { font-weight: 800; font-size: 0.93rem; color: #1a2240; }
+        .meta-row {
+            display: flex; align-items: center; gap: 5px;
+            margin-top: 3px; flex-wrap: wrap;
+        }
+        .type-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 0.66rem; padding: 3px 8px; border-radius: 20px; font-weight: 800;
+        }
+        .type-badge svg { width: 10px; height: 10px; flex-shrink: 0; }
+        .type-institution { background: #eef3ff; color: #2563eb; }
+        .type-public      { background: #ecfdf5; color: #059669; }
+        .type-voice       { background: #f5f3ff; color: #7c3aed; }
+        .type-influencer  { background: #fff7ed; color: #d97706; }
+        .type-challenge   { background: #fff1f2; color: #e11d48; }
+        .type-private     { background: #fff7ed; color: #d97706; }
+
+        .card-time {
+            font-size: 0.71rem; color: #9aa3b8; font-weight: 700;
             display: flex; align-items: center; gap: 3px;
         }
-        .live-dot { width: 5px; height: 5px; background: #fff; border-radius: 50%; animation: pulse 1.3s infinite; }
-        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.35;transform:scale(0.85)} }
-        .join-panel {
-            background: var(--primary); width: 82px; display: flex;
-            flex-direction: column; justify-content: center; align-items: center;
-            color: #fff; cursor: pointer; transition: background 0.25s; flex-shrink: 0;
-            align-self: stretch;
+        /* صف المسؤول */
+        .owner-row {
+            display: flex; align-items: center; gap: 7px; margin-top: 5px;
         }
-        .join-panel:hover { background: #0a3a82; }
-        .join-panel.voice-join { background: linear-gradient(135deg,#7b1fa2,#9c27b0); }
-        .join-panel.voice-join:hover { background: #6a1b9a; }
-        .join-word { font-weight: 900; font-size: 1rem; margin-bottom: 6px; }
-        .view-count { text-align: center; font-size: 0.72rem; }
-        .view-num { font-family: Arial, sans-serif; font-weight: 900; font-size: 0.88rem; display: block; }
-        .empty-state { text-align: center; color: #aaa; padding: 40px 20px; font-size: 0.9rem; }
-        .empty-state .icon { font-size: 2.5rem; margin-bottom: 8px; }
-        .empty-state .hint { margin-top: 10px; font-size: 0.8rem; color: #bbb; }
+        .owner-avatar-wrap {
+            position: relative; width: 32px; height: 32px; flex-shrink: 0;
+        }
+        .owner-pfp {
+            width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+            border: 2px solid #e8edff;
+        }
+        .owner-initial {
+            width: 100%; height: 100%; border-radius: 50%;
+            background: linear-gradient(135deg,#2563eb,#6b8fff);
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-weight: 800; font-size: 0.82rem;
+        }
+        /* LIVE tag — أصغر وتحت الصورة */
+        .live-tag {
+            position: absolute;
+            bottom: -8px; left: 50%; transform: translateX(-50%);
+            color: #fff; font-size: 0.48rem; padding: 1px 4px; border-radius: 4px;
+            font-weight: 900; display: flex; align-items: center; gap: 1.5px;
+            white-space: nowrap; border: 1.5px solid #fff;
+            line-height: 1.4;
+        }
+        .live-dot {
+            width: 3.5px; height: 3.5px; background: #fff; border-radius: 50%;
+            animation: blink 1.2s infinite; flex-shrink: 0;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+        .owner-name { font-size: 0.77rem; color: #6b7a99; font-weight: 700; }
+
+        /* Empty state */
+        .empty-state { text-align: center; color: #b0b8cc; padding: 50px 20px; }
+        .empty-state svg { display: block; margin: 0 auto 12px; }
+        .empty-state p { font-size: 0.9rem; font-weight: 700; color: #6b7a99; margin-bottom: 6px; }
+        .empty-state small { font-size: 0.78rem; color: #b0b8cc; }
         /* نوافذ */
         .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(5px); z-index: 1000; align-items: flex-end; justify-content: center; padding: 0; }
         .modal-bg.show { display: flex; }
@@ -278,77 +446,122 @@
 
 <!-- الهيدر -->
 <div class="top-bar">
+    <!-- معلومات المستخدم — على اليمين (أول عنصر RTL) -->
     <div class="user-info">
-        <div id="headerAvatar" onclick="window.location.href='profile.html'"></div>
+        <div style="position:relative;">
+            <div id="headerAvatar" onclick="window.location.href='profile.html'"></div>
+            <div class="online-dot"></div>
+        </div>
         <div class="user-texts">
             <span id="headerName">...</span>
-            <span class="header-type-badge" id="headerTypeBadge">مستخدم</span>
+            <span class="header-type-badge" id="headerTypeBadge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                مستخدم
+            </span>
         </div>
     </div>
-    <div class="create-btns">
-        <button class="create-btn btn-video" id="createVideoBtn">
-            <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-            غرفة فيديو
-        </button>
-    </div>
+    <!-- زر إنشاء غرفة — على اليسار (آخر عنصر RTL) -->
+    <button class="create-btn" id="createVideoBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round">
+            <path d="M12 5v14M5 12h14"/>
+        </svg>
+        إنشاء غرفة
+    </button>
 </div>
 
 <!-- المحتوى -->
 <div class="content-area">
-    <div class="search-tabs-wrap">
-        <div class="search-row">
-            <input type="text" id="roomSearch" placeholder="ابحث باسم الغرفة أو رقمها..." oninput="filterRooms()">
-            <button onclick="filterRooms()">بحث</button>
+
+    <!-- حقل البحث — الفلتر يمين، البحث يسار -->
+    <div class="search-row">
+        <button class="filter-btn" onclick="filterRooms()">
+            <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:#6b7a99;stroke-width:2;stroke-linecap:round;">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+        </button>
+        <div class="search-field-wrap">
+            <svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:#b0b8cc;stroke-width:2;stroke-linecap:round;flex-shrink:0;">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input type="text" id="roomSearch" placeholder="ابحث باسم الغرفة أو وصفها..." oninput="filterRooms()">
         </div>
-        <div class="tabs-row" id="tabsRow">
-            <!-- الكل -->
-            <button class="tab-btn active" id="tabAll" onclick="switchTab('all')">
-                <svg viewBox="0 0 24 24">
+    </div>
+
+    <!-- كروت التصنيف — 4 ثابتة -->
+    <div class="cats-row">
+        <!-- الكل -->
+        <button class="cat-card cat-all active" id="tabAll" onclick="switchTab('all')">
+            <div class="cat-icon">
+                <svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:#2563eb;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;">
                     <rect x="3" y="3" width="7" height="7" rx="1.5"/>
                     <rect x="14" y="3" width="7" height="7" rx="1.5"/>
                     <rect x="3" y="14" width="7" height="7" rx="1.5"/>
                     <rect x="14" y="14" width="7" height="7" rx="1.5"/>
                 </svg>
-                الكل
-            </button>
-            <!-- المؤسسات -->
-            <button class="tab-btn" id="tabInstitution" onclick="switchTab('institution')">
-                <svg viewBox="0 0 24 24">
-                    <path d="M3 21h18M3 7l9-4 9 4M4 7v14M20 7v14"/>
-                    <rect x="9" y="10" width="2" height="3" rx=".5"/>
-                    <rect x="13" y="10" width="2" height="3" rx=".5"/>
-                    <path d="M9 21v-4a3 3 0 0 1 6 0v4"/>
+            </div>
+            الكل
+        </button>
+        <!-- المؤسسات — أيقونة مبنى مختلفة (dome / capitol) -->
+        <button class="cat-card cat-inst" id="tabInstitution" onclick="switchTab('institution')">
+            <div class="cat-icon">
+                <svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:#2563eb;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;">
+                    <!-- dome building icon -->
+                    <path d="M12 3C9 3 6.5 5.5 6.5 8.5h11C17.5 5.5 15 3 12 3z"/>
+                    <rect x="4" y="8.5" width="16" height="2" rx="1"/>
+                    <rect x="3" y="19" width="18" height="2" rx="1"/>
+                    <rect x="5" y="10.5" width="2.5" height="8.5"/>
+                    <rect x="10.75" y="10.5" width="2.5" height="8.5"/>
+                    <rect x="16.5" y="10.5" width="2.5" height="8.5"/>
+                    <circle cx="12" cy="7" r="1.2" fill="#2563eb"/>
                 </svg>
-                المؤسسات
-            </button>
-            <!-- عامة -->
-            <button class="tab-btn" id="tabPublic" onclick="switchTab('public')">
-                <svg viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="9"/>
-                    <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </div>
+            المؤسسات
+        </button>
+        <!-- عامة -->
+        <button class="cat-card cat-pub" id="tabPublic" onclick="switchTab('public')">
+            <div class="cat-icon">
+                <svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:#059669;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
                 </svg>
-                عامة
-            </button>
-            <!-- تحديات -->
-            <button class="tab-btn" id="tabChallenge" onclick="switchTab('challenge')">
-                <svg viewBox="0 0 24 24">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </div>
+            عامة
+        </button>
+        <!-- تحديات — كأس بطولة -->
+        <button class="cat-card cat-chal" id="tabChallenge" onclick="switchTab('challenge')">
+            <div class="cat-icon">
+                <svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:#d97706;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;">
+                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+                    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+                    <path d="M4 22h16"/>
+                    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+                    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+                    <path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/>
                 </svg>
-                تحديات
-            </button>
-        </div>
+            </div>
+            تحديات
+        </button>
     </div>
+
+    <!-- عنوان القسم — محاذاة يمين -->
     <div class="section-title">
-        <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:#e25822;stroke-width:2;stroke-linecap:round;"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8z"/><path d="M9 9l6 6M15 9l-6 6" stroke="#e25822"/></svg>
+        <div class="wave-anim">
+            <div class="wave-bar"></div><div class="wave-bar"></div>
+            <div class="wave-bar"></div><div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+        </div>
         غرف نشطة الآن
     </div>
     <div id="roomsList">
         <div class="empty-state">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.3" stroke-linecap="round" style="width:52px;height:52px;display:block;margin:0 auto 12px">
-                <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
+            <svg viewBox="0 0 80 80" fill="none" width="72" height="72">
+                <circle cx="40" cy="40" r="36" fill="#EEF4FF"/>
+                <path d="M28 38a12 12 0 1 1 24 0v6a12 12 0 0 1-24 0v-6z" stroke="#6B8FFF" stroke-width="2" stroke-linecap="round"/>
+                <path d="M34 50v3M46 50v3M37 53h6" stroke="#6B8FFF" stroke-width="2" stroke-linecap="round"/>
             </svg>
-            <div>لا توجد غرف نشطة حالياً</div>
-            <div class="hint">اضغط على "غرفة فيديو" لإنشاء غرفة جديدة</div>
+            <p>لا توجد غرف نشطة حالياً</p>
+            <small>اضغط على "إنشاء غرفة" لبدء جلسة جديدة</small>
         </div>
     </div>
 </div>
@@ -743,7 +956,6 @@
 // YADWOR Rooms
 // ================================================================
 
-const ROOMS_KEY = 'yadwor-rooms';
 let allRooms    = [];
 let currentTab  = 'all';
 let pendingJoin = null;
@@ -752,29 +964,28 @@ let pendingJoin = null;
 let _currentUser = null;
 
 // ----------------------------------------------------------------
-// جلب بيانات المستخدم من Firebase (users + joinRequests)
+// جلب بيانات المستخدم من Firebase فقط (بدون localStorage)
 // ----------------------------------------------------------------
-// دالة متزامنة تقرأ من الكاش أو من localStorage مباشرة
 function getCurrentUser() {
-    if (_currentUser) return _currentUser;
-    const uid    = localStorage.getItem('yadwor-uid') || '';
-    const name   = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || '';
-    const avatar = localStorage.getItem('yadwor-avatar-preview') || '';
-    const type   = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || 'user';
-    return { uid, name, avatar, type, typeLabel: type, institutionUid:'', institutionName:'', levelId:'', levelName:'', subjects:[] };
+    return _currentUser || { uid:'', name:'...', avatar:'', type:'user', typeLabel:'مستخدم',
+        institutionUid:'', institutionName:'', levelId:'', levelName:'', subjects:[] };
 }
 
 async function loadCurrentUser() {
     if (_currentUser) return _currentUser;
 
-    const uid = localStorage.getItem('yadwor-uid') || '';
+    // جلب UID من Firebase Auth أو sessionStorage (لا localStorage)
+    const uid = (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser)
+        ? firebase.auth().currentUser.uid
+        : sessionStorage.getItem('yadwor-uid') || '';
+
     if (!uid) {
-        _currentUser = { uid:'', name:'مستخدم', avatar:'', type:'user', typeLabel:'مستخدم',
+        _currentUser = { uid:'', name:'زائر', avatar:'', type:'user', typeLabel:'مستخدم',
                          institutionUid:'', institutionName:'', levelId:'', levelName:'', subjects:[] };
         return _currentUser;
     }
 
-    // 1) بيانات المستخدم الأساسية
+    // 1) بيانات المستخدم الأساسية من Firebase
     const uData = await fetchMyUserDataFromFirebase();
 
     // 2) طلب الانضمام المقبول (للأستاذ/التلميذ)
@@ -787,7 +998,7 @@ async function loadCurrentUser() {
         content_creator:'منشئ محتوى', influencer:'مؤثر تعليمي'
     };
 
-    // اسم المؤسسة — نجلبه من users/{institutionUid}
+    // اسم المؤسسة
     let institutionName = '';
     const institutionUid = (uData && (uData.institutionUid || uData.institutionId)) || '';
     if (institutionUid) {
@@ -809,14 +1020,9 @@ async function loadCurrentUser() {
 
     _currentUser = {
         uid,
-        name:           (uData && (uData.name || uData.displayName)) ||
-                        localStorage.getItem('yadwor-settings-name') ||
-                        localStorage.getItem('yadwor-user-name') || '',
-        avatar:         (uData && (uData.avatar || uData.avatarUrl || uData.photoURL)) ||
-                        localStorage.getItem('yadwor-avatar-preview') || '',
-        type:           (uData && (uData.accountType || uData.profileType)) ||
-                        localStorage.getItem('yadwor-account-type') ||
-                        localStorage.getItem('yadwor-profile-type') || 'user',
+        name:           (uData && (uData.name || uData.displayName)) || 'مستخدم',
+        avatar:         (uData && (uData.avatar || uData.avatarUrl || uData.photoURL)) || '',
+        type:           (uData && (uData.accountType || uData.profileType)) || 'user',
         typeLabel:      typeLabels[type] || 'مستخدم',
         institutionUid,
         institutionName,
@@ -864,50 +1070,42 @@ async function initPage() {
     const user = await loadCurrentUser();
 
     if (nameEl)   nameEl.textContent  = user.name;
-    if (badgeEl)  badgeEl.textContent = user.typeLabel;
+    if (badgeEl)  {
+        const svg = badgeEl.querySelector('svg');
+        badgeEl.textContent = user.typeLabel;
+        if (svg) badgeEl.prepend(svg);
+    }
     if (avatarEl) setAvatarDiv(avatarEl, user.avatar, user.name);
 
     if (typeof updateBellBadgeFromFirebase === 'function') updateBellBadgeFromFirebase();
 }
 
 // ----------------------------------------------------------------
-// إدارة الغرف — Firebase هو المصدر الرئيسي + localStorage كنسخة احتياطية
+// إدارة الغرف — Firebase فقط، بدون localStorage
 // ----------------------------------------------------------------
 let _fbRoomsListenerActive = false;
 
 function loadRooms() {
-    // أولاً: عرض الغرف المحلية فوراً
-    try {
-        const saved = JSON.parse(localStorage.getItem(ROOMS_KEY) || '[]');
-        const now = Date.now();
-        allRooms = saved.filter(r => !r.closed && (now - (r.startTime||0)) < 3*60*60*1000);
-    } catch(e) { allRooms = []; }
-
-    // ثانياً: الاستماع لـ Firebase في الوقت الفعلي (Realtime)
+    // الاستماع لـ Firebase في الوقت الفعلي فقط
     if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length && !_fbRoomsListenerActive) {
         _fbRoomsListenerActive = true;
         firebase.database().ref('rooms').on('value', snap => {
             const data = snap.val() || {};
             const now  = Date.now();
-            const fbRooms = Object.values(data)
+            allRooms = Object.values(data)
                 .filter(r => r && r.roomId && !r.closed && (now - (r.startTime||0)) < 3*60*60*1000)
                 .sort((a,b) => (b.startTime||0) - (a.startTime||0));
-
-            // دمج: الغرف المحلية التي لم تُرفع بعد + غرف Firebase
-            const fbIds  = new Set(fbRooms.map(r => r.roomId));
-            const local  = allRooms.filter(r => !fbIds.has(r.roomId));
-            allRooms = [...fbRooms, ...local];
-            try { localStorage.setItem(ROOMS_KEY, JSON.stringify(allRooms)); } catch(e) {}
             renderRooms();
         }, () => {
-            // فشل Firebase — نعتمد على localStorage
+            // فشل الاتصال — عرض حالة فارغة
+            allRooms = [];
             renderRooms();
         });
     }
 }
 
 function saveRooms() {
-    try { localStorage.setItem(ROOMS_KEY, JSON.stringify(allRooms)); } catch(e) {}
+    // لا شيء — Firebase يتولى التخزين
 }
 
 // ----------------------------------------------------------------
@@ -929,11 +1127,15 @@ function renderRooms() {
         const lblMap = {all:'', institution:'مؤسسية', public:'عامة', challenge:'تحديات'};
         const lbl = lblMap[currentTab] || '';
         list.innerHTML = `<div class="empty-state">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.3" stroke-linecap="round" style="width:52px;height:52px;display:block;margin:0 auto 12px">
-                <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
+            <svg viewBox="0 0 80 80" fill="none" width="72" height="72">
+                <circle cx="40" cy="40" r="36" fill="#EEF4FF"/>
+                <path d="M28 38a12 12 0 1 1 24 0v6a12 12 0 0 1-24 0v-6z" stroke="#6B8FFF" stroke-width="2" stroke-linecap="round"/>
+                <path d="M34 50v3M46 50v3M37 53h6" stroke="#6B8FFF" stroke-width="2" stroke-linecap="round"/>
+                <circle cx="35" cy="36" r="1.5" fill="#6B8FFF"/>
+                <circle cx="45" cy="36" r="1.5" fill="#6B8FFF"/>
             </svg>
-            <div>${q ? 'لم يُعثر على غرفة بهذا الاسم' : ('لا توجد غرف ' + (lbl ? lbl + ' ' : '') + 'نشطة حالياً')}</div>
-            <div class="hint">اضغط على "غرفة فيديو" لإنشاء غرفة جديدة</div>
+            <p>${q ? 'لم يُعثر على غرفة بهذا الاسم' : ('لا توجد غرف ' + (lbl ? lbl + ' ' : '') + 'نشطة حالياً')}</p>
+            <small>اضغط على "إنشاء غرفة" لبدء جلسة جديدة</small>
         </div>`;
         return;
     }
@@ -944,46 +1146,156 @@ function roomCardHTML(r) {
     const time = new Date(r.startTime || Date.now()).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});
     const cnt  = r.participantsCount || 1;
     const isVoice = r.roomMode === 'voice';
-    const tlabel  = r.roomType === 'private' ? 'خاصة' : (isVoice ? 'صوتية' : 'عامة');
-    const tclass  = r.roomType === 'private' ? 'type-private' : (isVoice ? 'type-voice' : 'type-public');
+    const cat   = r.roomCategory || '';
+    const oType = r.ownerType || '';
+
+    // نوع الغرفة + badge
+    let tlabel, tclass, tIcon, liveColor;
+    if (cat === 'challenge') {
+        tlabel = 'تحديات'; tclass = 'type-challenge'; liveColor = '#e11d48';
+        tIcon = `<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/>`;
+    } else if (oType === 'institution' || cat === 'institution') {
+        tlabel = 'مؤسسة'; tclass = 'type-institution'; liveColor = '#1a56e8';
+        tIcon = `<path d="M3 21h18M3 7l9-4 9 4M4 7v14M20 7v14"/><rect x="9" y="10" width="2" height="3"/><rect x="13" y="10" width="2" height="3"/><path d="M9 21v-4a3 3 0 0 1 6 0v4"/>`;
+    } else if (oType === 'influencer') {
+        tlabel = 'مؤثر تعليمي'; tclass = 'type-influencer'; liveColor = '#d97706';
+        tIcon = `<path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/>`;
+    } else if (isVoice) {
+        tlabel = 'صوتية'; tclass = 'type-voice'; liveColor = '#7c3aed';
+        tIcon = `<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/>`;
+    } else if (r.roomType === 'private') {
+        tlabel = 'خاصة'; tclass = 'type-private'; liveColor = '#d97706';
+        tIcon = `<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>`;
+    } else {
+        tlabel = 'عامة'; tclass = 'type-public'; liveColor = '#059669';
+        tIcon = `<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>`;
+    }
+
+    // صورة الغرفة — إذا لم توجد يعرض SVG افتراضي
+    // أسماء الملفات: room-institution.png, room-public.png, room-voice.png, room-influencer.png, room-challenge.png
+    const imgMap = {
+        institution: 'room-institution.png',
+        public:      'room-public.png',
+        voice:       'room-voice.png',
+        influencer:  'room-influencer.png',
+        challenge:   'room-challenge.png',
+    };
+    // تحديد مفتاح الصورة
+    let imgKey = 'public';
+    if (cat === 'challenge')                         imgKey = 'challenge';
+    else if (oType === 'institution' || cat === 'institution') imgKey = 'institution';
+    else if (oType === 'influencer')                 imgKey = 'influencer';
+    else if (isVoice)                                imgKey = 'voice';
+
+    // خلفية اللوحة
+    const bgMap = {
+        institution: '#EEF4FF', public: '#ECFDF5', voice: '#F5F3FF',
+        influencer: '#FFF7ED', challenge: '#FFF1F2'
+    };
+    const illusBg = bgMap[imgKey] || '#F0F4FF';
+
+    // أيقونة SVG الاحتياطية لكل نوع (تُعرض إذا لم توجد الصورة)
+    const svgFallbacks = {
+        institution: `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" width="76" height="76">
+            <rect x="12" y="32" width="56" height="38" rx="4" fill="#BFDBFE"/>
+            <polygon points="6,32 40,10 74,32" fill="#93C5FD"/>
+            <rect x="30" y="46" width="20" height="24" rx="2" fill="#60A5FA"/>
+            <rect x="16" y="40" width="10" height="10" rx="1" fill="#3B82F6"/>
+            <rect x="54" y="40" width="10" height="10" rx="1" fill="#3B82F6"/>
+            <circle cx="60" cy="24" r="8" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+            <path d="M57 24l2 2 4-4" stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`,
+        public: `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" width="76" height="76">
+            <circle cx="40" cy="28" r="12" fill="#6EE7B7"/>
+            <path d="M18 56c0-12 9-20 22-20s22 8 22 20" fill="#6EE7B7"/>
+            <circle cx="20" cy="32" r="8" fill="#A7F3D0"/>
+            <path d="M8 54c0-8 5-13 12-13" fill="#A7F3D0"/>
+            <circle cx="60" cy="32" r="8" fill="#A7F3D0"/>
+            <path d="M72 54c0-8-5-13-12-13" fill="#A7F3D0"/>
+        </svg>`,
+        voice: `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" width="76" height="76">
+            <rect x="30" y="10" width="20" height="32" rx="10" fill="#C4B5FD"/>
+            <path d="M18 40v4a22 22 0 0 0 44 0v-4" stroke="#A78BFA" stroke-width="3" stroke-linecap="round"/>
+            <path d="M40 66v8M32 74h16" stroke="#A78BFA" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="60" cy="20" r="6" fill="#DDD6FE"/>
+            <path d="M58 20 l1.5 1.5 3-3" stroke="#7C3AED" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`,
+        influencer: `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" width="76" height="76">
+            <path d="M18 42 C18 26 28 16 40 16 C52 16 62 26 62 42" stroke="#FCD34D" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+            <rect x="10" y="38" width="14" height="22" rx="7" fill="#FB923C"/>
+            <rect x="56" y="38" width="14" height="22" rx="7" fill="#FB923C"/>
+            <circle cx="62" cy="20" r="7" fill="#FED7AA"/>
+            <path d="M59.5 20l2 2 4-3.5" stroke="#D97706" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`,
+        challenge: `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" width="76" height="76">
+            <circle cx="18" cy="18" r="10" fill="#FECDD3"/>
+            <path d="M6 44c0-8 5-12 12-12s12 4 12 12" fill="#FECDD3"/>
+            <circle cx="62" cy="18" r="10" fill="#FECDD3"/>
+            <path d="M50 44c0-8 5-12 12-12s12 4 12 12" fill="#FECDD3"/>
+            <rect x="30" y="30" width="20" height="12" rx="4" fill="#FCA5A5"/>
+            <text x="40" y="42" font-family="Arial" font-weight="900" font-size="10" fill="#e11d48" text-anchor="middle">VS</text>
+        </svg>`
+    };
 
     const avatarHtml = r.ownerAvatar
         ? `<img src="${r.ownerAvatar}" class="owner-pfp" onerror="this.style.display='none'">`
         : `<div class="owner-initial">${(r.ownerName||'م').charAt(0)}</div>`;
 
-    // بطاقة المستوى والمادة
     const levelSubjectHtml = (r.levelName && r.subject)
-        ? `<div style="display:flex;align-items:center;gap:5px;margin-top:4px;flex-wrap:wrap;">
-              <span style="background:#e8f0fe;color:#0d47a1;font-size:0.63rem;font-weight:800;padding:2px 7px;border-radius:6px;">📚 ${r.levelName}</span>
-              <span style="background:#fce4ec;color:#c62828;font-size:0.63rem;font-weight:800;padding:2px 7px;border-radius:6px;">✏️ ${r.subject}</span>
+        ? `<div style="display:flex;align-items:center;gap:4px;margin-top:3px;flex-wrap:wrap;">
+              <span style="background:#EEF4FF;color:#1a56e8;font-size:0.61rem;font-weight:800;padding:2px 7px;border-radius:20px;">📚 ${r.levelName}</span>
+              <span style="background:#FFF1F2;color:#e11d48;font-size:0.61rem;font-weight:800;padding:2px 7px;border-radius:20px;">✏️ ${r.subject}</span>
            </div>`
         : '';
 
+    // صورة الغرفة من Firebase أو ملف محلي أو SVG احتياطي
+    const roomImgSrc = r.roomImageUrl || imgMap[imgKey];
+    const illusContent = roomImgSrc
+        ? `<img src="${roomImgSrc}" style="width:76px;height:76px;object-fit:contain;"
+              onerror="this.outerHTML='${svgFallbacks[imgKey].replace(/'/g,"&#39;")}'">` 
+        : svgFallbacks[imgKey];
+
     return `<div class="room-card">
-        <div class="card-body">
-            <div class="card-top">
-                <div>
-                    <div class="room-id-label">ID: ${r.roomId}</div>
+        <!-- لوحة الصورة — يسار -->
+        <div class="card-illus" style="background:${illusBg};">
+            ${illusContent}
+            <div class="listeners-badge">
+                <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:none;stroke:${liveColor};stroke-width:2;stroke-linecap:round;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span style="color:${liveColor};">${cnt} مستمع</span>
+            </div>
+        </div>
+        <!-- معلومات الغرفة -->
+        <div class="card-body" onclick="openJoinModal('${r.roomId}')">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
+                <div style="flex:1;min-width:0;">
+                    <div class="room-id-label" style="color:${liveColor};">ID: ${r.roomId}</div>
                     <div class="room-name-label">${r.roomName || 'غرفة'}</div>
                     <div class="meta-row">
-                        <span class="type-badge ${tclass}">${tlabel}</span>
-                        <span class="card-time">${time}</span>
+                        <span class="type-badge ${tclass}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${tIcon}</svg>
+                            ${tlabel}
+                        </span>
+                        <span class="card-time">
+                            <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:none;stroke:#b0b8cc;stroke-width:2;stroke-linecap:round;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            ${time}
+                        </span>
                     </div>
                     ${levelSubjectHtml}
-                </div>
-                <div class="owner-avatar-wrap">
-                    ${avatarHtml}
-                    <div class="live-tag"><span class="live-dot"></span>LIVE</div>
+                    <div class="owner-row">
+                        <div class="owner-avatar-wrap">
+                            ${avatarHtml}
+                            <div class="live-tag" style="background:${liveColor};">
+                                <span class="live-dot"></span>LIVE
+                            </div>
+                        </div>
+                        <span class="owner-name">المسؤول: ${r.ownerName || ''}</span>
+                    </div>
                 </div>
             </div>
-            <div class="owner-name-row">المسؤول: ${r.ownerName || ''}</div>
-        </div>
-        <div class="${isVoice ? 'join-panel voice-join' : 'join-panel'}" onclick="openJoinModal('${r.roomId}')">
-            <span class="join-word">انضمام</span>
-            <div class="view-count"><span class="view-num">${cnt}</span><span>View</span></div>
         </div>
     </div>`;
 }
+function filterRooms() { renderRooms(); }
 
 // ----------------------------------------------------------------
 // التبويبات
@@ -998,7 +1310,6 @@ function switchTab(tab) {
     if (map[tab]) document.getElementById(map[tab]).classList.add('active');
     renderRooms();
 }
-function filterRooms() { renderRooms(); }
 
 // ----------------------------------------------------------------
 // إنشاء غرفة فيديو
@@ -1153,12 +1464,6 @@ function buildTeacherLevelSelector(user) {
 }
 
 
-function buildInstitutionLevelSelector() {
-    const levelSel = document.getElementById('videoLevel');
-    levelSel.innerHTML = '<option value="">— اختر المستوى —</option>';
-    buildAllLevels(levelSel);
-    buildLevelDropdownPanel();
-}
 
 function buildAllLevels(selectEl) {
     if (typeof moroccanLevels === 'undefined') return;
@@ -1190,8 +1495,8 @@ function onVideoLevelChange() {
     let subjectsToShow = [];
 
     if (user.type === 'teacher') {
-        const saved = JSON.parse(localStorage.getItem('yadwor-teacher-subjects') || 'null')
-            || (typeof state !== 'undefined' ? state.selectedSubjects : []) || [];
+        // نعتمد على بيانات المستخدم من Firebase (_currentUser.subjects) بدل localStorage
+        const saved = (user.subjects && user.subjects.length > 0) ? user.subjects : [];
         subjectsToShow = saved.length > 0 ? saved
             : (lvl && typeof subjectsByCycle !== 'undefined' ? subjectsByCycle[lvl.cycle] || [] : []);
     } else {
@@ -1379,12 +1684,21 @@ function limitRoomNameWords(inp) {
     }
 }
 
-function buildInstitutionLevelSelector() {
+async function buildInstitutionLevelSelector() {
     const levelSel = document.getElementById('videoLevel');
     levelSel.innerHTML = '<option value="">— اختر المستوى —</option>';
 
+    // جلب المستويات من Firebase بدلاً من localStorage
     let institutionLevels = [];
-    try { institutionLevels = JSON.parse(localStorage.getItem('yadwor-institution-levels') || '[]'); } catch(e) {}
+    try {
+        const user = getCurrentUser();
+        if (user.uid) {
+            const instSnap = await firebase.database().ref('users/' + user.uid + '/institutionLevels').once('value');
+            const lvlData = instSnap.val();
+            if (Array.isArray(lvlData)) institutionLevels = lvlData;
+            else if (lvlData && typeof lvlData === 'object') institutionLevels = Object.values(lvlData);
+        }
+    } catch(e) { institutionLevels = []; }
 
     if (institutionLevels.length > 0 && typeof moroccanLevels !== 'undefined') {
         institutionLevels.forEach(lvlId => {
@@ -1627,11 +1941,10 @@ function confirmJoin() {
     const room = pendingJoin;
     const user = getCurrentUser();
 
-    // تحقق من تقييد المؤسسة
+    // تحقق من تقييد المؤسسة — نعتمد على بيانات Firebase المخزنة في _currentUser
     if (room.institutionOnly) {
-        const userLevel   = localStorage.getItem('yadwor-teacher-level')
-            || (typeof state !== 'undefined' ? state.selectedLevel : '') || '';
-        const userSubjects = JSON.parse(localStorage.getItem('yadwor-teacher-subjects') || '[]');
+        const userLevel    = user.levelId || '';
+        const userSubjects = user.subjects || [];
         const userType = user.type;
         // يسمح للأستاذ أو التلميذ في نفس المستوى والمادة فقط
         const levelMatch   = !room.levelId   || userLevel === room.levelId;
@@ -1902,17 +2215,29 @@ function ywFrbDoLeave() {
 <script>
 (function(){
   function initMsgBadge(){
-    const uid=localStorage.getItem('yadwor-uid')||'';
-    if(!uid||typeof firebase==='undefined')return;
-    firebase.database().ref('users/'+uid+'/chats').on('value',snap=>{
-      const d=snap.val()||{};
-      let total=0;
-      Object.values(d).forEach(c=>{if(c&&c.unread>0)total+=c.unread;});
-      const badge=document.getElementById('nav-msg-badge');
-      if(!badge)return;
-      if(total>0){badge.textContent=total>99?'99+':total;badge.style.display='inline-block';}
-      else{badge.style.display='none';}
-    });
+    // نستخدم Firebase Auth للحصول على UID، أو sessionStorage كبديل مؤقت
+    function setupBadge(uid) {
+      if(!uid||typeof firebase==='undefined')return;
+      firebase.database().ref('users/'+uid+'/chats').on('value',snap=>{
+        const d=snap.val()||{};
+        let total=0;
+        Object.values(d).forEach(c=>{if(c&&c.unread>0)total+=c.unread;});
+        const badge=document.getElementById('nav-msg-badge');
+        if(!badge)return;
+        if(total>0){badge.textContent=total>99?'99+':total;badge.style.display='inline-block';}
+        else{badge.style.display='none';}
+      });
+    }
+    // حاول Firebase Auth أولاً
+    if(typeof firebase!=='undefined'&&firebase.auth){
+      firebase.auth().onAuthStateChanged(u=>{
+        if(u) setupBadge(u.uid);
+        else { const uid=sessionStorage.getItem('yadwor-uid')||''; setupBadge(uid); }
+      });
+    } else {
+      const uid=sessionStorage.getItem('yadwor-uid')||'';
+      setupBadge(uid);
+    }
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initMsgBadge);
   else initMsgBadge();
