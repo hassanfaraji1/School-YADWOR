@@ -64,8 +64,8 @@
         #roomLabelBar {
             position: absolute;
             top: 10px;
-            /* RTL: 4px مسافة فقط بين roomLabelBar وpCount (الذي عرضه ~70px + right:10px) */
-            right: 84px;
+            /* RTL: 2px مسافة فقط بين roomLabelBar وpCount */
+            right: 80px;
             left: auto;
             z-index: 30;
             background: rgba(0,0,0,0.40);
@@ -106,8 +106,6 @@
             right: 0 !important; left: auto !important;
             width: 62%; max-height: 55%;
             display: none; flex-direction: column; overflow: hidden; z-index: 35;
-            -webkit-mask-image: linear-gradient(to top, black 55%, transparent 100%);
-            mask-image: linear-gradient(to top, black 55%, transparent 100%);
             direction: ltr;
         }
         #chatArea {
@@ -115,6 +113,8 @@
             display: flex; flex-direction: column; gap: 4px;
             justify-content: flex-end; scroll-behavior: smooth;
             direction: rtl;
+            /* نسمح بالتمرير لقراءة الرسائل القديمة */
+            overscroll-behavior: contain;
         }
         #chatArea::-webkit-scrollbar { display: none; }
         /* فقاعة الرسالة */
@@ -2743,7 +2743,18 @@
                     const reqKey = reqSnap.key; const reqVal = reqSnap.val();
                     if (!reqVal || !reqKey) return;
                     db.ref('rooms/' + roomId + '/connectRequest/' + reqKey).remove();
+                    const reason = reqVal.reason || '';
                     const existing = teacherPeerConns[reqKey];
+                    // spotlight_rebuild: أعد بناء الـ peer دائماً بغض النظر عن الحالة الحالية
+                    if (reason === 'spotlight_rebuild' || reason === 'spotlight_new') {
+                        await _rebuildPeerForOrganizer(reqKey, reqVal.uid || '');
+                        return;
+                    }
+                    // spotlight: إذا كان متصلاً — أعد بناء لأن video track تغيّر
+                    if (reason === 'spotlight' && existing && existing.pc) {
+                        await _rebuildPeerForOrganizer(reqKey, reqVal.uid || '');
+                        return;
+                    }
                     if (existing && existing.pc) {
                         const st = existing.pc.iceConnectionState;
                         if (st === 'connected' || st === 'completed') return;
@@ -2940,10 +2951,16 @@
                         // قبول — طلب الكاميرا إذا لم تكن جاهزة
                         if (!localStream || localStream.getVideoTracks().length === 0) {
                             try {
-                                localStream = await navigator.mediaDevices.getUserMedia({
-                                    video: true,
+                                const newSpotStream = await navigator.mediaDevices.getUserMedia({
+                                    video: { facingMode: usingFrontCamera ? 'user' : 'environment' },
                                     audio: { echoCancellation: true, noiseSuppression: true }
                                 });
+                                // دمج tracks الكاميرا الجديدة مع localStream إن وجد
+                                if (localStream) {
+                                    newSpotStream.getTracks().forEach(t => localStream.addTrack(t));
+                                } else {
+                                    localStream = newSpotStream;
+                                }
                             } catch(e) {
                                 showSnack('تعذّر فتح الكاميرا: ' + e.message, '⚠️');
                                 await db.ref('rooms/' + roomId + '/spotlight_requests/' + snap.key).remove();
@@ -2953,25 +2970,65 @@
                         if (localStream) {
                             localStream.getVideoTracks().forEach(t => { t.enabled = true; });
                             localStream.getAudioTracks().forEach(t => { t.enabled = micOn !== false; });
+
+                            const vt = localStream.getVideoTracks()[0];
+                            const at = localStream.getAudioTracks()[0];
+                            const mySpotKey = (studentRef && studentRef.key) ? studentRef.key : null;
+
                             if (studentPC && studentPC.signalingState !== 'closed') {
                                 const senders = studentPC.getSenders();
                                 const videoSender = senders.find(s => s.track && s.track.kind === 'video');
                                 const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
-                                const vt = localStream.getVideoTracks()[0];
-                                const at = localStream.getAudioTracks()[0];
-                                // استبدل أو أضف video track
+
                                 if (videoSender && vt) {
+                                    // لدينا sender فيديو — استبدل فقط
                                     await videoSender.replaceTrack(vt).catch(() => {});
-                                } else if (vt) {
-                                    // لا يوجد sender للفيديو — أضفه مباشرة
-                                    try { studentPC.addTrack(vt, localStream); } catch(e) {}
+                                    if (audioSender && at) await audioSender.replaceTrack(at).catch(() => {});
+                                    // أبلغ الأستاذ بإعادة التحقق
+                                    try { db.ref('rooms/' + roomId + '/connectRequest/' + mySpotKey).set({ uid: me.uid, ts: Date.now(), reason: 'spotlight' }); } catch(e2) {}
+                                } else {
+                                    // لا يوجد video sender — يجب إعادة بناء الـ peer كاملاً
+                                    // حذف بيانات الـ signaling القديمة أولاً
+                                    if (mySpotKey) {
+                                        try {
+                                            await db.ref('rooms/' + roomId + '/offers/'     + mySpotKey).remove();
+                                            await db.ref('rooms/' + roomId + '/answers/'    + mySpotKey).remove();
+                                            await db.ref('rooms/' + roomId + '/candidates/' + mySpotKey).remove();
+                                        } catch(e2) {}
+                                    }
+                                    // أغلق الـ peer القديم
+                                    try {
+                                        if (_scAnswerRef) _scAnswerRef.off();
+                                        if (_scIceRef)   _scIceRef.off();
+                                        studentPC.ontrack = null; studentPC.onicecandidate = null;
+                                        studentPC.oniceconnectionstatechange = null; studentPC.onconnectionstatechange = null;
+                                        studentPC.close();
+                                    } catch(e2) {}
+                                    studentPC = null;
+                                    _scIceBuf = []; _scRemoteSet = false;
+                                    // أخبر الأستاذ لإنشاء offer جديد مع video
+                                    if (mySpotKey) {
+                                        try { db.ref('rooms/' + roomId + '/connectRequest/' + mySpotKey).set({ uid: me.uid, ts: Date.now(), reason: 'spotlight_rebuild' }); } catch(e2) {}
+                                    }
+                                    // انتظر offer جديد من الأستاذ
+                                    if (mySpotKey) {
+                                        var _spWait = 0;
+                                        var _spCheck = setInterval(async function() {
+                                            _spWait += 500;
+                                            if (_spWait > 12000) { clearInterval(_spCheck); return; }
+                                            try {
+                                                var ofSnap = await db.ref('rooms/' + roomId + '/offers/' + mySpotKey).get();
+                                                if (ofSnap.exists()) {
+                                                    clearInterval(_spCheck);
+                                                    await createOrganizerPeerAndAnswer(ofSnap.val());
+                                                }
+                                            } catch(e2) {}
+                                        }, 500);
+                                    }
                                 }
-                                // استبدل أو أضف audio track
-                                if (audioSender && at) {
-                                    await audioSender.replaceTrack(at).catch(() => {});
-                                } else if (at) {
-                                    try { studentPC.addTrack(at, localStream); } catch(e) {}
-                                }
+                            } else if (mySpotKey) {
+                                // studentPC مغلق أو null — أخبر الأستاذ بالاتصال من جديد
+                                try { db.ref('rooms/' + roomId + '/connectRequest/' + mySpotKey).set({ uid: me.uid, ts: Date.now(), reason: 'spotlight_new' }); } catch(e2) {}
                             }
                         }
                         const studentKey = (studentRef && studentRef.key) ? studentRef.key : ('uid_' + me.uid);
@@ -5245,28 +5302,40 @@
                 var ts = tsSnap.val();
                 if (!ts || ts <= _lastSpotTs) return;
                 _lastSpotTs = ts;
-                // إذا كان التغيير حديثاً (خلال 15 ثانية) أعِد تشغيل #tv
                 if (Date.now() - ts > 15000) return;
-                setTimeout(function() {
+                // محاولة أولى بعد 400ms
+                var _retryCount = 0;
+                var _tryRestoreTV = function() {
+                    _retryCount++;
                     var tvEl = document.getElementById('tv');
+                    var sra  = document.getElementById('studentRemoteAudio');
                     if (tvEl && tvEl.srcObject) {
-                        tvEl.muted = !spkOn;
+                        tvEl.playsInline = true;
+                        tvEl.autoplay = true;
+                        tvEl.muted = true;
                         if (tvEl.paused) {
                             tvEl.play().catch(function() {});
                         } else {
-                            // أوقف وأعِد — يضمن تحميل الـ track الجديد
                             tvEl.pause();
-                            tvEl.currentTime = 0;
-                            tvEl.play().catch(function() {});
+                            setTimeout(function() { tvEl.play().catch(function(){}); }, 100);
+                        }
+                    } else if (_retryCount < 6) {
+                        // لا يوجد srcObject بعد — انتظر track جديد ثم أعِد المحاولة
+                        setTimeout(_tryRestoreTV, 600);
+                        // إذا فشل كثيراً — اطلب إعادة اتصال
+                        if (_retryCount === 4 && studentRef) {
+                            var myKeyR = studentRef.key;
+                            if (myKeyR) {
+                                try { db.ref('rooms/' + roomId + '/connectRequest/' + myKeyR).set({ uid: me.uid, ts: Date.now(), reason: 'viewer_retry' }); } catch(e) {}
+                            }
                         }
                     }
-                    // أعِد تشغيل الصوت المنفصل إن وُجد
-                    var sra = document.getElementById('studentRemoteAudio');
                     if (sra && sra.srcObject) {
                         sra.muted = !spkOn;
                         if (sra.paused) sra.play().catch(function() {});
                     }
-                }, 400);
+                };
+                setTimeout(_tryRestoreTV, 400);
             });
         }
 
