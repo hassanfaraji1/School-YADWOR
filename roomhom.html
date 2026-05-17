@@ -234,22 +234,32 @@
 
         /* لوحة الصورة — يسار */
         .card-illus {
-            width: 108px; min-width: 108px; position: relative;
+            width: 110px; min-width: 110px; position: relative;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
-            padding: 10px 8px 24px;
             border-radius: 0 16px 16px 0;
+            overflow: hidden;
         }
-        .card-illus img,
-        .card-illus .illus-svg {
-            width: 72px; height: 72px; object-fit: contain;
+        /* صورة الغرفة تملأ اللوحة بالكامل */
+        .card-illus .room-img {
+            width: 100%; height: 100%; min-height: 110px;
+            object-fit: cover; object-position: center;
+            display: block;
         }
+        /* SVG احتياطي يملأ المساحة */
+        .card-illus .illus-svg-wrap {
+            width: 100%; height: 100%; min-height: 110px;
+            display: flex; align-items: center; justify-content: center;
+            padding: 10px;
+        }
+        .card-illus .illus-svg-wrap svg { width: 72px; height: 72px; }
         /* عداد المستمعين */
         .listeners-badge {
-            position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+            position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%);
             display: flex; align-items: center; gap: 3px; white-space: nowrap;
             padding: 2px 7px; border-radius: 20px;
-            background: rgba(255,255,255,0.35); backdrop-filter: blur(4px);
+            background: rgba(255,255,255,0.75); backdrop-filter: blur(4px);
+            z-index: 2;
         }
         .listeners-badge svg { flex-shrink: 0; }
         .listeners-badge span { font-size: 0.65rem; font-weight: 800; }
@@ -964,41 +974,47 @@ let pendingJoin = null;
 let _currentUser = null;
 
 // ----------------------------------------------------------------
-// جلب بيانات المستخدم من Firebase فقط (بدون localStorage)
+// جلب بيانات المستخدم — localStorage + Firebase (مطابق لـ shared.js)
 // ----------------------------------------------------------------
 function getCurrentUser() {
-    return _currentUser || { uid:'', name:'...', avatar:'', type:'user', typeLabel:'مستخدم',
-        institutionUid:'', institutionName:'', levelId:'', levelName:'', subjects:[] };
+    if (_currentUser) return _currentUser;
+    // قراءة سريعة من localStorage (نفس المصدر الذي تستخدمه shared.js)
+    const uid    = localStorage.getItem('yadwor-uid') || '';
+    const name   = localStorage.getItem('yadwor-settings-name') || localStorage.getItem('yadwor-user-name') || 'زائر';
+    const avatar = localStorage.getItem('yadwor-avatar-preview') || '';
+    const type   = localStorage.getItem('yadwor-account-type') || localStorage.getItem('yadwor-profile-type') || 'user';
+    const typeLabels = {
+        teacher:'أستاذ', institution:'مؤسسة تعليمية',
+        student:'تلميذ', user:'مستخدم',
+        content_creator:'منشئ محتوى', influencer:'مؤثر تعليمي'
+    };
+    return { uid, name, avatar, type, typeLabel: typeLabels[type] || 'مستخدم',
+             institutionUid:'', institutionName:'', levelId:'', levelName:'', subjects:[] };
 }
 
 async function loadCurrentUser() {
     if (_currentUser) return _currentUser;
 
-    // جلب UID من Firebase Auth أو sessionStorage (لا localStorage)
-    const uid = (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser)
-        ? firebase.auth().currentUser.uid
-        : sessionStorage.getItem('yadwor-uid') || '';
-
+    const uid = localStorage.getItem('yadwor-uid') || '';
     if (!uid) {
         _currentUser = { uid:'', name:'زائر', avatar:'', type:'user', typeLabel:'مستخدم',
                          institutionUid:'', institutionName:'', levelId:'', levelName:'', subjects:[] };
         return _currentUser;
     }
 
-    // 1) بيانات المستخدم الأساسية من Firebase
+    // جلب البيانات الكاملة من Firebase
     const uData = await fetchMyUserDataFromFirebase();
-
-    // 2) طلب الانضمام المقبول (للأستاذ/التلميذ)
     const jData = await fetchMyAcceptedJoinRequestFromFirebase();
 
-    const type = (uData && (uData.accountType || uData.profileType)) || 'user';
+    const type = (uData && (uData.accountType || uData.profileType))
+        || localStorage.getItem('yadwor-account-type')
+        || localStorage.getItem('yadwor-profile-type') || 'user';
     const typeLabels = {
         teacher:'أستاذ', institution:'مؤسسة تعليمية',
         student:'تلميذ', user:'مستخدم',
         content_creator:'منشئ محتوى', influencer:'مؤثر تعليمي'
     };
 
-    // اسم المؤسسة
     let institutionName = '';
     const institutionUid = (uData && (uData.institutionUid || uData.institutionId)) || '';
     if (institutionUid) {
@@ -1009,7 +1025,6 @@ async function loadCurrentUser() {
         } catch(e) {}
     }
 
-    // المواد من joinRequest
     let subjects = [];
     if (jData && jData.subjects) {
         const raw = jData.subjects;
@@ -1020,14 +1035,17 @@ async function loadCurrentUser() {
 
     _currentUser = {
         uid,
-        name:           (uData && (uData.name || uData.displayName)) || 'مستخدم',
-        avatar:         (uData && (uData.avatar || uData.avatarUrl || uData.photoURL)) || '',
-        type:           (uData && (uData.accountType || uData.profileType)) || 'user',
-        typeLabel:      typeLabels[type] || 'مستخدم',
+        name:      (uData && (uData.name || uData.displayName))
+                   || localStorage.getItem('yadwor-settings-name')
+                   || localStorage.getItem('yadwor-user-name') || 'زائر',
+        avatar:    (uData && (uData.avatar || uData.avatarUrl || uData.photoURL))
+                   || localStorage.getItem('yadwor-avatar-preview') || '',
+        type,
+        typeLabel: typeLabels[type] || 'مستخدم',
         institutionUid,
         institutionName,
-        levelId:        (jData && jData.levelId)   || '',
-        levelName:      (jData && jData.levelName) || '',
+        levelId:   (jData && jData.levelId)   || '',
+        levelName: (jData && jData.levelName) || '',
         subjects,
     };
     return _currentUser;
@@ -1069,11 +1087,9 @@ async function initPage() {
     // جلب بيانات المستخدم من Firebase
     const user = await loadCurrentUser();
 
-    if (nameEl)   nameEl.textContent  = user.name;
-    if (badgeEl)  {
-        const svg = badgeEl.querySelector('svg');
-        badgeEl.textContent = user.typeLabel;
-        if (svg) badgeEl.prepend(svg);
+    if (nameEl)  nameEl.textContent = user.name;
+    if (badgeEl) {
+        badgeEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" style="width:11px;height:11px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>${user.typeLabel}`;
     }
     if (avatarEl) setAvatarDiv(avatarEl, user.avatar, user.name);
 
@@ -1081,12 +1097,11 @@ async function initPage() {
 }
 
 // ----------------------------------------------------------------
-// إدارة الغرف — Firebase فقط، بدون localStorage
+// إدارة الغرف — Firebase كمصدر رئيسي
 // ----------------------------------------------------------------
 let _fbRoomsListenerActive = false;
 
 function loadRooms() {
-    // الاستماع لـ Firebase في الوقت الفعلي فقط
     if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length && !_fbRoomsListenerActive) {
         _fbRoomsListenerActive = true;
         firebase.database().ref('rooms').on('value', snap => {
@@ -1097,16 +1112,15 @@ function loadRooms() {
                 .sort((a,b) => (b.startTime||0) - (a.startTime||0));
             renderRooms();
         }, () => {
-            // فشل الاتصال — عرض حالة فارغة
             allRooms = [];
             renderRooms();
         });
+    } else {
+        renderRooms();
     }
 }
 
-function saveRooms() {
-    // لا شيء — Firebase يتولى التخزين
-}
+function saveRooms() { /* Firebase يتولى التخزين */ }
 
 // ----------------------------------------------------------------
 // عرض الغرف
@@ -1248,12 +1262,19 @@ function roomCardHTML(r) {
            </div>`
         : '';
 
-    // صورة الغرفة من Firebase أو ملف محلي أو SVG احتياطي
-    const roomImgSrc = r.roomImageUrl || imgMap[imgKey];
-    const illusContent = roomImgSrc
-        ? `<img src="${roomImgSrc}" style="width:76px;height:76px;object-fit:contain;"
-              onerror="this.outerHTML='${svgFallbacks[imgKey].replace(/'/g,"&#39;")}'">` 
-        : svgFallbacks[imgKey];
+    // صورة الغرفة — تملأ اللوحة cover
+    // إذا وُجد roomImageUrl من Firebase أو ملف محلي نستخدمه، وإلا SVG احتياطي
+    const roomImgSrc = r.roomImageUrl || null;
+
+    // بناء محتوى اللوحة
+    let illusContent;
+    if (roomImgSrc) {
+        illusContent = `<img src="${roomImgSrc}" class="room-img" alt="غرفة"
+            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+            <div class="illus-svg-wrap" style="display:none;">${svgFallbacks[imgKey]}</div>`;
+    } else {
+        illusContent = `<div class="illus-svg-wrap">${svgFallbacks[imgKey]}</div>`;
+    }
 
     return `<div class="room-card">
         <!-- لوحة الصورة — يسار -->
@@ -1495,8 +1516,9 @@ function onVideoLevelChange() {
     let subjectsToShow = [];
 
     if (user.type === 'teacher') {
-        // نعتمد على بيانات المستخدم من Firebase (_currentUser.subjects) بدل localStorage
-        const saved = (user.subjects && user.subjects.length > 0) ? user.subjects : [];
+        // نستخدم المواد المحفوظة في localStorage (مصدر shared.js)
+        const saved = JSON.parse(localStorage.getItem('yadwor-teacher-subjects') || 'null')
+            || (user.subjects && user.subjects.length ? user.subjects : []);
         subjectsToShow = saved.length > 0 ? saved
             : (lvl && typeof subjectsByCycle !== 'undefined' ? subjectsByCycle[lvl.cycle] || [] : []);
     } else {
@@ -1688,7 +1710,7 @@ async function buildInstitutionLevelSelector() {
     const levelSel = document.getElementById('videoLevel');
     levelSel.innerHTML = '<option value="">— اختر المستوى —</option>';
 
-    // جلب المستويات من Firebase بدلاً من localStorage
+    // جلب المستويات من Firebase أو localStorage كاحتياطي
     let institutionLevels = [];
     try {
         const user = getCurrentUser();
@@ -1698,7 +1720,13 @@ async function buildInstitutionLevelSelector() {
             if (Array.isArray(lvlData)) institutionLevels = lvlData;
             else if (lvlData && typeof lvlData === 'object') institutionLevels = Object.values(lvlData);
         }
-    } catch(e) { institutionLevels = []; }
+        // احتياطي localStorage
+        if (!institutionLevels.length) {
+            institutionLevels = JSON.parse(localStorage.getItem('yadwor-institution-levels') || '[]');
+        }
+    } catch(e) {
+        institutionLevels = JSON.parse(localStorage.getItem('yadwor-institution-levels') || '[]');
+    }
 
     if (institutionLevels.length > 0 && typeof moroccanLevels !== 'undefined') {
         institutionLevels.forEach(lvlId => {
@@ -1941,10 +1969,13 @@ function confirmJoin() {
     const room = pendingJoin;
     const user = getCurrentUser();
 
-    // تحقق من تقييد المؤسسة — نعتمد على بيانات Firebase المخزنة في _currentUser
+    // تحقق من تقييد المؤسسة — localStorage + Firebase cache
     if (room.institutionOnly) {
-        const userLevel    = user.levelId || '';
-        const userSubjects = user.subjects || [];
+        const userLevel    = localStorage.getItem('yadwor-teacher-level')
+            || (typeof state !== 'undefined' ? state.selectedLevel : '')
+            || user.levelId || '';
+        const userSubjects = JSON.parse(localStorage.getItem('yadwor-teacher-subjects') || '[]')
+            .concat(user.subjects || []);
         const userType = user.type;
         // يسمح للأستاذ أو التلميذ في نفس المستوى والمادة فقط
         const levelMatch   = !room.levelId   || userLevel === room.levelId;
@@ -2215,31 +2246,19 @@ function ywFrbDoLeave() {
 <script>
 (function(){
   function initMsgBadge(){
-    // نستخدم Firebase Auth للحصول على UID، أو sessionStorage كبديل مؤقت
-    function setupBadge(uid) {
-      if(!uid||typeof firebase==='undefined')return;
-      firebase.database().ref('users/'+uid+'/chats').on('value',snap=>{
-        const d=snap.val()||{};
-        let total=0;
-        Object.values(d).forEach(c=>{if(c&&c.unread>0)total+=c.unread;});
-        const badge=document.getElementById('nav-msg-badge');
-        if(!badge)return;
-        if(total>0){badge.textContent=total>99?'99+':total;badge.style.display='inline-block';}
-        else{badge.style.display='none';}
-      });
-    }
-    // حاول Firebase Auth أولاً
-    if(typeof firebase!=='undefined'&&firebase.auth){
-      firebase.auth().onAuthStateChanged(u=>{
-        if(u) setupBadge(u.uid);
-        else { const uid=sessionStorage.getItem('yadwor-uid')||''; setupBadge(uid); }
-      });
-    } else {
-      const uid=sessionStorage.getItem('yadwor-uid')||'';
-      setupBadge(uid);
-    }
+    const uid = localStorage.getItem('yadwor-uid') || '';
+    if(!uid || typeof firebase==='undefined') return;
+    firebase.database().ref('users/'+uid+'/chats').on('value', snap => {
+      const d = snap.val() || {};
+      let total = 0;
+      Object.values(d).forEach(c => { if(c && c.unread > 0) total += c.unread; });
+      const badge = document.getElementById('nav-msg-badge');
+      if(!badge) return;
+      if(total > 0){ badge.textContent = total > 99 ? '99+' : total; badge.style.display = 'inline-block'; }
+      else { badge.style.display = 'none'; }
+    });
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initMsgBadge);
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', initMsgBadge);
   else initMsgBadge();
 })();
 </script>
