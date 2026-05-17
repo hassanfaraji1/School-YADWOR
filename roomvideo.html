@@ -95,7 +95,7 @@
             background: #4fc3f7; flex-shrink: 0;
             animation: pulse 2s infinite;
         }
-        #netInfo { position: absolute; bottom: 10px; right: 10px; z-index: 30; background: rgba(0,0,0,.4); border-radius: 6px; padding: 3px 9px; font-size: 11px; color: white; display: flex; align-items: center; gap: 4px; }
+        #netInfo { position: absolute; bottom: 10px; right: 6px; z-index: 30; background: rgba(0,0,0,.4); border-radius: 6px; padding: 3px 7px; font-size: 11px; color: white; display: flex; align-items: center; gap: 4px; }
         #pCount { position: absolute; top: 10px; right: 10px; z-index: 30; background: rgba(0,0,0,.4); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: white; display: none; align-items: center; gap: 5px; cursor: pointer; overflow: visible; }
         /* المسافة 4px بين roomLabelBar وpCount — نحرك roomLabelBar لليسار */
 
@@ -176,7 +176,7 @@
         @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
 
         #switchCamBtn { position: absolute; bottom: 10px; left: 160px; z-index: 30; background: rgba(0,0,0,.5); color: white; padding: 3px 10px; border-radius: 6px; font-size: 11px; border: none; cursor: pointer; display: none; align-items: center; gap: 4px; font-family: 'Tajawal',sans-serif; }
-        #boardBtn { position: absolute; bottom: 10px; left: 240px; z-index: 30; background: rgba(0,0,0,.5); color: white; padding: 3px 10px; border-radius: 6px; font-size: 11px; border: none; cursor: pointer; display: none; align-items: center; gap: 4px; font-family: 'Tajawal',sans-serif; }
+        #boardBtn { position: absolute; bottom: 10px; left: 248px; z-index: 30; background: rgba(0,0,0,.5); color: white; padding: 3px 10px; border-radius: 6px; font-size: 11px; border: none; cursor: pointer; display: none; align-items: center; gap: 4px; font-family: 'Tajawal',sans-serif; }
 
         /* ===== السبورة العائمة ===== */
         #boardWindow {
@@ -2348,9 +2348,21 @@
             }
         };
 
+        // أضف transceivers صريحة — video: sendrecv، audio: sendrecv
+        // هذا يضمن وجود video sender+receiver في الـ offer من البداية
+        try { studentPC.addTransceiver('video', { direction: 'sendrecv' }); } catch(e) {}
+        try { studentPC.addTransceiver('audio', { direction: 'sendrecv' }); } catch(e) {}
+
         // أضف جميع tracks الأستاذ قبل createOffer — مع offerToReceiveVideo:true لاستقبال فيديو المنظم
-        localStream.getTracks().forEach(track => {
-            try { pc.addTrack(track, localStream); } catch(e) {}
+        localStream.getTracks().forEach(function(track) {
+            // ابحث عن transceiver مناسب أولاً بدلاً من addTrack مباشرة
+            var senderExists = pc.getSenders().some(function(s){ return s.track && s.track.kind === track.kind; });
+            if (!senderExists) {
+                try { pc.addTrack(track, localStream); } catch(e) {}
+            } else {
+                var sender = pc.getSenders().find(function(s){ return s.track && s.track.kind === track.kind; });
+                if (sender) { try { sender.replaceTrack(track); } catch(e) {} }
+            }
         });
 
         // أنشئ offer مع دعم استقبال الفيديو من المنظم
@@ -2434,10 +2446,15 @@
         if (studentPC) {
             try { if (_scAnswerRef) _scAnswerRef.off(); } catch(e) {}
             try { if (_scIceRef)   _scIceRef.off();   } catch(e) {}
-            try { studentPC.ontrack = null; studentPC.onicecandidate = null; studentPC.oniceconnectionstatechange = null; studentPC.onconnectionstatechange = null; studentPC.close(); } catch(e) {}
+            try {
+                studentPC.ontrack = null;
+                studentPC.onicecandidate = null;
+                studentPC.oniceconnectionstatechange = null;
+                studentPC.onconnectionstatechange = null;
+                studentPC.close();
+            } catch(e) {}
             studentPC = null;
         }
-        // إعادة تهيئة buffer الـ ICE لهذا الـ peer الجديد
         _scIceBuf = [];
         _scRemoteSet = false;
 
@@ -2446,7 +2463,7 @@
 
         studentPC = new RTCPeerConnection(servers);
 
-        // ── عنصر صوت لاستقبال صوت الأستاذ ──
+        // ── عنصر صوت الأستاذ ──
         let sAudio = document.getElementById('studentRemoteAudio');
         if (!sAudio) {
             sAudio = document.createElement('audio');
@@ -2455,15 +2472,38 @@
         }
         sAudio.autoplay = true;
         sAudio.playsInline = true;
-        sAudio.muted = false; // لا نكتم الصوت أبداً — نترك للمستخدم التحكم في spkOn
+        sAudio.muted = false;
+        sAudio.volume = 1.0;
 
-        // ── استقبال الفيديو والصوت من الأستاذ ──
+        // ── أضف transceivers صريحة قبل setRemoteDescription ──
+        // هذا يضمن وجود video+audio receivers حتى لو لم يُضَف track من الطالب
+        try { studentPC.addTransceiver('audio', { direction: 'sendrecv' }); } catch(e) {}
+        try { studentPC.addTransceiver('video', { direction: 'recvonly' }); } catch(e) {}
+
+        // ── track الميكروفون إن كان جاهزاً ──
+        var audioTrack = (localStream && localStream.getAudioTracks()[0]) || window.__pendingAudioTrack || null;
+        if (audioTrack && audioTrack.readyState !== 'ended') {
+            var _ms = localStream || new MediaStream([audioTrack]);
+            // استبدل track في transceiver بدلاً من addTrack لتجنب التكرار
+            var _senders = studentPC.getSenders();
+            var _aSender = _senders.find(function(s){ return s.track === null && studentPC.getTransceivers().some(function(t){ return t.sender === s && t.receiver.track.kind === 'audio'; }); });
+            if (_aSender) {
+                try { await _aSender.replaceTrack(audioTrack); } catch(e2) {
+                    try { studentPC.addTrack(audioTrack, _ms); } catch(e3) {}
+                }
+            } else {
+                var _hasMic = _senders.some(function(s){ return s.track && s.track.kind === 'audio'; });
+                if (!_hasMic) { try { studentPC.addTrack(audioTrack, _ms); } catch(e2) {} }
+            }
+        }
+
+        // ── استقبال tracks ──
         const remoteStream = new MediaStream();
-        studentPC.ontrack = e => {
+        studentPC.ontrack = function(e) {
             const tv = document.getElementById('tv');
-            var existing = remoteStream.getTracks().find(t => t.id === e.track.id);
-            if (!existing) remoteStream.addTrack(e.track);
-
+            if (!remoteStream.getTracks().find(function(t){ return t.id === e.track.id; })) {
+                remoteStream.addTrack(e.track);
+            }
             if (e.track.kind === 'video') {
                 if (tv) {
                     tv.srcObject = remoteStream;
@@ -2471,64 +2511,63 @@
                     tv.playsInline = true;
                     tv.autoplay = true;
                     tv.style.visibility = '';
-                    var tryPlayTV = function(n) {
-                        tv.play().catch(function() { if (n < 12) setTimeout(function() { tryPlayTV(n+1); }, 500); });
+                    var _tvPlay = function(n) {
+                        tv.play().catch(function() { if (n < 15) setTimeout(function(){ _tvPlay(n+1); }, 400); });
                     };
-                    tryPlayTV(1);
-                    setTimeout(() => {
-                        db.ref('rooms/' + roomId + '/ownerOverlay').once('value', s => {
-                            const d = s.val();
+                    _tvPlay(1);
+                    setTimeout(function() {
+                        db.ref('rooms/' + roomId + '/ownerOverlay').once('value', function(s) {
+                            var d = s.val();
                             if (!d || d.on !== true) {
-                                const ov = document.getElementById('avatarOverlay');
+                                var ov = document.getElementById('avatarOverlay');
                                 if (ov) ov.classList.remove('show');
                             }
                         });
                     }, 500);
                 }
             } else if (e.track.kind === 'audio') {
-                const sAudioEl = document.getElementById('studentRemoteAudio');
-                if (sAudioEl) {
-                    sAudioEl.srcObject = new MediaStream([e.track]);
-                    sAudioEl.muted = false;    // لا نكتم الصوت
-                    sAudioEl.volume = 1.0;
-                    sAudioEl.playsInline = true;
-                    sAudioEl.autoplay = true;
-                    // محاولات تشغيل متعددة مع intervals متزايدة
-                    var _playAtt = 0;
-                    var _playRetry = function() {
-                        _playAtt++;
-                        sAudioEl.play().then(function() {
-                            // تأكيد: الصوت يعمل
-                        }).catch(function() {
-                            if (_playAtt < 15) setTimeout(_playRetry, 500 + _playAtt * 100);
+                var _sAudioEl = document.getElementById('studentRemoteAudio');
+                if (_sAudioEl) {
+                    // أنشئ stream منفصل للصوت
+                    _sAudioEl.srcObject = new MediaStream([e.track]);
+                    _sAudioEl.muted = false;
+                    _sAudioEl.volume = 1.0;
+                    _sAudioEl.playsInline = true;
+                    _sAudioEl.autoplay = true;
+                    var _aPlay = 0;
+                    var _aRetry = function() {
+                        _aPlay++;
+                        _sAudioEl.play().catch(function() {
+                            if (_aPlay < 20) setTimeout(_aRetry, 400 + _aPlay * 50);
                         });
                     };
-                    _playRetry();
+                    _aRetry();
                 }
             }
         };
 
-        // ── ICE ── أرسل candidates للأستاذ
-        studentPC.onicecandidate = e => {
+        // ── ICE ──
+        studentPC.onicecandidate = function(e) {
             if (e.candidate) db.ref('rooms/' + roomId + '/candidates/' + myKey + '/fromStudent').push(JSON.stringify(e.candidate));
         };
 
         // ── مراقبة حالة الاتصال ──
-        studentPC.oniceconnectionstatechange = () => {
-            const st = studentPC ? studentPC.iceConnectionState : '';
+        studentPC.oniceconnectionstatechange = function() {
+            if (!studentPC) return;
+            var st = studentPC.iceConnectionState;
             if (st === 'connected' || st === 'completed') {
-                // تشغيل الصوت والفيديو فور الاتصال — مع محاولات متعددة
-                const _ensureMedia = function() {
-                    var sAudioEl = document.getElementById('studentRemoteAudio');
-                    if (sAudioEl && sAudioEl.srcObject) {
-                        sAudioEl.muted = false;
-                        sAudioEl.volume = 1.0;
-                        if (sAudioEl.paused) sAudioEl.play().catch(function(){});
+                // تشغيل الصوت فور الاتصال — محاولات متعددة
+                var _ensureMedia = function() {
+                    var _sAEl = document.getElementById('studentRemoteAudio');
+                    if (_sAEl) {
+                        _sAEl.muted = false;
+                        _sAEl.volume = 1.0;
+                        if (_sAEl.paused && _sAEl.srcObject) _sAEl.play().catch(function(){});
                     }
-                    const tvEl = document.getElementById('tv');
-                    if (tvEl && tvEl.srcObject && tvEl.paused) {
-                        tvEl.playsInline = true;
-                        tvEl.play().catch(function(){});
+                    var _tvEl = document.getElementById('tv');
+                    if (_tvEl && _tvEl.srcObject && _tvEl.paused) {
+                        _tvEl.playsInline = true;
+                        _tvEl.play().catch(function(){});
                     }
                 };
                 _ensureMedia();
@@ -2537,10 +2576,10 @@
                 setTimeout(_ensureMedia, 2500);
             }
             if (st === 'failed' || st === 'disconnected') {
-                setTimeout(async () => {
+                setTimeout(async function() {
                     if (!studentPC || studentPC.iceConnectionState === st) {
                         try {
-                            const snap = await db.ref('rooms/' + roomId + '/offers/' + myKey).get();
+                            var snap = await db.ref('rooms/' + roomId + '/offers/' + myKey).get();
                             if (snap.exists()) await createOrganizerPeerAndAnswer(snap.val());
                         } catch(e) {}
                     }
@@ -2548,60 +2587,49 @@
             }
         };
 
-        // ── إعادة الاتصال إذا انقطع (connectionState) ──
-        studentPC.onconnectionstatechange = () => {
+        studentPC.onconnectionstatechange = function() {
             if (studentPC && studentPC.connectionState === 'failed') {
-                setTimeout(async () => {
+                setTimeout(async function() {
                     try {
-                        const snap = await db.ref('rooms/' + roomId + '/offers/' + myKey).get();
+                        var snap = await db.ref('rooms/' + roomId + '/offers/' + myKey).get();
                         if (snap.exists()) await createOrganizerPeerAndAnswer(snap.val());
                     } catch(e) {}
                 }, 2000);
             }
         };
 
-        // ── أضف track الميكروفون قبل إنشاء الـ answer ──
-        var audioTrack = (localStream && localStream.getAudioTracks()[0])
-                      || window.__pendingAudioTrack
-                      || null;
-        if (audioTrack && audioTrack.readyState !== 'ended') {
-            var ms = localStream || new MediaStream([audioTrack]);
-            try { studentPC.addTrack(audioTrack, ms); } catch(e) {}
-        }
-
         // ── setRemoteDescription → createAnswer → setLocalDescription ──
         try {
             await studentPC.setRemoteDescription(new RTCSessionDescription(JSON.parse(offerStr)));
             _scRemoteSet = true;
-            // طبّق الـ ICE candidates المحجوزة
-            const buffered = _scIceBuf.splice(0);
-            for (var bi = 0; bi < buffered.length; bi++) {
-                try { await studentPC.addIceCandidate(new RTCIceCandidate(buffered[bi])); } catch(e) {}
+            // طبّق ICE candidates المحجوزة
+            var _buffered = _scIceBuf.splice(0);
+            for (var _bi = 0; _bi < _buffered.length; _bi++) {
+                try { await studentPC.addIceCandidate(new RTCIceCandidate(_buffered[_bi])); } catch(e) {}
             }
-            const answer = await studentPC.createAnswer();
-            await studentPC.setLocalDescription(answer);
-            await db.ref('rooms/' + roomId + '/answers/' + myKey).set(JSON.stringify(answer));
+            var _answer = await studentPC.createAnswer();
+            await studentPC.setLocalDescription(_answer);
+            await db.ref('rooms/' + roomId + '/answers/' + myKey).set(JSON.stringify(_answer));
         } catch(err) { return; }
 
-        // ── إضافة track الميك لاحقاً إذا لم يكن جاهزاً بعد ──
+        // ── إضافة ميك لاحقاً إن لم يكن جاهزاً ──
         if (!audioTrack) {
-            var _waitMic = setInterval(() => {
-                var at2 = (localStream && localStream.getAudioTracks()[0]) || window.__pendingAudioTrack;
-                if (!at2 || at2.readyState === 'ended') return;
-                clearInterval(_waitMic);
+            var _waitMicInterval = setInterval(function() {
+                var _at2 = (localStream && localStream.getAudioTracks()[0]) || window.__pendingAudioTrack;
+                if (!_at2 || _at2.readyState === 'ended') return;
+                clearInterval(_waitMicInterval);
                 if (studentPC && studentPC.signalingState !== 'closed') {
-                    var hasMic = studentPC.getSenders().some(s => s.track && s.track.kind === 'audio');
-                    if (!hasMic) {
-                        var ms2 = localStream || new MediaStream([at2]);
-                        try { studentPC.addTrack(at2, ms2); } catch(e) {}
+                    var _hasMic2 = studentPC.getSenders().some(function(s){ return s.track && s.track.kind === 'audio'; });
+                    if (!_hasMic2) {
+                        var _ms2 = localStream || new MediaStream([_at2]);
+                        try { studentPC.addTrack(_at2, _ms2); } catch(e) {}
                     }
                 }
             }, 300);
-            setTimeout(() => clearInterval(_waitMic), 15000);
+            setTimeout(function(){ clearInterval(_waitMicInterval); }, 15000);
         }
 
-        // ── احفظ مراجع المستمعات للتنظيف لاحقاً ──
-        _scAnswerRef = null; // لا نستمع لـ answer هنا (الـ answer كُتب بالفعل)
+        _scAnswerRef = null;
         _scIceRef    = db.ref('rooms/' + roomId + '/candidates/' + myKey + '/fromTeacher');
     }
 
@@ -2874,9 +2902,10 @@
                     src.buffer = buf; src.connect(ctx.destination); src.start(0);
                     setTimeout(function() { try { ctx.close(); } catch(e) {} }, 1000);
                 } catch(e) {}
-                // أعِد تشغيل جميع عناصر الصوت الموجودة
+                // شغّل جميع عناصر الصوت فوراً — لا نكتمها
                 document.querySelectorAll('audio').forEach(function(a) {
-                    a.muted = !spkOn;
+                    a.muted = false;
+                    a.volume = 1.0;
                     if (a.srcObject && a.paused) a.play().catch(function(){});
                 });
                 var tvEl = document.getElementById('tv');
@@ -7827,31 +7856,4 @@ async function uploadToCloudinary(file, onProgress) {
     <div class="btm-row">
       <span class="btm-label">اللون:</span>
       <div id="brdTxtColor">
-        <div id="brdTxtColorSwatch"></div>
-        <input type="color" id="brdTxtColorPick" value="#222222" oninput="brdTxtUpdateColor(this.value)">
-      </div>
-      <span class="btm-label">الحجم:</span>
-      <input type="range" id="brdTxtSizeSlider" min="10" max="60" value="18" oninput="document.getElementById('brdTxtSizeVal').textContent=this.value">
-      <span id="brdTxtSizeVal">18</span>
-    </div>
-    <button id="brdTxtConfirmBtn" onclick="brdTxtConfirm()">إضافة إلى السبورة</button>
-  </div>
-</div>
-
-<!-- ===== Emoji Picker ===== -->
-<div id="emojiPickerBackdrop" onclick="closeEmojiPicker()"></div>
-<div id="emojiPicker">
-  <div class="emh">
-    <div class="emt">اختر إيموجي</div>
-    <button class="cc" onclick="closeEmojiPicker()" style="width:36px;height:36px;border-radius:10px;background:#f1f2f3;border:0;display:flex;align-items:center;justify-content:center;">
-      <svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px;color:#555"><path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7A1 1 0 0 0 5.7 7.11L10.59 12l-4.9 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.9a1 1 0 0 0 1.42-1.41L13.41 12l4.9-4.89a1 1 0 0 0-.01-1.4z"/></svg>
-    </button>
-  </div>
-  <div class="emc" id="rvEmojiContainer">
-    <div style="text-align:center;color:#aaa;font-size:12px;padding:10px;width:100%;">جاري التحميل...</div>
-  </div>
-</div>
-
-</body>
-</html>
-
+        <div id="
