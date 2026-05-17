@@ -105,18 +105,28 @@
             bottom: 34px; top: auto;
             right: 0 !important; left: auto !important;
             width: 62%; max-height: 55%;
-            display: none; flex-direction: column; overflow: hidden; z-index: 35;
+            display: none; flex-direction: column; z-index: 35;
+            /* fade من الأعلى فقط — الرسائل الجديدة (الأسفل) واضحة تماماً */
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 28%);
+            mask-image: linear-gradient(to bottom, transparent 0%, black 28%);
+            overflow: hidden;
             direction: ltr;
         }
         #chatArea {
-            flex: 1; overflow-y: auto; padding: 6px 8px 4px;
-            display: flex; flex-direction: column; gap: 4px;
-            justify-content: flex-end; scroll-behavior: smooth;
-            direction: rtl;
-            /* نسمح بالتمرير لقراءة الرسائل القديمة */
+            flex: 1;
+            overflow-y: scroll;          /* scroll دائماً مرئي */
+            -webkit-overflow-scrolling: touch; /* سلاسة على iOS/Android */
             overscroll-behavior: contain;
+            padding: 28px 8px 4px;      /* padding علوي يعوّض منطقة الـ fade */
+            display: flex; flex-direction: column; gap: 4px;
+            /* لا نستخدم justify-content:flex-end حتى يعمل scroll للأعلى */
+            justify-content: flex-start;
+            scroll-behavior: smooth;
+            direction: rtl;
+            min-height: 0;
         }
-        #chatArea::-webkit-scrollbar { display: none; }
+        #chatArea::-webkit-scrollbar { width: 2px; }
+        #chatArea::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 2px; }
         /* فقاعة الرسالة */
         .vmsg {
             display: inline-flex; flex-direction: column; gap: 2px;
@@ -2430,7 +2440,7 @@
         }
         sAudio.autoplay = true;
         sAudio.playsInline = true;
-        sAudio.muted = !spkOn;
+        sAudio.muted = false; // لا نكتم الصوت أبداً — نترك للمستخدم التحكم في spkOn
 
         // ── استقبال الفيديو والصوت من الأستاذ ──
         const remoteStream = new MediaStream();
@@ -2447,10 +2457,9 @@
                     tv.autoplay = true;
                     tv.style.visibility = '';
                     var tryPlayTV = function(n) {
-                        tv.play().catch(function() { if (n < 10) setTimeout(function() { tryPlayTV(n+1); }, 500); });
+                        tv.play().catch(function() { if (n < 12) setTimeout(function() { tryPlayTV(n+1); }, 500); });
                     };
                     tryPlayTV(1);
-                    // إخفاء avatar overlay عند وصول الفيديو
                     setTimeout(() => {
                         db.ref('rooms/' + roomId + '/ownerOverlay').once('value', s => {
                             const d = s.val();
@@ -2462,11 +2471,25 @@
                     }, 500);
                 }
             } else if (e.track.kind === 'audio') {
-                // صوت منفصل في عنصر audio مخصص لضمان التشغيل
-                sAudio.srcObject = new MediaStream([e.track]);
-                sAudio.muted = !spkOn;
-                const tryPlay = n => sAudio.play().catch(() => { if (n < 12) setTimeout(() => tryPlay(n+1), 500); });
-                tryPlay(1);
+                const sAudioEl = document.getElementById('studentRemoteAudio');
+                if (sAudioEl) {
+                    sAudioEl.srcObject = new MediaStream([e.track]);
+                    sAudioEl.muted = false;    // لا نكتم الصوت
+                    sAudioEl.volume = 1.0;
+                    sAudioEl.playsInline = true;
+                    sAudioEl.autoplay = true;
+                    // محاولات تشغيل متعددة مع intervals متزايدة
+                    var _playAtt = 0;
+                    var _playRetry = function() {
+                        _playAtt++;
+                        sAudioEl.play().then(function() {
+                            // تأكيد: الصوت يعمل
+                        }).catch(function() {
+                            if (_playAtt < 15) setTimeout(_playRetry, 500 + _playAtt * 100);
+                        });
+                    };
+                    _playRetry();
+                }
             }
         };
 
@@ -2479,15 +2502,24 @@
         studentPC.oniceconnectionstatechange = () => {
             const st = studentPC ? studentPC.iceConnectionState : '';
             if (st === 'connected' || st === 'completed') {
-                // تأكد من تشغيل الوسائط عند اكتمال الاتصال
-                const _ensurePlay = () => {
+                // تشغيل الصوت والفيديو فور الاتصال — مع محاولات متعددة
+                const _ensureMedia = function() {
                     var sAudioEl = document.getElementById('studentRemoteAudio');
-                    if (sAudioEl && sAudioEl.paused && sAudioEl.srcObject) sAudioEl.play().catch(() => {});
-                    const tv = document.getElementById('tv');
-                    if (tv && tv.paused && tv.srcObject) tv.play().catch(() => {});
+                    if (sAudioEl && sAudioEl.srcObject) {
+                        sAudioEl.muted = false;
+                        sAudioEl.volume = 1.0;
+                        if (sAudioEl.paused) sAudioEl.play().catch(function(){});
+                    }
+                    const tvEl = document.getElementById('tv');
+                    if (tvEl && tvEl.srcObject && tvEl.paused) {
+                        tvEl.playsInline = true;
+                        tvEl.play().catch(function(){});
+                    }
                 };
-                setTimeout(_ensurePlay, 350);
-                setTimeout(_ensurePlay, 1200);
+                _ensureMedia();
+                setTimeout(_ensureMedia, 400);
+                setTimeout(_ensureMedia, 1000);
+                setTimeout(_ensureMedia, 2500);
             }
             if (st === 'failed' || st === 'disconnected') {
                 setTimeout(async () => {
@@ -2745,8 +2777,8 @@
                     db.ref('rooms/' + roomId + '/connectRequest/' + reqKey).remove();
                     const reason = reqVal.reason || '';
                     const existing = teacherPeerConns[reqKey];
-                    // spotlight_rebuild: أعد بناء الـ peer دائماً بغض النظر عن الحالة الحالية
-                    if (reason === 'spotlight_rebuild' || reason === 'spotlight_new') {
+                    // spotlight_rebuild / spotlight_new / cameraFlip: أعد بناء الـ peer دائماً
+                    if (reason === 'spotlight_rebuild' || reason === 'spotlight_new' || reason === 'cameraFlip') {
                         await _rebuildPeerForOrganizer(reqKey, reqVal.uid || '');
                         return;
                     }
@@ -2813,6 +2845,32 @@
             // ① أنشئ مفتاح فريد للطالب
             const sid = 'org_' + me.uid + '_' + Date.now();
             studentRef = db.ref('rooms/' + roomId + '/students/' + sid);
+
+            // ── فتح سياق الصوت مبكراً (يحل مشكلة autoplay على Android) ──
+            // نُنشئ AudioContext صامت عند أي تفاعل لفتح سياق الصوت
+            var _audioCtxUnlocked = false;
+            function _unlockAudioCtx() {
+                if (_audioCtxUnlocked) return;
+                _audioCtxUnlocked = true;
+                try {
+                    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    var buf = ctx.createBuffer(1, 1, 22050);
+                    var src = ctx.createBufferSource();
+                    src.buffer = buf; src.connect(ctx.destination); src.start(0);
+                    setTimeout(function() { try { ctx.close(); } catch(e) {} }, 1000);
+                } catch(e) {}
+                // أعِد تشغيل جميع عناصر الصوت الموجودة
+                document.querySelectorAll('audio').forEach(function(a) {
+                    a.muted = !spkOn;
+                    if (a.srcObject && a.paused) a.play().catch(function(){});
+                });
+                var tvEl = document.getElementById('tv');
+                if (tvEl && tvEl.srcObject && tvEl.paused) { tvEl.playsInline = true; tvEl.play().catch(function(){}); }
+            }
+            // استمع لأي تفاعل
+            ['touchstart','touchend','click','keydown'].forEach(function(ev) {
+                document.addEventListener(ev, _unlockAudioCtx, { once: true, passive: true });
+            });
 
             // ② ابدأ مستمع ICE من الأستاذ أولاً (قبل أي شيء)
             // كل candidate يصل قبل setRemoteDescription يُخزّن في _scIceBuf (المعرّف في createOrganizerPeerAndAnswer)
@@ -3062,30 +3120,50 @@
         pingNet();
         // مستمع cameraFlip — يحل مشكلة الشاشة السوداء عند قلب الكاميرا للمشاهدين
         if (!isOwner) {
+            var _lastFlipTs = 0;
             db.ref('rooms/' + roomId + '/cameraFlip').on('value', function(flipSnap) {
                 if (!flipSnap.exists()) return;
                 var flipData = flipSnap.val();
                 if (!flipData || !flipData.ts) return;
-                // إذا كان الإشعار حديثاً (خلال 10 ثوانٍ)
+                if (flipData.ts <= _lastFlipTs) return;
+                _lastFlipTs = flipData.ts;
                 if (Date.now() - flipData.ts > 10000) return;
-                // أعِد بناء اتصال peer مع الأستاذ لاستقبال الـ track الجديد
-                setTimeout(function() {
+                // أعِد بناء الـ peer بالكامل لاستقبال الـ video track الجديد
+                setTimeout(async function() {
                     try {
-                        var tvElF = document.getElementById('tv');
                         var sidKey = studentRef && studentRef.key ? studentRef.key : null;
-                        if (sidKey) {
-                            db.ref('rooms/' + roomId + '/offers/' + sidKey).once('value', function(offerSnapF) {
-                                if (offerSnapF.exists()) {
-                                    try { createOrganizerPeerAndAnswer(offerSnapF.val()); } catch(e) {}
+                        if (!sidKey) return;
+                        // امسح ICE buffer القديم
+                        _scIceBuf = []; _scRemoteSet = false;
+                        // احذف signaling قديم
+                        await db.ref('rooms/' + roomId + '/offers/'     + sidKey).remove().catch(function(){});
+                        await db.ref('rooms/' + roomId + '/answers/'    + sidKey).remove().catch(function(){});
+                        await db.ref('rooms/' + roomId + '/candidates/' + sidKey).remove().catch(function(){});
+                        // أخبر الأستاذ بإنشاء offer جديد
+                        db.ref('rooms/' + roomId + '/connectRequest/' + sidKey).set({ uid: me.uid, ts: Date.now(), reason: 'cameraFlip' });
+                        // انتظر الـ offer الجديد
+                        var _cfWait = 0;
+                        var _cfCheck = setInterval(async function() {
+                            _cfWait += 400;
+                            if (_cfWait > 10000) { clearInterval(_cfCheck); return; }
+                            try {
+                                var ofSnap = await db.ref('rooms/' + roomId + '/offers/' + sidKey).get();
+                                if (ofSnap.exists()) {
+                                    clearInterval(_cfCheck);
+                                    await createOrganizerPeerAndAnswer(ofSnap.val());
+                                    // بعد الاتصال: شغّل الفيديو
+                                    setTimeout(function() {
+                                        var tvElF = document.getElementById('tv');
+                                        if (tvElF && tvElF.srcObject) {
+                                            tvElF.playsInline = true; tvElF.autoplay = true;
+                                            if (tvElF.paused) tvElF.play().catch(function(){});
+                                        }
+                                    }, 800);
                                 }
-                            });
-                        }
-                        // إعادة تشغيل الفيديو إذا توقف
-                        if (tvElF && tvElF.paused && tvElF.srcObject) {
-                            tvElF.play().catch(function() {});
-                        }
+                            } catch(e) {}
+                        }, 400);
                     } catch(e) {}
-                }, 500);
+                }, 600);
             });
         }
         // ── مراقبة إشارة كتم الأستاذ للمستخدم الحالي ──
@@ -3514,29 +3592,37 @@
             // حالة الميك
             localStream.getAudioTracks().forEach(t => { t.enabled = micOn; });
 
-            // مثل ExempleTools: replaceTrack في WebRTC
+            // مثل ExempleTools: replaceTrack في WebRTC — مع إضافة track إذا لم يوجد sender
+            const newAudioTrack = localStream.getAudioTracks()[0];
             const replaceInPeer = async (pc) => {
-                if (!pc) return;
-                for (const sender of pc.getSenders()) {
-                    if (sender.track) {
-                        const newTrack = sender.track.kind === 'video' ? newVideoTrack : localStream.getAudioTracks()[0];
-                        if (newTrack) { try { await sender.replaceTrack(newTrack); } catch(e) {} }
-                    }
+                if (!pc || pc.signalingState === 'closed') return;
+                const senders = pc.getSenders();
+                const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+                const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
+
+                if (videoSender && newVideoTrack) {
+                    try { await videoSender.replaceTrack(newVideoTrack); } catch(e) {}
+                } else if (newVideoTrack && !videoSender) {
+                    // لا يوجد video sender — أضفه (يحدث عند أول تبديل كاميرا)
+                    try { pc.addTrack(newVideoTrack, localStream); } catch(e) {}
+                }
+                if (audioSender && newAudioTrack) {
+                    try { await audioSender.replaceTrack(newAudioTrack); } catch(e) {}
+                } else if (newAudioTrack && !audioSender) {
+                    try { pc.addTrack(newAudioTrack, localStream); } catch(e) {}
                 }
             };
 
             if (isOwner) {
                 // استبدل track في كل peers
-                await Promise.all(Object.values(teacherPeerConns).map(e => replaceInPeer(e && e.pc)));
+                await Promise.all(Object.values(teacherPeerConns).map(conn => replaceInPeer(conn && conn.pc)));
                 // أبلغ المشاهدين بتغيير الكاميرا
                 try {
                     if (db && roomId) {
                         db.ref('rooms/' + roomId + '/cameraFlip').set({ ts: Date.now(), facing: usingFrontCamera ? 'user' : 'environment' });
-                        // أرسل spotlightTrackTs لإجبار المشاهدين على إعادة تشغيل #tv
                         db.ref('rooms/' + roomId + '/spotlightTrackTs').set(Date.now());
                     }
                 } catch(e) {}
-                // إذا كان الـ overlay مفعّلاً، أطفئه ثم أعده مع الكاميرا الجديدة
                 if (_avOverlayOn) {
                     _avOverlayOn = false;
                     var ov2 = document.getElementById('avatarOverlay');
@@ -3584,20 +3670,24 @@
     }
     function addVMsg(m) {
         const a = document.getElementById('chatArea');
+        // هل المستخدم يقرأ رسائل قديمة؟ (لا نتحرك للأسفل إلا إذا كان قريباً من الأسفل)
+        const isNearBottom = a.scrollHeight - a.scrollTop - a.clientHeight < 80;
+
         const d = document.createElement('div'); d.className = 'vmsg';
-        // تحديد لون الاسم حسب نوع الحساب
         var role = m.accountType || m.role || m.type || '';
         var roleClass = 'role-default';
         if (m.isOwner || role === 'teacher')      roleClass = 'role-teacher';
         else if (role === 'institution')           roleClass = 'role-institution';
         else if (role === 'influencer')            roleClass = 'role-influencer';
         else if (role === 'student')               roleClass = 'role-student';
-        // إذا كان المرسل هو الأستاذ (uid يطابق ownerUid)
         if (m.uid && typeof ownerUid !== 'undefined' && m.uid === ownerUid) roleClass = 'role-owner';
         d.innerHTML = '<span class="sndr ' + roleClass + '">' + esc(m.name||'مستخدم') + '</span>'
                     + '<span class="tx">' + esc(m.text||'') + '</span>';
-        a.appendChild(d); a.scrollTop = a.scrollHeight;
-        if (a.children.length > 60) a.removeChild(a.firstChild);
+        a.appendChild(d);
+        // اذهب للأسفل فقط إذا كان المستخدم أصلاً في الأسفل
+        if (isNearBottom) a.scrollTop = a.scrollHeight;
+        // احتفظ بآخر 80 رسالة (زيادة من 60 للسماح بقراءة التاريخ)
+        if (a.children.length > 80) a.removeChild(a.firstChild);
     }
     function toggleChat() {
         chatVis = !chatVis;
