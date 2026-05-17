@@ -1400,7 +1400,22 @@
     <!-- فيديو الأستاذ -->
     <div id="tvWrap">
         <video id="tv" autoplay muted playsinline></video>
-        <!-- لا overlay — الفيديو المباشر يُعرض مباشرة في #tv -->
+        <!-- شاشة تحميل shimmer — تظهر أثناء انتظار الفيديو -->
+        <div id="tvShimmer" style="position:absolute;inset:0;z-index:15;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#12122a;">
+            <div style="width:80%;max-width:260px;display:flex;flex-direction:column;align-items:center;gap:14px;">
+                <div class="shim" style="width:72px;height:72px;border-radius:50%;flex-shrink:0;background:linear-gradient(90deg,#1e1e3a 25%,#2a2a4a 50%,#1e1e3a 75%);background-size:400% 100%;animation:shimmer 1.4s ease-in-out infinite;"></div>
+                <div style="width:100%;display:flex;flex-direction:column;gap:8px;">
+                    <div class="shim" style="height:10px;border-radius:6px;width:60%;margin:0 auto;background:linear-gradient(90deg,#1e1e3a 25%,#2a2a4a 50%,#1e1e3a 75%);background-size:400% 100%;animation:shimmer 1.4s ease-in-out infinite;"></div>
+                    <div class="shim" style="height:8px;border-radius:6px;width:40%;margin:0 auto;background:linear-gradient(90deg,#1e1e3a 25%,#2a2a4a 50%,#1e1e3a 75%);background-size:400% 100%;animation:shimmer 1.4s ease-in-out infinite;"></div>
+                </div>
+            </div>
+            <div id="tvShimmerTxt" style="position:absolute;bottom:14px;color:rgba(255,255,255,0.45);font-size:11px;font-family:'Tajawal',sans-serif;">جاري الاتصال بالبث...</div>
+        </div>
+        <!-- مؤشر التخزين المؤقت — يظهر أثناء التحميل -->
+        <div id="tvBuffering" style="position:absolute;inset:0;z-index:14;display:none;align-items:center;justify-content:center;pointer-events:none;">
+            <div style="width:44px;height:44px;border-radius:50%;border:3px solid rgba(255,255,255,0.15);border-top-color:rgba(255,255,255,0.8);animation:tvSpin 0.8s linear infinite;"></div>
+        </div>
+        <style>@keyframes tvSpin { to { transform: rotate(360deg); } }</style>
         <!-- ===== Avatar Overlay — يظهر عند إخفاء الكاميرا ===== -->
         <div id="avatarOverlay">
             <div id="avatarOverlayRing">
@@ -1770,7 +1785,7 @@
     let studentPC = null;       // PC المنظم (جهة المنظم) — مثل studentPC في ExempleTools
     let studentRef = null;      // Firebase ref للمنظم في /students — مثل studentRef في ExempleTools
     const teacherPeerConns = {}; // { studentKey: {pc, audioEl} } — مثل teacherPeerConnections
-    const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }, { urls: ['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' }], iceCandidatePoolSize: 10 };
     let usingFrontCamera = true;
     let isSwitchingCamera = false;
     let currentCameraIndex = 0;
@@ -2292,12 +2307,12 @@
             if (e.candidate) db.ref('rooms/' + roomId + '/candidates/' + studentKey + '/fromTeacher').push(JSON.stringify(e.candidate));
         };
 
-        // استقبال audio من المنظم + حفظ video receiver للـ spotlight
+        // استقبال audio من المنظم + دعم video للـ spotlight
         pc.ontrack = e => {
             if (e.track.kind === 'audio') {
-                const aStream = e.streams[0] || new MediaStream([e.track]);
+                const aStream = (e.streams && e.streams[0]) ? e.streams[0] : new MediaStream([e.track]);
                 audioEl.srcObject = aStream;
-                audioEl.muted = false;   // لا نكتم الصوت — المستخدم يتحكم بـ spkOn عبر volume
+                audioEl.muted = false;
                 audioEl.volume = spkOn ? 1.0 : 0.0;
                 audioEl.playsInline = true;
                 audioEl.autoplay = true;
@@ -2309,8 +2324,30 @@
                     });
                 };
                 _apPlay();
+            } else if (e.track.kind === 'video') {
+                // video من المنظم — spotlight: إذا كان هذا المنظم هو الـ spotlight الحالي، عرضه في #tv
+                var spotSnap_studentKey = studentKey;
+                db.ref('rooms/' + roomId + '/spotlight').once('value', function(spSnap) {
+                    var spData = spSnap.val();
+                    if (spData && spData.studentId === spotSnap_studentKey) {
+                        // هذا المنظم هو في الـ spotlight — عرض فيديوه في #tv
+                        var tvEl = document.getElementById('tv');
+                        if (tvEl) {
+                            var vStream = (e.streams && e.streams[0]) ? e.streams[0] : new MediaStream([e.track]);
+                            tvEl.srcObject = vStream;
+                            tvEl.muted = true;
+                            tvEl.playsInline = true;
+                            tvEl.autoplay = true;
+                            tvEl.play().catch(function(){});
+                        }
+                    }
+                });
+                // خزّن track في teacherPeerConns للاستخدام لاحقاً
+                if (teacherPeerConns[studentKey]) {
+                    teacherPeerConns[studentKey].remoteVideoTrack = e.track;
+                    teacherPeerConns[studentKey].remoteVideoStream = (e.streams && e.streams[0]) ? e.streams[0] : new MediaStream([e.track]);
+                }
             }
-            // video track يُخزّن في getReceivers() تلقائياً
         };
 
         // مراقبة حالة الاتصال — إعادة بناء عند الفشل
@@ -2350,8 +2387,8 @@
 
         // أضف transceivers صريحة — video: sendrecv، audio: sendrecv
         // هذا يضمن وجود video sender+receiver في الـ offer من البداية
-        try { studentPC.addTransceiver('video', { direction: 'sendrecv' }); } catch(e) {}
-        try { studentPC.addTransceiver('audio', { direction: 'sendrecv' }); } catch(e) {}
+        try { pc.addTransceiver('video', { direction: 'sendrecv' }); } catch(e) {}
+        try { pc.addTransceiver('audio', { direction: 'sendrecv' }); } catch(e) {}
 
         // أضف جميع tracks الأستاذ قبل createOffer — مع offerToReceiveVideo:true لاستقبال فيديو المنظم
         localStream.getTracks().forEach(function(track) {
@@ -2476,24 +2513,25 @@
         sAudio.volume = 1.0;
 
         // ── أضف transceivers صريحة قبل setRemoteDescription ──
-        // هذا يضمن وجود video+audio receivers حتى لو لم يُضَف track من الطالب
+        // sendrecv للـ video أيضاً حتى تعمل spotlight (المشاهد يبث)
         try { studentPC.addTransceiver('audio', { direction: 'sendrecv' }); } catch(e) {}
-        try { studentPC.addTransceiver('video', { direction: 'recvonly' }); } catch(e) {}
+        try { studentPC.addTransceiver('video', { direction: 'sendrecv' }); } catch(e) {}
 
         // ── track الميكروفون إن كان جاهزاً ──
         var audioTrack = (localStream && localStream.getAudioTracks()[0]) || window.__pendingAudioTrack || null;
         if (audioTrack && audioTrack.readyState !== 'ended') {
             var _ms = localStream || new MediaStream([audioTrack]);
-            // استبدل track في transceiver بدلاً من addTrack لتجنب التكرار
-            var _senders = studentPC.getSenders();
-            var _aSender = _senders.find(function(s){ return s.track === null && studentPC.getTransceivers().some(function(t){ return t.sender === s && t.receiver.track.kind === 'audio'; }); });
-            if (_aSender) {
-                try { await _aSender.replaceTrack(audioTrack); } catch(e2) {
-                    try { studentPC.addTrack(audioTrack, _ms); } catch(e3) {}
+            var _hasMic = studentPC.getSenders().some(function(s){ return s.track && s.track.kind === 'audio'; });
+            if (!_hasMic) {
+                // ابحث عن transceiver audio بدون track وضع الـ track فيه
+                var _audioTC = studentPC.getTransceivers().find(function(t){ return t.sender.track === null && t.receiver.track && t.receiver.track.kind === 'audio'; });
+                if (_audioTC) {
+                    try { await _audioTC.sender.replaceTrack(audioTrack); } catch(e2) {
+                        try { studentPC.addTrack(audioTrack, _ms); } catch(e3) {}
+                    }
+                } else {
+                    try { studentPC.addTrack(audioTrack, _ms); } catch(e2) {}
                 }
-            } else {
-                var _hasMic = _senders.some(function(s){ return s.track && s.track.kind === 'audio'; });
-                if (!_hasMic) { try { studentPC.addTrack(audioTrack, _ms); } catch(e2) {} }
             }
         }
 
@@ -2501,16 +2539,34 @@
         const remoteStream = new MediaStream();
         studentPC.ontrack = function(e) {
             const tv = document.getElementById('tv');
-            if (!remoteStream.getTracks().find(function(t){ return t.id === e.track.id; })) {
-                remoteStream.addTrack(e.track);
+            // استخدم stream الوارد إن وُجد، وإلا أضف الـ track للـ stream المحلي
+            var incomingStream = (e.streams && e.streams[0]) ? e.streams[0] : null;
+            if (!incomingStream) {
+                if (!remoteStream.getTracks().find(function(t){ return t.id === e.track.id; })) {
+                    remoteStream.addTrack(e.track);
+                }
+                incomingStream = remoteStream;
             }
             if (e.track.kind === 'video') {
+                e.track.onunmute = function() {
+                    if (tv && tv.srcObject) {
+                        if (tv.paused) tv.play().catch(function(){});
+                    }
+                };
                 if (tv) {
-                    tv.srcObject = remoteStream;
+                    tv.srcObject = incomingStream;
                     tv.muted = true;
                     tv.playsInline = true;
                     tv.autoplay = true;
                     tv.style.visibility = '';
+                    // إخفاء shimmer التحميل
+                    var _tvShim = document.getElementById('tvShimmer');
+                    if (_tvShim) _tvShim.style.display = 'none';
+                    // مؤشر التخزين المؤقت
+                    var _tvBuf = document.getElementById('tvBuffering');
+                    tv.onwaiting = function() { if (_tvBuf) _tvBuf.style.display = 'flex'; };
+                    tv.onplaying = function() { if (_tvBuf) _tvBuf.style.display = 'none'; };
+                    tv.oncanplay = function() { if (_tvBuf) _tvBuf.style.display = 'none'; };
                     var _tvPlay = function(n) {
                         tv.play().catch(function() { if (n < 15) setTimeout(function(){ _tvPlay(n+1); }, 400); });
                     };
@@ -2528,10 +2584,10 @@
             } else if (e.track.kind === 'audio') {
                 var _sAudioEl = document.getElementById('studentRemoteAudio');
                 if (_sAudioEl) {
-                    // أنشئ stream منفصل للصوت
+                    // أنشئ stream منفصل للصوت دائماً
                     _sAudioEl.srcObject = new MediaStream([e.track]);
                     _sAudioEl.muted = false;
-                    _sAudioEl.volume = 1.0;
+                    _sAudioEl.volume = spkOn ? 1.0 : 0.0;
                     _sAudioEl.playsInline = true;
                     _sAudioEl.autoplay = true;
                     var _aPlay = 0;
@@ -2631,6 +2687,7 @@
 
         _scAnswerRef = null;
         _scIceRef    = db.ref('rooms/' + roomId + '/candidates/' + myKey + '/fromTeacher');
+        // ملاحظة: المستمع الفعلي للـ ICE من الأستاذ يتم في enterRoom (child_added) لضمان عدم فقدان candidates
     }
 
     var roomJoinTime = null;
@@ -2759,6 +2816,9 @@
                     tvEl.playsInline = true;
                     tvEl.autoplay = true;
                     tvEl.play().catch(() => {});
+                    // إخفاء shimmer التحميل عند بدء الكاميرا
+                    var tvShim = document.getElementById('tvShimmer');
+                    if (tvShim) tvShim.style.display = 'none';
                 }
                 localStream.getAudioTracks().forEach(t => { t.enabled = micOn; });
 
@@ -3574,10 +3634,11 @@
             usingFrontCamera = !usingFrontCamera;
             const targetFacing = usingFrontCamera ? 'user' : 'environment';
 
-            // وقف الـ stream القديم
-            if (localStream) localStream.getTracks().forEach(t => { try { t.stop(); } catch(e){} });
+            // وقف الـ video tracks القديمة فقط (نحافظ على audio)
+            if (localStream) {
+                localStream.getVideoTracks().forEach(t => { try { t.stop(); } catch(e){} });
+            }
             if (videoEl && !isOwner) { /* المنظم لا يعرض في tv */ } else if (videoEl) { videoEl.srcObject = null; }
-            localStream = null;
 
             if (isOwner && videoEl) {
                 videoEl.style.opacity = '0';
@@ -3585,7 +3646,7 @@
 
             let newStream = null;
 
-            // محاولة 1: deviceId
+            // محاولة 1: deviceId (فيديو فقط — نحافظ على الـ audio track الحالي)
             try {
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const videoDev = devices.filter(d => d.kind === 'videoinput');
@@ -3593,7 +3654,7 @@
                     currentCameraIndex = (currentCameraIndex + 1) % videoDev.length;
                     newStream = await navigator.mediaDevices.getUserMedia({
                         video: { deviceId: { exact: videoDev[currentCameraIndex].deviceId } },
-                        audio: { echoCancellation: true, noiseSuppression: true }
+                        audio: false
                     });
                 }
             } catch(e1) {}
@@ -3603,7 +3664,7 @@
                 try {
                     newStream = await navigator.mediaDevices.getUserMedia({
                         video: { facingMode: { ideal: targetFacing } },
-                        audio: { echoCancellation: true, noiseSuppression: true }
+                        audio: false
                     });
                 } catch(e2) {}
             }
@@ -3613,7 +3674,7 @@
                 try {
                     newStream = await navigator.mediaDevices.getUserMedia({
                         video: { facingMode: { exact: targetFacing } },
-                        audio: { echoCancellation: true, noiseSuppression: true }
+                        audio: false
                     });
                 } catch(e3) {}
             }
@@ -3622,41 +3683,45 @@
             if (!newStream) {
                 newStream = await navigator.mediaDevices.getUserMedia({
                     video: true,
-                    audio: { echoCancellation: true, noiseSuppression: true }
+                    audio: false
                 });
             }
 
-            localStream = newStream;
-            const newVideoTrack = newStream.getVideoTracks()[0];
+            if (newStream) {
+                // دمج video track الجديد مع localStream الحالي (نحافظ على audio)
+                if (localStream) {
+                    newStream.getVideoTracks().forEach(vt => localStream.addTrack(vt));
+                } else {
+                    localStream = newStream;
+                }
+            } else {
+                // لم نحصل على stream — رجوع للحالة السابقة
+                throw new Error('no stream');
+            }
+            const newVideoTrack = localStream.getVideoTracks()[0];
 
             // الأستاذ: عرض في tv
-            if (isOwner && videoEl) {
+            if (isOwner && videoEl && localStream) {
                 videoEl.srcObject = localStream;
                 videoEl.muted = true;
                 await videoEl.play().catch(() => {});
             }
 
-            // حالة الميك
-            localStream.getAudioTracks().forEach(t => { t.enabled = micOn; });
+            // حالة الميك — نحافظ على حالة micOn الحالية
+            if (localStream) localStream.getAudioTracks().forEach(t => { t.enabled = micOn; });
 
-            // مثل ExempleTools: replaceTrack في WebRTC — مع إضافة track إذا لم يوجد sender
-            const newAudioTrack = localStream.getAudioTracks()[0];
+            // replaceTrack في WebRTC — فيديو فقط، الصوت لم يتغير
             const replaceInPeer = async (pc) => {
                 if (!pc || pc.signalingState === 'closed') return;
                 const senders = pc.getSenders();
                 const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-                const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
+                const newVideoTrackForPeer = localStream ? localStream.getVideoTracks()[0] : null;
 
-                if (videoSender && newVideoTrack) {
-                    try { await videoSender.replaceTrack(newVideoTrack); } catch(e) {}
-                } else if (newVideoTrack && !videoSender) {
-                    // لا يوجد video sender — أضفه (يحدث عند أول تبديل كاميرا)
-                    try { pc.addTrack(newVideoTrack, localStream); } catch(e) {}
-                }
-                if (audioSender && newAudioTrack) {
-                    try { await audioSender.replaceTrack(newAudioTrack); } catch(e) {}
-                } else if (newAudioTrack && !audioSender) {
-                    try { pc.addTrack(newAudioTrack, localStream); } catch(e) {}
+                if (videoSender && newVideoTrackForPeer) {
+                    try { await videoSender.replaceTrack(newVideoTrackForPeer); } catch(e) {}
+                } else if (newVideoTrackForPeer && !videoSender) {
+                    // لا يوجد video sender — أضفه
+                    try { pc.addTrack(newVideoTrackForPeer, localStream); } catch(e) {}
                 }
             };
 
@@ -7765,95 +7830,4 @@ async function uploadToCloudinary(file, onProgress) {
     <div id="boardScrollBar">
       <div id="boardScrollUp">▲</div>
       <div id="boardScrollTrack">
-        <div id="boardScrollThumb"></div>
-      </div>
-      <div id="boardScrollDown">▼</div>
-    </div>
-  </div>
-
-  <!-- شريط أسفل النافذة -->
-  <div id="boardBottom">
-    <div id="boardZoomOut" onclick="brdZoom(-0.1)">−</div>
-    <span id="boardZoomVal">100%</span>
-    <div id="boardZoomIn" onclick="brdZoom(+0.1)">+</div>
-    <span class="brd-label" style="margin-right:auto;opacity:0.4;font-size:10px;">اسحب الزاوية للتكبير</span>
-  </div>
-
-  <!-- مقبض تغيير حجم النافذة -->
-  <div id="boardResizeHandle">
-    <svg viewBox="0 0 10 10" fill="currentColor" style="color:#fff;"><path d="M0 10L10 0v2L2 10zm4 0L10 4v2L6 10zm4 0l2-2v2z"/></svg>
-  </div>
-</div>
-
-<!-- ===== نافذة تأكيد مسح السبورة ===== -->
-<div id="brdClearModal">
-  <div id="brdClearBox">
-    <div id="brdClearHead">
-      <div class="bch-icon"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:26px;height:26px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></div>
-      <h3>مسح السبورة</h3>
-    </div>
-    <div id="brdClearBody">
-      <p>هل أنت متأكد من مسح كل المحتوى على السبورة؟<br>لا يمكن التراجع عن هذا الإجراء.</p>
-      <div class="bch-btns">
-        <button class="bch-cancel" onclick="document.getElementById('brdClearModal').classList.remove('open')">إلغاء</button>
-        <button class="bch-confirm" onclick="brdDoClearAll()">مسح الكل</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- نافذة رفع صورة للسبورة -->
-<div id="boardImgModal">
-  <div id="boardImgBox">
-    <h3 style="display:flex;align-items:center;gap:8px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> رفع صورة إلى السبورة</h3>
-    <input type="file" id="boardImgFileInput" accept="image/*" onchange="brdPreviewImg(this)">
-    <button id="boardImgPickBtn" onclick="document.getElementById('boardImgFileInput').click()">اختر صورة من الهاتف</button>
-    <img id="boardImgPreview" src="" alt="">
-    <button id="boardImgAddBtn" onclick="brdConfirmImg()">✓ إضافة إلى السبورة</button>
-    <button id="boardImgCancelBtn" onclick="closeBoardImgModal()">إلغاء</button>
-  </div>
-</div>
-
-<!-- ===== نافذة تأكيد حذف عنصر السبورة ===== -->
-<div id="brdDeleteModal">
-  <div id="brdDeleteBox">
-    <div id="brdDeleteHead">
-      <div class="bdh-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-      </div>
-      <h3>حذف العنصر</h3>
-    </div>
-    <div id="brdDeleteBody">
-      <p>هل أنت متأكد من حذف هذا العنصر؟<br>لا يمكن التراجع عن هذا الإجراء.</p>
-      <div class="bdh-btns">
-        <button class="bdh-cancel" onclick="closeBrdDeleteModal()">إلغاء</button>
-        <button class="bdh-confirm" onclick="brdConfirmDelete()">حذف</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ===== نافذة إضافة/تعديل النص ===== -->
-<div id="brdTextModal">
-  <div id="brdTextBox">
-    <h3>
-      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
-      <span id="brdTxtModalTitle">إضافة نص</span>
-      <button class="btm-close" onclick="closeBrdTextModal()">✕</button>
-    </h3>
-    <textarea id="brdTxtArea" placeholder="اكتب النص هنا...&#10;يمكنك كتابة أكثر من سطر"></textarea>
-    <!-- اختيار اتجاه الكتابة -->
-    <div class="btm-lang-row">
-      <button class="btm-lang-btn active" id="brdLangAr" onclick="setBrdLang('ar')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><polyline points="17 8 21 12 17 16"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
-        عربي (RTL)
-      </button>
-      <button class="btm-lang-btn" id="brdLangEn" onclick="setBrdLang('en')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><polyline points="7 8 3 12 7 16"/><line x1="21" y1="12" x2="3" y2="12"/></svg>
-        فرنسي / إنجليزي (LTR)
-      </button>
-    </div>
-    <div class="btm-row">
-      <span class="btm-label">اللون:</span>
-      <div id="brdTxtColor">
-        <div id="
+        <div id="boardScrollThumb"
