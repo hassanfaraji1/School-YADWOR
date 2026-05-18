@@ -996,13 +996,17 @@
         };
 
         function _vwHideAvatarIfCamera() {
+            // أخفِ spinner التحميل دائماً عند وصول الفيديو
+            var vbi = document.getElementById('videoBufferingIndicator');
+            if (vbi) vbi.classList.remove('show');
+            // فقط أخفِ avatarOverlay إذا لم يكن الأستاذ قد أخفى كاميرته عمداً
             db.ref('rooms/' + roomId + '/ownerOverlay').once('value', function(s) {
                 var d = s.val();
                 if (!d || d.on !== true) {
                     var ov = document.getElementById('avatarOverlay');
                     if (ov) ov.classList.remove('show');
                     var tvEl2 = document.getElementById('tv');
-                    if (tvEl2) tvEl2.style.visibility = '';
+                    if (tvEl2) { tvEl2.style.opacity = '1'; tvEl2.style.visibility = ''; }
                 }
             });
         }
@@ -1363,33 +1367,31 @@
         } else {
             // ── المنظم / المشاهد ──
             // إظهار صورة ترحيبية ريثما يصل فيديو الأستاذ
+            // ── عرض spinner انتظار ريثما يصل الفيديو ──
             (function showWelcomeOverlay() {
                 var ov = document.getElementById('avatarOverlay');
                 var tv = document.getElementById('tv');
-                // اجلب بيانات الأستاذ من Firebase
+                var vbi = document.getElementById('videoBufferingIndicator');
+                // فحص Firebase: هل الأستاذ أخفى كاميرته؟
                 db.ref('rooms/' + roomId + '/ownerOverlay').once('value', function(snap) {
                     var d = snap.val();
                     if (d && d.on === true) {
-                        // الأستاذ قرر إخفاء كاميرته — استخدم بياناته
+                        // الأستاذ أخفى كاميرته عمداً — أظهر overlay بصورته
                         var img = document.getElementById('avatarOverlayImg');
                         var nm  = document.getElementById('avatarOverlayName');
                         var sub = document.getElementById('avatarOverlaySubject');
                         if (img && d.avatar) img.src = d.avatar;
                         if (nm)  nm.textContent  = d.name || 'المضيف';
                         if (sub) sub.textContent = d.roomName || '';
-                        if (tv)  tv.style.visibility = 'hidden';
+                        if (tv)  { tv.style.opacity = '0'; tv.style.visibility = 'hidden'; }
                         if (ov)  ov.classList.add('show');
                     } else {
-                        // الأستاذ كاميرته مفتوحة — أظهر صورته مؤقتاً حتى يصل الفيديو
-                        db.ref('rooms/' + roomId + '/seats/0').once('value', function(sSnap) {
-                            var sd = sSnap.val() || {};
-                            var img = document.getElementById('avatarOverlayImg');
-                            var nm  = document.getElementById('avatarOverlayName');
-                            if (img && sd.avatar) img.src = sd.avatar;
-                            if (nm) nm.textContent = sd.name || 'المضيف';
-                            if (tv)  tv.style.visibility = 'hidden';
-                            if (ov)  ov.classList.add('show');
-                        });
+                        // الأستاذ كاميرته مفتوحة — أظهر spinner انتظار فقط (لا overlay أسود)
+                        if (vbi) vbi.classList.add('show');
+                        // إخفاء spinner بعد 8 ثوانٍ حتى لو لم يصل الفيديو
+                        setTimeout(function() {
+                            if (vbi) vbi.classList.remove('show');
+                        }, 8000);
                     }
                 });
             })();
@@ -3739,7 +3741,7 @@
             if (isOwner && localStream) {
                 tv.srcObject = localStream;
                 tv.muted = true;
-                tv.style.visibility = '';
+                tv.style.opacity = '1'; tv.style.visibility = '';
                 try { tv.play(); } catch(e) {}
                 // إخفاء overlay الصورة إن كان مفعّلاً
                 if (_avOverlayOn) { hideAvatarOverlay(); }
@@ -3765,7 +3767,7 @@
             if (localStream && localStream.getVideoTracks().length > 0) {
                 tv.srcObject = localStream;
                 tv.muted = true;
-                tv.style.visibility = '';
+                tv.style.opacity = '1'; tv.style.visibility = '';
                 try { tv.play(); } catch(e) {}
             }
             // لا تُظهر backToOwnerBtn — الأستاذ يتحكم بنفسه عبر إخفاء/إظهار الكاميرا
@@ -3860,7 +3862,7 @@
             tv.muted = true;
             tv.playsInline = true;
             tv.autoplay = true;
-            tv.style.visibility = '';
+            tv.style.opacity = '1'; tv.style.visibility = '';
             // تشغيل مع إعادة محاولات لضمان ظهور الفيديو (يحل مشكلة الشاشة السوداء)
             const _tryPlaySpot = function(n) {
                 tv.play().catch(function() {
@@ -4009,7 +4011,7 @@
         const ov = document.getElementById('avatarOverlay');
         if (ov) ov.classList.remove('show');
         const tv = document.getElementById('tv');
-        if (tv) tv.style.visibility = '';
+        if (tv) { tv.style.opacity = '1'; tv.style.visibility = ''; }
 
         // تحديث زر الكاميرا
         const camBtn = document.getElementById('pmToggleCamBtn');
@@ -4023,7 +4025,7 @@
             if (tv) {
                 tv.srcObject = localStream;
                 tv.muted = true;
-                tv.style.visibility = '';
+                tv.style.opacity = '1'; tv.style.visibility = '';
                 try { await tv.play(); } catch(e) {}
             }
             // إعادة video + audio tracks لجميع PCs
@@ -4224,11 +4226,11 @@
                 }
                 if (nm)  nm.textContent  = data.name    || 'المضيف';
                 if (sub) sub.textContent = data.roomName || '';
-                if (tv)  tv.style.visibility = 'hidden';
+                if (tv)  { tv.style.opacity = '0'; tv.style.visibility = 'hidden'; }
                 ov.classList.add('show');
             } else {
                 // أخفِ overlay وأظهر الفيديو
-                if (tv)  tv.style.visibility = '';
+                if (tv)  { tv.style.opacity = '1'; tv.style.visibility = ''; }
                 ov.classList.remove('show');
             }
         });
@@ -5015,10 +5017,10 @@ async function uploadToCloudinary(file, onProgress) {
 
     function showAvatarOverlay() {
         _avOverlayOn = true;
-        // إخفاء الفيديو وإظهار الـ overlay
         var tv = document.getElementById('tv');
         var ov = document.getElementById('avatarOverlay');
-        if (tv) tv.style.visibility = 'hidden';
+        // الـ overlay يغطي الفيديو — نخفي الفيديو بشفافية فقط
+        if (tv) { tv.style.opacity = '0'; }
         if (ov) {
             // ملء البيانات
             var img  = document.getElementById('avatarOverlayImg');
@@ -5084,13 +5086,11 @@ async function uploadToCloudinary(file, onProgress) {
         _avOverlayOn = false;
         var tv = document.getElementById('tv');
         var ov = document.getElementById('avatarOverlay');
-        if (tv) tv.style.visibility = '';
+        if (tv) { tv.style.opacity = '1'; tv.style.visibility = ''; }
         if (ov) ov.classList.remove('show');
-        // إعادة تفعيل الفيديو
         if (localStream) {
             localStream.getVideoTracks().forEach(function(t){ t.enabled = true; });
         }
-        // إخبار الطلاب بعودة الكاميرا
         if (typeof db !== 'undefined' && typeof roomId !== 'undefined' && roomId) {
             db.ref('rooms/' + roomId + '/ownerOverlay').set({ on: false, ts: Date.now() });
         }
