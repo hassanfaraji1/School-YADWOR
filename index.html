@@ -1,394 +1,1130 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-<title>YADWOR – تسجيل الدخول</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script>
-  if (!firebase.apps.length) {
-    firebase.initializeApp({
-      apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
-      databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com"
-    });
-  }
-</script>
-<style>
-  * { box-sizing: border-box; }
-  body { font-family: 'Tajawal', system-ui, -apple-system, sans-serif; background: #faf8f6; color: #18181b; }
-  input:focus, select:focus, textarea:focus { outline: none; }
-  .shimmer { animation: shimmer 1.5s infinite; background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%); background-size: 200% 100%; }
-  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-  .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:#18181b; color:white; padding:8px 18px; border-radius:999px; font-size:13px; font-weight:700; z-index:999; pointer-events:none; opacity:0; transition:opacity .2s; }
-  .toast.show { opacity:1; }
-  @keyframes fadeIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-  .auth-card { animation: fadeIn .4s ease forwards; }
-  .field-label { display:block; font-size:11px; font-weight:700; color:#71717a; margin-bottom:4px; }
-  .field-input { height:48px; width:100%; border-radius:14px; border:1.5px solid #e4e4e7; background:#fafafa; padding:0 14px; font-size:14px; font-family:'Tajawal',sans-serif; transition:border-color .15s; }
-  .field-input:focus { border-color:#18181b; background:#fff; }
-  .field-select { height:48px; width:100%; border-radius:14px; border:1.5px solid #e4e4e7; background:#fafafa; padding:0 14px; font-size:14px; font-family:'Tajawal',sans-serif; transition:border-color .15s; appearance:none; }
-  .field-select:focus { border-color:#18181b; background:#fff; }
-  .field-textarea { width:100%; border-radius:14px; border:1.5px solid #e4e4e7; background:#fafafa; padding:10px 14px; font-size:13px; font-family:'Tajawal',sans-serif; resize:none; transition:border-color .15s; }
-  .field-textarea:focus { border-color:#18181b; background:#fff; }
-  .gender-btn { flex:1; padding:10px 6px; border-radius:12px; border:2px solid #e4e4e7; font-size:13px; font-weight:700; transition:all .15s; background:#fff; cursor:pointer; }
-  .gender-btn.active { border-color:#18181b; background:#18181b; color:#fff; }
-</style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>YADWOR – تسجيل الدخول</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --secondary: #f59e0b;
+            --bg-page: #f8fafc;
+            --bg-card: #ffffff;
+            --text-main: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --success: #10b981;
+            --error: #ef4444;
+            --radius: 16px;
+            --transition: all 0.3s ease;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: var(--bg-page);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        /* Language Selector */
+        .lang-selector {
+            position: absolute;
+            top: 20px;
+            left: 20px; /* LTR position visually, but since body is RTL, this is left */
+            z-index: 10;
+        }
+        [dir="rtl"] .lang-selector {
+            left: auto;
+            right: 20px;
+        }
+        .lang-btn {
+            background: rgba(255,255,255,0.8);
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+        .lang-btn:hover { background: #fff; color: var(--primary); }
+
+        /* Main Container */
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: var(--bg-card);
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.05);
+            overflow: hidden;
+            display: flex;
+            min-height: 650px;
+            position: relative;
+        }
+
+        /* Illustration Side */
+        .illustration-side {
+            width: 45%;
+            background: linear-gradient(135deg, var(--primary) 0%, #60a5fa 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            color: #fff;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .illustration-side img {
+            width: 80%;
+            max-width: 300px;
+            margin-bottom: 20px;
+            animation: float 6s ease-in-out infinite;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.1));
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .illustration-side h2 { font-size: 2rem; margin-bottom: 10px; font-weight: 800; }
+        .illustration-side p { font-size: 1rem; opacity: 0.9; line-height: 1.6; }
+
+        /* Form Side */
+        .form-side {
+            width: 55%;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            background: #fff;
+        }
+
+        .logo-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo-header h1 {
+            font-size: 2.5rem;
+            color: var(--primary);
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+        .logo-header p { color: var(--text-secondary); font-size: 1.1rem; }
+
+        /* Tabs */
+        .auth-tabs {
+            display: flex;
+            background: #f1f5f9;
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 25px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: none;
+            border: none;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 8px;
+            transition: var(--transition);
+        }
+        .tab-btn.active {
+            background: #fff;
+            color: var(--primary);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        /* Views */
+        .view { display: none; }
+        .view.active { display: block; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Forms */
+        .form-group { margin-bottom: 16px; position: relative; }
+        .form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.9rem; }
+        .input-control {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            background: #f8fafc;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 1rem;
+            transition: var(--transition);
+            text-align: right;
+        }
+        .input-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+        }
+        .input-control[dir="ltr"] { text-align: left; }
+
+        /* Phone Input Group */
+        .phone-group {
+            display: flex;
+            gap: 10px;
+        }
+        .phone-group .country-code {
+            width: 80px;
+            text-align: center;
+        }
+        .phone-group .phone-input { flex: 1; }
+        
+        .country-code-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            cursor: pointer;
+            position: relative;
+        }
+        .country-code-display img { width: 20px; height: 14px; border-radius: 2px; }
+
+        /* Avatar Selection */
+        .avatar-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 10px;
+        }
+        .avatar-option {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 3px solid transparent;
+            cursor: pointer;
+            transition: var(--transition);
+            background: #f1f5f9;
+        }
+        .avatar-option:hover { transform: scale(1.05); }
+        .avatar-option.selected { border-color: var(--primary); transform: scale(1.05); }
+        .avatar-option img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* Review Summary */
+        .review-card {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .review-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px dashed var(--border-color);
+        }
+        .review-item:last-child { border-bottom: none; }
+        .review-label { color: var(--text-secondary); font-size: 0.9rem; }
+        .review-value { font-weight: 700; }
+
+        /* Buttons */
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 10px;
+        }
+        .btn-primary:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); }
+        .btn-primary:active { transform: scale(0.98); }
+        
+        .btn-secondary {
+            background: #e2e8f0;
+            color: var(--text-secondary);
+        }
+        .btn-secondary:hover { background: #cbd5e1; transform: none; box-shadow: none; }
+
+        .btn-group { display: flex; gap: 12px; margin-top: 20px; }
+
+        /* Wizard Progress */
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            gap: 8px;
+        }
+        .step-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            transition: var(--transition);
+        }
+        .step-dot.active { background: var(--primary); transform: scale(1.2); }
+        .step-dot.completed { background: var(--success); }
+
+        .step-content { display: none; }
+        .step-content.active { display: block; }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-box {
+            background: #fff;
+            border-radius: 20px;
+            padding: 30px;
+            width: 90%;
+            max-width: 380px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
+        .modal-icon { width: 60px; height: 60px; margin: 0 auto 15px; }
+        .modal-title { font-size: 1.2rem; font-weight: 800; margin-bottom: 10px; }
+        .modal-message { color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5; font-size: 0.95rem; }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            border-radius: 24px;
+        }
+        .loading-overlay.show { display: flex; }
+        .spinner {
+            width: 50px; height: 50px;
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Country Dropdown */
+        .country-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+        .country-dropdown.show { display: block; }
+        .country-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .country-item:hover { background: #f1f5f9; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container { flex-direction: column; max-width: 100%; height: 100vh; border-radius: 0; box-shadow: none; }
+            .illustration-side { display: none; }
+            .form-side { width: 100%; padding: 20px; }
+        }
+    </style>
 </head>
-<body class="min-h-screen flex items-center justify-center bg-[#faf8f6] px-4 py-8">
+<body>
 
-<div id="toast" class="toast"></div>
-
-<div class="auth-card w-full max-w-[440px]">
-  <!-- Logo -->
-  <div class="mb-5 text-center">
-    <div class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-[18px] bg-zinc-900 text-white">
-      <svg viewBox="0 0 24 24" class="h-7 w-7 fill-none stroke-current" stroke-width="1.8"><path d="M4 7h16M7 4v6m10-6v6M5 11h14v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/></svg>
-    </div>
-    <h1 class="text-[26px] font-extrabold tracking-tight">YADWOR</h1>
-    <p class="mt-1 text-[13px] text-zinc-500">منصة تعليمية اجتماعية</p>
-  </div>
-
-  <!-- Tabs -->
-  <div class="mb-5 flex rounded-full bg-zinc-100 p-1">
-    <button onclick="setAuthMode('login')" id="btn-login" class="h-10 flex-1 rounded-full text-[13px] font-bold transition bg-white shadow-sm text-zinc-900">تسجيل الدخول</button>
-    <button onclick="setAuthMode('signup')" id="btn-signup" class="h-10 flex-1 rounded-full text-[13px] font-bold transition text-zinc-500">إنشاء حساب</button>
-  </div>
-
-  <!-- LOGIN FORM -->
-  <div id="login-form" class="rounded-[24px] border border-zinc-200/70 bg-white p-5 shadow-[0_20px_60px_rgba(0,0,0,0.07)] space-y-3">
-    <div>
-      <label class="field-label">البريد الإلكتروني</label>
-      <input id="login-email" type="email" placeholder="example@email.com" class="field-input" />
-    </div>
-    <div>
-      <label class="field-label">كلمة المرور</label>
-      <input id="login-password" type="password" placeholder="••••••••" class="field-input" />
-    </div>
-    <button onclick="doLogin()" id="login-btn" class="mt-2 h-12 w-full rounded-[14px] bg-zinc-900 text-[15px] font-extrabold text-white hover:bg-zinc-800 transition">دخول</button>
-  </div>
-
-  <!-- SIGNUP FORM -->
-  <div id="signup-form" class="hidden rounded-[24px] border border-zinc-200/70 bg-white p-5 shadow-[0_20px_60px_rgba(0,0,0,0.07)] space-y-3">
-
-    <!-- الاسم الكامل -->
-    <div>
-      <label class="field-label">الاسم الكامل <span class="text-red-500">*</span></label>
-      <input id="reg-name" type="text" placeholder="مثال: أحمد بنعلي" class="field-input" />
+    <!-- Language Selector -->
+    <div class="lang-selector">
+        <select class="lang-btn" id="langSelect" onchange="changeLanguage(this.value)">
+            <option value="ar">العربية</option>
+            <option value="fr">Français</option>
+            <option value="en">English</option>
+        </select>
     </div>
 
-    <!-- اسم المستخدم -->
-    <div>
-      <label class="field-label">اسم المستخدم (بالحروف اللاتينية) <span class="text-red-500">*</span></label>
-      <div class="relative">
-        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-bold text-zinc-400">@</span>
-        <input id="reg-username" type="text" placeholder="ahmed.benali" class="field-input pr-8" oninput="sanitizeUsername(this)" />
-      </div>
-      <p id="username-hint" class="mt-1 text-[11px] text-zinc-400">فقط حروف لاتينية وأرقام ونقطة وشرطة سفلية</p>
+    <div class="container" id="main-container">
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading-overlay">
+            <div class="spinner"></div>
+            <div style="font-weight: 700; color: var(--primary);" id="loading-text">جاري إنشاء الحساب...</div>
+        </div>
+
+        <!-- Illustration Side -->
+        <div class="illustration-side">
+            <!-- High quality SVG illustration URL for Education/Social -->
+            <img src="https://img.freepik.com/free-vector/online-learning-isometric-concept_1284-17947.jpg?w=740&t=st=1685000000~exp=1685000600~hmac=abcdef" alt="Education Illustration" onerror="this.style.display='none'">
+            <!-- Fallback simple SVG if image fails -->
+            <svg width="200" height="200" viewBox="0 0 200 200" fill="none" style="display:none;" id="fallback-svg">
+                <circle cx="100" cy="100" r="80" fill="rgba(255,255,255,0.2)"/>
+                <path d="M60 120 L100 80 L140 120" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="100" cy="70" r="10" fill="#fff"/>
+                <path d="M70 140 L130 140" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+            </svg>
+            <h2 data-i18n="welcome_title">مرحباً بك في YADWOR</h2>
+            <p data-i18n="welcome_desc">منصتك التعليمية الاجتماعية المفضلة. تواصل، تعلم، وشارك المعرفة بسهولة وأمان.</p>
+        </div>
+
+        <!-- Form Side -->
+        <div class="form-side">
+            <div class="logo-header">
+                <h1>YADWOR</h1>
+                <p data-i18n="tagline">منصة تعليمية اجتماعية</p>
+            </div>
+
+            <!-- Tabs -->
+            <div class="auth-tabs">
+                <button class="tab-btn active" id="tab-login" onclick="switchTab('login')" data-i18n="tab_login">تسجيل الدخول</button>
+                <button class="tab-btn" id="tab-register" onclick="switchTab('register')" data-i18n="tab_register">إنشاء حساب</button>
+            </div>
+
+            <!-- Login View -->
+            <div id="login-view" class="view active">
+                <div style="margin-bottom: 20px;">
+                    <h3 style="font-size: 1.2rem; margin-bottom: 5px;" data-i18n="login_welcome">مرحباً بعودتك!</h3>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;" data-i18n="login_desc">سجل دخولك للمتابعة</p>
+                </div>
+                <div class="form-group">
+                    <label data-i18n="label_email_user">البريد الإلكتروني أو اسم المستخدم</label>
+                    <input type="text" class="input-control" id="login-identifier" placeholder="example@mail.com" dir="ltr">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="label_password">كلمة المرور</label>
+                    <input type="password" class="input-control" id="login-pass" placeholder="••••••••">
+                </div>
+                <button class="btn-primary" onclick="handleLogin()" data-i18n="btn_login">دخول</button>
+                <div style="text-align: center; margin-top: 15px; color: var(--text-secondary); font-size: 0.9rem;">
+                    <span data-i18n="no_account">ليس لديك حساب؟ </span>
+                    <a class="link-text" onclick="switchTab('register')" style="color: var(--primary); font-weight: 700; cursor: pointer;" data-i18n="create_new">أنشئ حساباً جديداً</a>
+                </div>
+            </div>
+
+            <!-- Register View (Wizard) -->
+            <div id="register-view" class="view">
+                <div class="step-indicator">
+                    <div class="step-dot active" id="dot-1"></div>
+                    <div class="step-dot" id="dot-2"></div>
+                    <div class="step-dot" id="dot-3"></div>
+                    <div class="step-dot" id="dot-4"></div>
+                    <div class="step-dot" id="dot-5"></div>
+                </div>
+
+                <!-- Step 1: Personal Info -->
+                <div class="step-content active" id="step-1">
+                    <div class="form-group">
+                        <label data-i18n="label_fullname">الاسم الكامل <span style="color:var(--error)">*</span></label>
+                        <input type="text" class="input-control" id="reg-fullname" placeholder="الاسم الأول واسم العائلة">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="label_username">اسم المستخدم <span style="color:var(--error)">*</span></label>
+                        <input type="text" class="input-control" id="reg-username" placeholder="username" dir="ltr">
+                        <div id="username-status" style="font-size: 0.8rem; margin-top: 4px;"></div>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="label_bio">نبذة عنك</label>
+                        <textarea class="input-control" id="reg-bio" rows="2" placeholder="اكتب نبذة مختصرة..."></textarea>
+                    </div>
+                    <button class="btn-primary" onclick="nextStep(2)" data-i18n="btn_next">التالي</button>
+                </div>
+
+                <!-- Step 2: Contact -->
+                <div class="step-content" id="step-2">
+                    <div class="form-group">
+                        <label data-i18n="label_email">البريد الإلكتروني <span style="color:var(--error)">*</span></label>
+                        <input type="email" class="input-control" id="reg-email" placeholder="example@mail.com" dir="ltr">
+                        <div id="email-status" style="font-size: 0.8rem; margin-top: 4px;"></div>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="label_phone">رقم الهاتف</label>
+                        <div class="phone-group">
+                            <div class="country-code" onclick="toggleCountryCodeDropdown()">
+                                <div class="input-control country-code-display" id="phone-code-display">
+                                    <img id="phone-flag" src="https://flagcdn.com/w20/ma.png" alt="Flag">
+                                    <span id="phone-code-text">+212</span>
+                                </div>
+                                <div class="country-dropdown" id="country-code-list">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                            <input type="tel" class="input-control phone-input" id="reg-phone" placeholder="600 000 000" dir="ltr">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="label_password">كلمة المرور <span style="color:var(--error)">*</span></label>
+                        <input type="password" class="input-control" id="reg-pass" placeholder="••••••••">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="label_confirm_pass">تأكيد كلمة المرور <span style="color:var(--error)">*</span></label>
+                        <input type="password" class="input-control" id="reg-confirm-pass" placeholder="••••••••">
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn-primary btn-secondary" onclick="prevStep(1)" data-i18n="btn_back">رجوع</button>
+                        <button class="btn-primary" onclick="nextStep(3)" data-i18n="btn_next">التالي</button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Location -->
+                <div class="step-content" id="step-3">
+                    <div class="form-group" style="position: relative;">
+                        <label data-i18n="label_country">الدولة <span style="color:var(--error)">*</span></label>
+                        <div class="input-control" onclick="toggleCountryList()" id="country-display" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; background: #fff;">
+                            <span id="selected-country-text" style="color: var(--text-secondary);" data-i18n="select_country">اختر الدولة</span>
+                            <span style="font-size: 0.8rem;">▼</span>
+                        </div>
+                        <div class="country-dropdown" id="country-list">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="label_city">المدينة <span style="color:var(--error)">*</span></label>
+                        <input type="text" class="input-control" id="reg-city" placeholder="اسم المدينة">
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn-primary btn-secondary" onclick="prevStep(2)" data-i18n="btn_back">رجوع</button>
+                        <button class="btn-primary" onclick="nextStep(4)" data-i18n="btn_next">التالي</button>
+                    </div>
+                </div>
+
+                <!-- Step 4: Profile -->
+                <div class="step-content" id="step-4">
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label data-i18n="label_gender">الجنس</label>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="input-control" style="flex: 1; text-align: center; cursor: pointer; background: #fff;" onclick="selectGender('male')" id="btn-male" data-i18n="gender_male">ذكر</button>
+                            <button class="input-control" style="flex: 1; text-align: center; cursor: pointer; background: #fff;" onclick="selectGender('female')" id="btn-female" data-i18n="gender_female">أنثى</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label data-i18n="label_select_avatar">اختر صورة الملف الشخصي</label>
+                        <div class="avatar-grid" id="avatar-grid">
+                            <!-- Avatars injected via JS -->
+                        </div>
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="btn-primary btn-secondary" onclick="prevStep(3)" data-i18n="btn_back">رجوع</button>
+                        <button class="btn-primary" onclick="nextStep(5)" data-i18n="btn_next">التالي</button>
+                    </div>
+                </div>
+
+                <!-- Step 5: Review -->
+                <div class="step-content" id="step-5">
+                    <h3 style="margin-bottom: 15px; text-align: center;" data-i18n="review_title">مراجعة البيانات</h3>
+                    <div class="review-card">
+                        <div class="review-item">
+                            <span class="review-label" data-i18n="review_name">الاسم:</span>
+                            <span class="review-value" id="rev-name"></span>
+                        </div>
+                        <div class="review-item">
+                            <span class="review-label" data-i18n="review_user">المستخدم:</span>
+                            <span class="review-value" id="rev-user"></span>
+                        </div>
+                        <div class="review-item">
+                            <span class="review-label" data-i18n="review_email">البريد:</span>
+                            <span class="review-value" id="rev-email"></span>
+                        </div>
+                        <div class="review-item">
+                            <span class="review-label" data-i18n="review_location">الموقع:</span>
+                            <span class="review-value" id="rev-loc"></span>
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn-primary btn-secondary" onclick="prevStep(4)" data-i18n="btn_back">رجوع</button>
+                        <button class="btn-primary" onclick="submitRegistration()" data-i18n="btn_create">إنشاء الحساب</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- البريد الإلكتروني -->
-    <div>
-      <label class="field-label">البريد الإلكتروني <span class="text-red-500">*</span></label>
-      <input id="reg-email" type="email" placeholder="example@email.com" class="field-input" />
+    <!-- Modals -->
+    <div id="customModal" class="modal-overlay">
+        <div class="modal-box">
+            <div id="modal-icon-container"></div>
+            <h3 id="modal-title" class="modal-title"></h3>
+            <p id="modal-message" class="modal-message"></p>
+            <button id="modal-btn" class="btn-primary" onclick="closeModal()" data-i18n="btn_ok">حسناً</button>
+        </div>
     </div>
 
-    <!-- نبذة شخصية (اختياري) -->
-    <div>
-      <label class="field-label">نبذة عنك <span class="text-zinc-400 font-normal">(اختياري)</span></label>
-      <textarea id="reg-bio" rows="2" maxlength="150" placeholder="اكتب جملة أو جملتين عن نفسك..." class="field-textarea"></textarea>
+    <!-- Success Overlay -->
+    <div id="successOverlay" class="loading-overlay" style="background: rgba(255,255,255,0.98); z-index: 2000;">
+        <div class="success-icon" style="width: 80px; height: 80px; background: #dcfce7; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+            <svg viewBox="0 0 24 24" style="width: 40px; height: 40px; stroke: var(--success); fill: none; stroke-width: 3; stroke-dasharray: 100; stroke-dashoffset: 100; animation: drawCheck 0.6s 0.2s ease forwards;"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <h2 style="margin-bottom: 10px; color: var(--success);" data-i18n="success_title">تم إنشاء الحساب!</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 20px;" data-i18n="success_desc">مرحباً بك في YADWOR. يمكنك الآن تسجيل الدخول للمتابعة.</p>
+        <button onclick="goToLogin()" class="btn-primary" style="width: auto; padding: 10px 30px;" data-i18n="btn_login">تسجيل الدخول</button>
     </div>
 
-    <!-- الدولة -->
-    <div>
-      <label class="field-label">الدولة <span class="text-red-500">*</span></label>
-      <select id="reg-country" class="field-select" onchange="onCountryChange()">
-        <option value="">اختر الدولة</option>
-        <option value="MA">🇲🇦 المغرب</option>
-        <option value="DZ">🇩🇿 الجزائر</option>
-        <option value="TN">🇹🇳 تونس</option>
-        <option value="EG">🇪🇬 مصر</option>
-        <option value="SA">🇸🇦 السعودية</option>
-        <option value="AE">🇦🇪 الإمارات</option>
-        <option value="KW">🇰🇼 الكويت</option>
-        <option value="QA">🇶🇦 قطر</option>
-        <option value="BH">🇧🇭 البحرين</option>
-        <option value="OM">🇴🇲 عُمان</option>
-        <option value="JO">🇯🇴 الأردن</option>
-        <option value="LB">🇱🇧 لبنان</option>
-        <option value="IQ">🇮🇶 العراق</option>
-        <option value="LY">🇱🇾 ليبيا</option>
-        <option value="SD">🇸🇩 السودان</option>
-        <option value="OTHER">🌍 أخرى</option>
-      </select>
-    </div>
+    <!-- Firebase Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
-    <!-- المدينة -->
-    <div>
-      <label class="field-label">المدينة <span class="text-red-500">*</span></label>
-      <input id="reg-city" type="text" placeholder="مثال: الدار البيضاء" class="field-input" />
-    </div>
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA",
+            authDomain: "a-comment-5a3e5.firebaseapp.com",
+            databaseURL: "https://a-comment-5a3e5-default-rtdb.firebaseio.com",
+            projectId: "a-comment-5a3e5",
+            storageBucket: "a-comment-5a3e5.appspot.com",
+            messagingSenderId: "557343451166",
+            appId: "1:557343451166:web:d181f098cdeccf7691260f"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
 
-    <!-- كلمة المرور -->
-    <div>
-      <label class="field-label">كلمة المرور <span class="text-red-500">*</span></label>
-      <input id="reg-password" type="password" placeholder="8 أحرف على الأقل" class="field-input" />
-    </div>
+        // State
+        let currentStep = 1;
+        let selectedGender = 'male';
+        let selectedAvatarUrl = '';
+        let selectedCountry = null;
+        let selectedPhoneCode = { code: '+212', flag: 'ma' };
 
-    <!-- تأكيد كلمة المرور -->
-    <div>
-      <label class="field-label">تأكيد كلمة المرور <span class="text-red-500">*</span></label>
-      <input id="reg-password2" type="password" placeholder="أعد كتابة كلمة المرور" class="field-input" />
-    </div>
+        // Data
+        const avatars = {
+            male: ['m1.png', 'm2.png', 'm3.png', 'm4.png', 'm5.png', 'm6.png'],
+            female: ['w1.png', 'w2.png', 'w3.png', 'w4.png', 'w5.png', 'w6.png']
+        };
 
-    <!-- الجنس -->
-    <div>
-      <label class="field-label">الجنس <span class="text-red-500">*</span></label>
-      <div class="flex gap-2">
-        <button type="button" onclick="setGender('male')" id="gender-male" class="gender-btn">ذكر</button>
-        <button type="button" onclick="setGender('female')" id="gender-female" class="gender-btn">أنثى</button>
-      </div>
-    </div>
+        const countries = [
+            { code: 'MA', name: 'المغرب', phone: '+212' }, { code: 'DZ', name: 'الجزائر', phone: '+213' }, { code: 'TN', name: 'تونس', phone: '+216' },
+            { code: 'LY', name: 'ليبيا', phone: '+218' }, { code: 'EG', name: 'مصر', phone: '+20' }, { code: 'SD', name: 'السودان', phone: '+249' },
+            { code: 'SA', name: 'السعودية', phone: '+966' }, { code: 'AE', name: 'الإمارات', phone: '+971' }, { code: 'KW', name: 'الكويت', phone: '+965' },
+            { code: 'QA', name: 'قطر', phone: '+974' }, { code: 'BH', name: 'البحرين', phone: '+973' }, { code: 'OM', name: 'عُمان', phone: '+968' },
+            { code: 'JO', name: 'الأردن', phone: '+962' }, { code: 'LB', name: 'لبنان', phone: '+961' }, { code: 'SY', name: 'سوريا', phone: '+963' },
+            { code: 'IQ', name: 'العراق', phone: '+964' }, { code: 'YE', name: 'اليمن', phone: '+967' }, { code: 'PS', name: 'فلسطين', phone: '+970' },
+            { code: 'TR', name: 'تركيا', phone: '+90' }, { code: 'US', name: 'الولايات المتحدة', phone: '+1' },
+            { code: 'FR', name: 'فرنسا', phone: '+33' }, { code: 'DE', name: 'ألمانيا', phone: '+49' }, { code: 'GB', name: 'المملكة المتحدة', phone: '+44' }
+        ];
 
-    <!-- الشروط والأحكام -->
-    <label class="flex items-start gap-3 cursor-pointer">
-      <input type="checkbox" id="reg-terms" class="mt-0.5 w-5 h-5 accent-zinc-900 shrink-0" />
-      <span class="text-[12px] text-zinc-600 leading-5">أوافق على <a href="#" class="font-bold text-zinc-900 underline">شروط الاستخدام</a> وسياسة الخصوصية</span>
-    </label>
+        const translations = {
+            ar: {
+                welcome_title: "مرحباً بك في YADWOR",
+                welcome_desc: "منصتك التعليمية الاجتماعية المفضلة. تواصل، تعلم، وشارك المعرفة بسهولة وأمان.",
+                tagline: "منصة تعليمية اجتماعية",
+                tab_login: "تسجيل الدخول",
+                tab_register: "إنشاء حساب",
+                login_welcome: "مرحباً بعودتك!",
+                login_desc: "سجل دخولك للمتابعة",
+                label_email_user: "البريد الإلكتروني أو اسم المستخدم",
+                label_password: "كلمة المرور",
+                btn_login: "دخول",
+                no_account: "ليس لديك حساب؟ ",
+                create_new: "أنشئ حساباً جديداً",
+                label_fullname: "الاسم الكامل",
+                label_username: "اسم المستخدم",
+                label_bio: "نبذة عنك",
+                btn_next: "التالي",
+                label_email: "البريد الإلكتروني",
+                label_phone: "رقم الهاتف",
+                label_confirm_pass: "تأكيد كلمة المرور",
+                btn_back: "رجوع",
+                label_country: "الدولة",
+                select_country: "اختر الدولة",
+                label_city: "المدينة",
+                label_gender: "الجنس",
+                gender_male: "ذكر",
+                gender_female: "أنثى",
+                label_select_avatar: "اختر صورة الملف الشخصي",
+                review_title: "مراجعة البيانات",
+                review_name: "الاسم:",
+                review_user: "المستخدم:",
+                review_email: "البريد:",
+                review_location: "الموقع:",
+                btn_create: "إنشاء الحساب",
+                btn_ok: "حسناً",
+                success_title: "تم إنشاء الحساب!",
+                success_desc: "مرحباً بك في YADWOR. يمكنك الآن تسجيل الدخول للمتابعة."
+            },
+            fr: {
+                welcome_title: "Bienvenue sur YADWOR",
+                welcome_desc: "Votre plateforme éducative sociale préférée. Connectez-vous, apprenez et partagez en toute sécurité.",
+                tagline: "Plateforme éducative sociale",
+                tab_login: "Connexion",
+                tab_register: "Créer un compte",
+                login_welcome: "Bon retour!",
+                login_desc: "Connectez-vous pour continuer",
+                label_email_user: "Email ou Nom d'utilisateur",
+                label_password: "Mot de passe",
+                btn_login: "Entrer",
+                no_account: "Pas de compte? ",
+                create_new: "Créer un nouveau compte",
+                label_fullname: "Nom complet",
+                label_username: "Nom d'utilisateur",
+                label_bio: "Bio",
+                btn_next: "Suivant",
+                label_email: "Email",
+                label_phone: "Téléphone",
+                label_confirm_pass: "Confirmer le mot de passe",
+                btn_back: "Retour",
+                label_country: "Pays",
+                select_country: "Choisir le pays",
+                label_city: "Ville",
+                label_gender: "Genre",
+                gender_male: "Homme",
+                gender_female: "Femme",
+                label_select_avatar: "Photo de profil",
+                review_title: "Révision",
+                review_name: "Nom:",
+                review_user: "Utilisateur:",
+                review_email: "Email:",
+                review_location: "Lieu:",
+                btn_create: "Créer le compte",
+                btn_ok: "D'accord",
+                success_title: "Compte créé!",
+                success_desc: "Bienvenue sur YADWOR. Vous pouvez maintenant vous connecter."
+            },
+            en: {
+                welcome_title: "Welcome to YADWOR",
+                welcome_desc: "Your favorite social education platform. Connect, learn, and share knowledge safely.",
+                tagline: "Social Education Platform",
+                tab_login: "Login",
+                tab_register: "Sign Up",
+                login_welcome: "Welcome back!",
+                login_desc: "Log in to continue",
+                label_email_user: "Email or Username",
+                label_password: "Password",
+                btn_login: "Login",
+                no_account: "No account? ",
+                create_new: "Create new account",
+                label_fullname: "Full Name",
+                label_username: "Username",
+                label_bio: "Bio",
+                btn_next: "Next",
+                label_email: "Email",
+                label_phone: "Phone",
+                label_confirm_pass: "Confirm Password",
+                btn_back: "Back",
+                label_country: "Country",
+                select_country: "Select Country",
+                label_city: "City",
+                label_gender: "Gender",
+                gender_male: "Male",
+                gender_female: "Female",
+                label_select_avatar: "Profile Picture",
+                review_title: "Review",
+                review_name: "Name:",
+                review_user: "User:",
+                review_email: "Email:",
+                review_location: "Location:",
+                btn_create: "Create Account",
+                btn_ok: "OK",
+                success_title: "Account Created!",
+                success_desc: "Welcome to YADWOR. You can now log in."
+            }
+        };
 
-    <button onclick="doSignup()" id="signup-btn" class="h-12 w-full rounded-[14px] bg-zinc-900 text-[15px] font-extrabold text-white hover:bg-zinc-800 transition">إنشاء الحساب</button>
-  </div>
-</div>
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            renderCountries();
+            renderPhoneCodes();
+            loadAvatars('male');
+            
+            // Close dropdowns on outside click
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#country-display') && !e.target.closest('#country-list')) {
+                    document.getElementById('country-list').classList.remove('show');
+                }
+                if (!e.target.closest('.country-code') && !e.target.closest('#country-code-list')) {
+                    document.getElementById('country-code-list').classList.remove('show');
+                }
+            });
+        });
 
-<script>
-const FB_DB_URL = 'https://a-comment-5a3e5-default-rtdb.firebaseio.com';
-const FB_API_KEY = 'AIzaSyAP-xRJ5zvHvMmqkkVvXnWdqwfuuj58CcA';
-const FB_AUTH_URL = 'https://identitytoolkit.googleapis.com/v1/accounts';
-// SDK helper (Realtime Database)
-function _iDb() { return firebase.database(); }
+        function changeLanguage(lang) {
+            document.documentElement.lang = lang;
+            document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+            const t = translations[lang];
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (t[key]) {
+                    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.placeholder = t[key];
+                    else el.innerHTML = t[key]; // innerHTML to handle spans inside
+                }
+            });
+        }
 
-let authMode = 'login';
-let selectedGender = '';
+        // Tab Switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            
+            document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
+            document.getElementById(`${tab}-view`).classList.add('active');
 
-// الصور الافتراضية حسب الجنس
-const DEFAULT_AVATARS = {
-  male: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop',
-  female: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&auto=format&fit=crop',
-  default: 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?w=400&auto=format&fit=crop'
-};
-const DEFAULT_COVER = 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1400&auto=format&fit=crop';
+            if (tab === 'register') resetWizard();
+        }
 
-function setAuthMode(mode) {
-  authMode = mode;
-  document.getElementById('login-form').classList.toggle('hidden', mode !== 'login');
-  document.getElementById('signup-form').classList.toggle('hidden', mode !== 'signup');
-  const btnL = document.getElementById('btn-login');
-  const btnS = document.getElementById('btn-signup');
-  if(mode === 'signup') {
-    btnS.className = 'h-10 flex-1 rounded-full text-[13px] font-bold transition bg-white shadow-sm text-zinc-900';
-    btnL.className = 'h-10 flex-1 rounded-full text-[13px] font-bold transition text-zinc-500';
-  } else {
-    btnL.className = 'h-10 flex-1 rounded-full text-[13px] font-bold transition bg-white shadow-sm text-zinc-900';
-    btnS.className = 'h-10 flex-1 rounded-full text-[13px] font-bold transition text-zinc-500';
-  }
-}
+        // Wizard Logic
+        function resetWizard() {
+            currentStep = 1;
+            updateStepUI();
+            selectedCountry = null;
+            selectedAvatarUrl = '';
+            document.getElementById('reg-fullname').value = '';
+            document.getElementById('reg-username').value = '';
+            document.getElementById('reg-bio').value = '';
+            document.getElementById('reg-email').value = '';
+            document.getElementById('reg-phone').value = '';
+            document.getElementById('reg-pass').value = '';
+            document.getElementById('reg-confirm-pass').value = '';
+            document.getElementById('reg-city').value = '';
+            document.getElementById('selected-country-text').textContent = translations[document.documentElement.lang].select_country || 'اختر الدولة';
+            selectGender('male');
+        }
 
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2200);
-}
+        function nextStep(step) {
+            if (!validateStep(currentStep)) return;
+            
+            // Async checks for Step 1 & 2
+            if (step === 2) {
+                // Check Username
+                const btn = document.querySelector('#step-1 .btn-primary');
+                btn.disabled = true; btn.textContent = '...';
+                checkUsername(document.getElementById('reg-username').value).then(exists => {
+                    btn.disabled = false; btn.textContent = translations[document.documentElement.lang].btn_next;
+                    if (exists) { showModal('تنبيه', 'اسم المستخدم مستخدم بالفعل', 'error'); return; }
+                    currentStep = step; updateStepUI();
+                });
+                return;
+            }
+            if (step === 3) {
+                // Check Email
+                const btn = document.querySelector('#step-2 .btn-primary');
+                btn.disabled = true; btn.textContent = '...';
+                checkEmail(document.getElementById('reg-email').value).then(exists => {
+                    btn.disabled = false; btn.textContent = translations[document.documentElement.lang].btn_next;
+                    if (exists) { showModal('تنبيه', 'البريد الإلكتروني مسجل مسبقاً', 'error'); return; }
+                    currentStep = step; updateStepUI();
+                });
+                return;
+            }
+            if (step === 5) {
+                populateReview();
+            }
 
-function sanitizeUsername(input) {
-  input.value = input.value.replace(/[^a-zA-Z0-9._-]/g, '').toLowerCase();
-}
+            currentStep = step;
+            updateStepUI();
+        }
 
-function setGender(g) {
-  selectedGender = g;
-  document.getElementById('gender-male').className = 'gender-btn' + (g === 'male' ? ' active' : '');
-  document.getElementById('gender-female').className = 'gender-btn' + (g === 'female' ? ' active' : '');
-}
+        function prevStep(step) {
+            currentStep = step;
+            updateStepUI();
+        }
 
-function onCountryChange() {
-  // يمكن لاحقاً ملء قائمة مدن حسب الدولة
-}
+        function updateStepUI() {
+            document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(`step-${currentStep}`).classList.add('active');
 
-async function saveNewUserToFirebase(userData) {
-  try {
-    await _iDb().ref('users/' + userData.uid).set(userData);
-  } catch(e) { console.warn('Firebase save failed', e); }
-}
+            const progress = ((currentStep - 1) / 4) * 100;
+            document.getElementById('step-progress')?.style?.setProperty('width', progress + '%'); // If progress bar existed
 
-// =================== تسجيل الدخول عبر Firebase Auth ===================
-async function doLogin() {
-  const email = document.getElementById('login-email').value.trim();
-  const pass = document.getElementById('login-password').value.trim();
-  if(!email || !pass) { showToast('يرجى تعبئة جميع الحقول'); return; }
+            for (let i = 1; i <= 5; i++) {
+                const dot = document.getElementById(`dot-${i}`);
+                dot.classList.remove('active', 'completed');
+                if (i === currentStep) dot.classList.add('active');
+                else if (i < currentStep) dot.classList.add('completed');
+            }
+        }
 
-  const btn = document.getElementById('login-btn');
-  btn.textContent = '...جاري الدخول';
-  btn.disabled = true;
+        async function validateStep(step) {
+            let valid = true;
+            if (step === 1) {
+                if (!document.getElementById('reg-fullname').value) { showModal('تنبيه', 'الرجاء إدخال الاسم الكامل', 'error'); valid = false; }
+                else if (!document.getElementById('reg-username').value) { showModal('تنبيه', 'الرجاء إدخال اسم المستخدم', 'error'); valid = false; }
+            }
+            if (step === 2) {
+                const email = document.getElementById('reg-email').value;
+                const pass = document.getElementById('reg-pass').value;
+                const confirm = document.getElementById('reg-confirm-pass').value;
+                if (!email.includes('@')) { showModal('تنبيه', 'بريد إلكتروني غير صالح', 'error'); valid = false; }
+                else if (pass.length < 6) { showModal('تنبيه', 'كلمة المرور قصيرة جداً', 'error'); valid = false; }
+                else if (pass !== confirm) { showModal('تنبيه', 'كلمات المرور غير متطابقة', 'error'); valid = false; }
+            }
+            if (step === 3) {
+                if (!selectedCountry) { showModal('تنبيه', 'الرجاء اختيار الدولة', 'error'); valid = false; }
+                else if (!document.getElementById('reg-city').value) { showModal('تنبيه', 'الرجاء إدخال المدينة', 'error'); valid = false; }
+            }
+            if (step === 4) {
+                if (!selectedAvatarUrl) { showModal('تنبيه', 'الرجاء اختيار صورة', 'error'); valid = false; }
+            }
+            return valid;
+        }
 
-  try {
-    const res = await fetch(`${FB_AUTH_URL}:signInWithPassword?key=${FB_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: pass, returnSecureToken: true })
-    });
-    const data = await res.json();
-    if (data.error) {
-      const errs = {
-        'EMAIL_NOT_FOUND': 'البريد الإلكتروني غير مسجّل',
-        'INVALID_PASSWORD': 'كلمة المرور غير صحيحة',
-        'USER_DISABLED': 'الحساب معطّل',
-        'INVALID_EMAIL': 'صيغة البريد الإلكتروني غير صحيحة',
-        'INVALID_LOGIN_CREDENTIALS': 'البريد أو كلمة المرور غير صحيحة'
-      };
-      showToast(errs[data.error.message] || 'خطأ في تسجيل الدخول');
-      btn.textContent = 'دخول'; btn.disabled = false;
-      return;
-    }
+        // Checks
+        async function checkUsername(username) {
+            const snap = await db.ref('users').orderByChild('username').equalTo(username).once('value');
+            return snap.exists();
+        }
 
-    // جلب بيانات المستخدم من Firebase Realtime DB
-    const uid = data.localId;
-    let userData = null;
-    try {
-      const dbSnap = await _iDb().ref('users/' + uid).once('value');
-      userData = dbSnap.val();
-    } catch(e) {}
+        async function checkEmail(email) {
+            try {
+                const methods = await auth.fetchSignInMethodsForEmail(email);
+                return methods.length > 0;
+            } catch(e) { return false; }
+        }
 
-    // حفظ في localStorage
-    localStorage.setItem('yadwor-uid',           uid);
-    localStorage.setItem('yadwor-email',         email);
-    localStorage.setItem('yadwor-logged-in',     '1');
-    if (userData) {
-      if (userData.name)     { localStorage.setItem('yadwor-user-name', userData.name); localStorage.setItem('yadwor-settings-name', userData.name); }
-      if (userData.username) localStorage.setItem('yadwor-username', userData.username);
-      if (userData.avatar)   localStorage.setItem('yadwor-avatar-preview', userData.avatar);
-      if (userData.cover)    localStorage.setItem('yadwor-cover-preview', userData.cover);
-      if (userData.bio)      localStorage.setItem('yadwor-bio', userData.bio);
-      if (userData.location) localStorage.setItem('yadwor-location', userData.location);
-      if (userData.accountType) { localStorage.setItem('yadwor-account-type', userData.accountType); localStorage.setItem('yadwor-profile-type', userData.accountType); }
-      localStorage.setItem('yadwor-user-data', JSON.stringify(userData));
-    }
-    window.location.replace('home.html');
+        // UI Helpers
+        function renderCountries() {
+            const list = document.getElementById('country-list');
+            list.innerHTML = '';
+            countries.forEach(c => {
+                const div = document.createElement('div');
+                div.className = 'country-item';
+                div.onclick = () => selectCountry(c);
+                div.innerHTML = `<img src="https://flagcdn.com/w20/${c.code.toLowerCase()}.png" style="width:20px; height:14px; border-radius:2px;"> <span>${c.name}</span>`;
+                list.appendChild(div);
+            });
+        }
 
-  } catch(e) {
-    showToast('تعذر الاتصال، تحقق من الإنترنت');
-    btn.textContent = 'دخول'; btn.disabled = false;
-  }
-}
+        function renderPhoneCodes() {
+            const list = document.getElementById('country-code-list');
+            list.innerHTML = '';
+            countries.forEach(c => {
+                const div = document.createElement('div');
+                div.className = 'country-item';
+                div.onclick = () => selectPhoneCode(c);
+                div.innerHTML = `<img src="https://flagcdn.com/w20/${c.code.toLowerCase()}.png" style="width:20px; height:14px; border-radius:2px;"> <span>${c.phone}</span>`;
+                list.appendChild(div);
+            });
+        }
 
-// =================== إنشاء حساب عبر Firebase Auth ===================
-async function doSignup() {
-  const name     = document.getElementById('reg-name').value.trim();
-  const username = document.getElementById('reg-username').value.trim();
-  const email    = document.getElementById('reg-email').value.trim();
-  const bio      = document.getElementById('reg-bio').value.trim();
-  const country  = document.getElementById('reg-country').value;
-  const city     = document.getElementById('reg-city').value.trim();
-  const pass     = document.getElementById('reg-password').value;
-  const pass2    = document.getElementById('reg-password2').value;
-  const terms    = document.getElementById('reg-terms').checked;
+        function toggleCountryList() { document.getElementById('country-list').classList.toggle('show'); }
+        function toggleCountryCodeDropdown() { document.getElementById('country-code-list').classList.toggle('show'); }
 
-  if(!name)     { showToast('يرجى إدخال الاسم الكامل'); return; }
-  if(!username) { showToast('يرجى إدخال اسم المستخدم'); return; }
-  if(!email)    { showToast('يرجى إدخال البريد الإلكتروني'); return; }
-  if(!country)  { showToast('يرجى اختيار الدولة'); return; }
-  if(!city)     { showToast('يرجى كتابة اسم المدينة'); return; }
-  if(!pass || pass.length < 8) { showToast('كلمة المرور يجب أن تكون 8 أحرف على الأقل'); return; }
-  if(pass !== pass2) { showToast('كلمتا المرور غير متطابقتين'); return; }
-  if(!selectedGender) { showToast('يرجى اختيار الجنس'); return; }
-  if(!terms)    { showToast('يرجى الموافقة على الشروط والأحكام'); return; }
+        function selectCountry(c) {
+            selectedCountry = c;
+            document.getElementById('selected-country-text').textContent = c.name;
+            document.getElementById('selected-country-text').style.color = 'var(--text-main)';
+            document.getElementById('country-list').classList.remove('show');
+        }
 
-  const btn = document.getElementById('signup-btn');
-  btn.textContent = '...جاري إنشاء الحساب';
-  btn.disabled = true;
+        function selectPhoneCode(c) {
+            selectedPhoneCode = { code: c.phone, flag: c.code.toLowerCase() };
+            document.getElementById('phone-code-text').textContent = c.phone;
+            document.getElementById('phone-flag').src = `https://flagcdn.com/w20/${c.code.toLowerCase()}.png`;
+            document.getElementById('country-code-list').classList.remove('show');
+        }
 
-  try {
-    // 1) إنشاء مستخدم في Firebase Authentication
-    const authRes = await fetch(`${FB_AUTH_URL}:signUp?key=${FB_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: pass, returnSecureToken: true })
-    });
-    const authData = await authRes.json();
-    if (authData.error) {
-      const errs = {
-        'EMAIL_EXISTS': 'هذا البريد الإلكتروني مسجّل بالفعل',
-        'WEAK_PASSWORD : Password should be at least 6 characters': 'كلمة المرور ضعيفة جداً',
-        'INVALID_EMAIL': 'صيغة البريد الإلكتروني غير صحيحة'
-      };
-      showToast(errs[authData.error.message] || 'خطأ في إنشاء الحساب: ' + authData.error.message);
-      btn.textContent = 'إنشاء الحساب'; btn.disabled = false;
-      return;
-    }
+        function loadAvatars(gender) {
+            selectedGender = gender;
+            document.getElementById('btn-male').style.background = gender === 'male' ? '#eff6ff' : '#fff';
+            document.getElementById('btn-female').style.background = gender === 'female' ? '#eff6ff' : '#fff';
 
-    // 2) uid حقيقي من Firebase Authentication
-    const uid = authData.localId;
-    const avatar = DEFAULT_AVATARS[selectedGender] || DEFAULT_AVATARS.default;
-    const countryNames = {
-      MA:'المغرب', DZ:'الجزائر', TN:'تونس', EG:'مصر', SA:'السعودية',
-      AE:'الإمارات', KW:'الكويت', QA:'قطر', BH:'البحرين', OM:'عُمان',
-      JO:'الأردن', LB:'لبنان', IQ:'العراق', LY:'ليبيا', SD:'السودان', OTHER:'أخرى'
-    };
-    const countryName = countryNames[country] || country;
-    const location = countryName + '، ' + city;
+            const grid = document.getElementById('avatar-grid');
+            grid.innerHTML = '';
+            const avatarList = avatars[gender];
+            
+            avatarList.forEach(url => {
+                const div = document.createElement('div');
+                div.className = 'avatar-option';
+                if (selectedAvatarUrl === url) div.classList.add('selected');
+                div.innerHTML = `<img src="${url}" alt="${url}" onerror="this.src='https://via.placeholder.com/100?text=No+Img'">`;
+                div.onclick = () => {
+                    selectedAvatarUrl = url;
+                    loadAvatars(gender);
+                };
+                grid.appendChild(div);
+            });
+        }
 
-    const userData = {
-      uid, name, username, email, bio,
-      country: countryName, city, location,
-      gender: selectedGender,
-      avatar, cover: DEFAULT_COVER,
-      accountType: 'influencer',
-      followers: 0, following: 0,
-      verified: false,
-      createdAt: Date.now()
-    };
+        function selectGender(g) { loadAvatars(g); }
 
-    // 3) حفظ بيانات الملف الشخصي في Realtime Database
-    await saveNewUserToFirebase(userData);
+        function populateReview() {
+            document.getElementById('rev-name').textContent = document.getElementById('reg-fullname').value;
+            document.getElementById('rev-user').textContent = '@' + document.getElementById('reg-username').value;
+            document.getElementById('rev-email').textContent = document.getElementById('reg-email').value;
+            const city = document.getElementById('reg-city').value;
+            const countryName = selectedCountry ? selectedCountry.name : '';
+            document.getElementById('rev-loc').textContent = `${countryName}، ${city}`;
+        }
 
-    // 4) حفظ في localStorage
-    localStorage.setItem('yadwor-uid',           uid);
-    localStorage.setItem('yadwor-user-name',     name);
-    localStorage.setItem('yadwor-settings-name', name);
-    localStorage.setItem('yadwor-username',      username);
-    localStorage.setItem('yadwor-email',         email);
-    localStorage.setItem('yadwor-bio',           bio);
-    localStorage.setItem('yadwor-country',       countryName);
-    localStorage.setItem('yadwor-city',          city);
-    localStorage.setItem('yadwor-location',      location);
-    localStorage.setItem('yadwor-gender',        selectedGender);
-    localStorage.setItem('yadwor-avatar-preview',avatar);
-    localStorage.setItem('yadwor-cover-preview', DEFAULT_COVER);
-    localStorage.setItem('yadwor-account-type',  'influencer');
-    localStorage.setItem('yadwor-profile-type',  'influencer');
-    localStorage.setItem('yadwor-user-data',     JSON.stringify(userData));
-    localStorage.setItem('yadwor-logged-in',     '1');
+        // Submission
+        function submitRegistration() {
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-pass').value;
+            const fullname = document.getElementById('reg-fullname').value;
+            const username = document.getElementById('reg-username').value;
+            const bio = document.getElementById('reg-bio').value;
+            const phone = selectedPhoneCode.code + ' ' + document.getElementById('reg-phone').value;
+            const city = document.getElementById('reg-city').value;
+            const countryName = selectedCountry ? selectedCountry.name : '';
 
-    window.location.replace('home.html');
+            document.getElementById('loadingOverlay').classList.add('show');
+            document.getElementById('loading-text').textContent = 'جاري إنشاء الحساب...';
 
-  } catch(e) {
-    showToast('تعذر الاتصال بالخادم، تحقق من الإنترنت');
-    btn.textContent = 'إنشاء الحساب'; btn.disabled = false;
-  }
-}
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    const user = userCredential.user;
+                    document.getElementById('loading-text').textContent = 'جاري حفظ البيانات...';
 
-// If already logged in, redirect to home
-if(localStorage.getItem('yadwor-logged-in') === '1') {
-  window.location.replace('home.html');
-}
+                    const userData = {
+                        accountType: 'student', // Default for wizard
+                        avatar: selectedAvatarUrl,
+                        bio: bio,
+                        city: city,
+                        country: countryName,
+                        cover: '', 
+                        followers: 0,
+                        following: 0,
+                        gender: selectedGender,
+                        location: `${countryName}، ${city}`,
+                        name: fullname,
+                        phone: phone,
+                        roomPoints: 0,
+                        uid: user.uid,
+                        username: username,
+                        verified: false,
+                        createdAt: Date.now()
+                    };
 
-document.addEventListener('keydown', (e) => {
-  if(e.key === 'Enter') {
-    if(authMode === 'login') doLogin();
-  }
-});
-</script>
+                    return db.ref('users/' + user.uid).set(userData);
+                })
+                .then(() => {
+                    // Save to localStorage for immediate access
+                    localStorage.setItem('yadwor-uid', auth.currentUser.uid);
+                    localStorage.setItem('yadwor-settings-name', fullname);
+                    localStorage.setItem('yadwor-avatar-preview', selectedAvatarUrl);
+                    localStorage.setItem('yadwor-account-type', 'student');
+                    
+                    document.getElementById('loadingOverlay').classList.remove('show');
+                    document.getElementById('successOverlay').classList.add('show');
+                })
+                .catch((error) => {
+                    document.getElementById('loadingOverlay').classList.remove('show');
+                    showModal('خطأ', error.message, 'error');
+                });
+        }
+
+        // Login
+        function handleLogin() {
+            const identifier = document.getElementById('login-identifier').value;
+            const pass = document.getElementById('login-pass').value;
+
+            if (!identifier || !pass) { showModal('تنبيه', 'يرجى ملء جميع الحقول', 'error'); return; }
+
+            document.getElementById('loadingOverlay').classList.add('show');
+            document.getElementById('loading-text').textContent = 'جاري تسجيل الدخول...';
+
+            // Check if identifier is email or username
+            if (identifier.includes('@')) {
+                auth.signInWithEmailAndPassword(identifier, pass)
+                    .then(handleLoginSuccess)
+                    .catch(handleLoginError);
+            } else {
+                // Find UID by username
+                db.ref('users').orderByChild('username').equalTo(identifier).once('value')
+                    .then(snap => {
+                        if (snap.exists()) {
+                            let uid = null;
+                            snap.forEach(child => { uid = child.key; });
+                            if (uid) {
+                                return db.ref('users/' + uid + '/email').once('value').then(emailSnap => {
+                                    const email = emailSnap.val();
+                                    if (email) return auth.signInWithEmailAndPassword(email, pass);
+                                    else throw new Error('Email not found');
+                                });
+                            }
+                        }
+                        throw new Error('User not found');
+                    })
+                    .then(handleLoginSuccess)
+                    .catch(handleLoginError);
+            }
+        }
+
+        function handleLoginSuccess() {
+            const user = auth.currentUser;
+            // Update LocalStorage as expected by shared.js
+            db.ref('users/' + user.uid).once('value').then(snap => {
+                const data = snap.val();
+                localStorage.setItem('yadwor-uid', user.uid);
+                localStorage.setItem('yadwor-settings-name', data.name || '');
+                localStorage.setItem('yadwor-avatar-preview', data.avatar || '');
+                localStorage.setItem('yadwor-account-type', data.accountType || 'user');
+                
+                document.getElementById('loadingOverlay').classList.remove('show');
+                window.location.href = 'roomhom.html';
+            });
+        }
+
+        function handleLoginError(error) {
+            document.getElementById('loadingOverlay').classList.remove('show');
+            let msg = 'بيانات الدخول غير صحيحة';
+            if (error.code === 'auth/user-not-found') msg = 'لا يوجد حساب لهذا البريد';
+            else if (error.code === 'auth/wrong-password') msg = 'كلمة المرور غير صحيحة';
+            showModal('خطأ', msg, 'error');
+        }
+
+        // Modals
+        function showModal(title, message, type = 'info', btnText = 'حسناً', onBtnClick = null) {
+            const modal = document.getElementById('customModal');
+            const iconContainer = document.getElementById('modal-icon-container');
+            const titleEl = document.getElementById('modal-title');
+            const msgEl = document.getElementById('modal-message');
+            const btn = document.getElementById('modal-btn');
+
+            titleEl.textContent = title;
+            msgEl.textContent = message;
+            btn.textContent = btnText;
+
+            let iconSvg = '';
+            if (type === 'success') iconSvg = `<svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>`;
+            else if (type === 'error') iconSvg = `<svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+            else iconSvg = `<svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+            
+            iconContainer.innerHTML = iconSvg;
+            btn.onclick = () => { closeModal(); if (onBtnClick) onBtnClick(); };
+            modal.classList.add('show');
+        }
+
+        function closeModal() { document.getElementById('customModal').classList.remove('show'); }
+        function goToLogin() {
+            document.getElementById('successOverlay').classList.remove('show');
+            switchTab('login');
+        }
+    </script>
 </body>
 </html>
+
