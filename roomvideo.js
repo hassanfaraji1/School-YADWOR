@@ -1369,29 +1369,53 @@
             // إظهار صورة ترحيبية ريثما يصل فيديو الأستاذ
             // ── عرض spinner انتظار ريثما يصل الفيديو ──
             (function showWelcomeOverlay() {
-                var ov = document.getElementById('avatarOverlay');
-                var tv = document.getElementById('tv');
+                var ov  = document.getElementById('avatarOverlay');
+                var tv  = document.getElementById('tv');
                 var vbi = document.getElementById('videoBufferingIndicator');
-                // فحص Firebase: هل الأستاذ أخفى كاميرته؟
+                // فحص Firebase: هل الأستاذ أخفى كاميرته عمداً؟
                 db.ref('rooms/' + roomId + '/ownerOverlay').once('value', function(snap) {
                     var d = snap.val();
                     if (d && d.on === true) {
-                        // الأستاذ أخفى كاميرته عمداً — أظهر overlay بصورته
+                        var avatar = (d.avatar && d.avatar.trim() !== '') ? d.avatar.trim() : '';
+                        // لا نُظهر overlay بدون صورة
+                        if (!avatar) {
+                            if (vbi) {
+                                vbi.classList.add('show');
+                                setTimeout(function(){ vbi.classList.remove('show'); }, 8000);
+                            }
+                            return;
+                        }
                         var img = document.getElementById('avatarOverlayImg');
                         var nm  = document.getElementById('avatarOverlayName');
                         var sub = document.getElementById('avatarOverlaySubject');
-                        if (img && d.avatar) img.src = d.avatar;
-                        if (nm)  nm.textContent  = d.name || 'المضيف';
+                        if (nm)  nm.textContent  = d.name    || 'المضيف';
                         if (sub) sub.textContent = d.roomName || '';
                         if (tv)  { tv.style.opacity = '0'; tv.style.visibility = 'hidden'; }
-                        if (ov)  ov.classList.add('show');
+                        if (img) {
+                            img.style.background = '#2a2a4a';
+                            img.onerror = function() {
+                                // فشل تحميل صورة الأستاذ — أظهر spinner فقط
+                                if (ov)  ov.classList.remove('show');
+                                if (tv)  { tv.style.opacity = '1'; tv.style.visibility = ''; }
+                                if (vbi) {
+                                    vbi.classList.add('show');
+                                    setTimeout(function(){ vbi.classList.remove('show'); }, 8000);
+                                }
+                            };
+                            img.onload = function() {
+                                img.style.background = 'transparent';
+                                if (ov) ov.classList.add('show');
+                            };
+                            img.src = avatar;
+                        } else {
+                            if (ov) ov.classList.add('show');
+                        }
                     } else {
-                        // الأستاذ كاميرته مفتوحة — أظهر spinner انتظار فقط (لا overlay أسود)
-                        if (vbi) vbi.classList.add('show');
-                        // إخفاء spinner بعد 8 ثوانٍ حتى لو لم يصل الفيديو
-                        setTimeout(function() {
-                            if (vbi) vbi.classList.remove('show');
-                        }, 8000);
+                        // الأستاذ كاميرته مفتوحة — spinner فقط، لا overlay أسود
+                        if (vbi) {
+                            vbi.classList.add('show');
+                            setTimeout(function(){ vbi.classList.remove('show'); }, 8000);
+                        }
                     }
                 });
             })();
@@ -4196,42 +4220,65 @@
 
     // ── مستمع ownerOverlay للطلاب — يظهر صورة الأستاذ عند إخفاء الكاميرا ──
     function listenOwnerOverlay() {
-        if (isOwner) return; // الأستاذ لا يحتاج هذا
+        if (isOwner) return;
         db.ref('rooms/' + roomId + '/ownerOverlay').on('value', function(snap) {
             var data = snap.val();
             var tv   = document.getElementById('tv');
             var ov   = document.getElementById('avatarOverlay');
             if (!ov) return;
+
             if (data && data.on === true) {
-                // أظهر overlay للطالب
+                var avatar = (data.avatar && data.avatar.trim() !== '') ? data.avatar.trim() : '';
+
+                // لا نُظهر overlay إذا لم تكن هناك صورة
+                if (!avatar) {
+                    if (tv) { tv.style.opacity = '1'; tv.style.visibility = ''; }
+                    ov.classList.remove('show');
+                    return;
+                }
+
                 var img = document.getElementById('avatarOverlayImg');
                 var nm  = document.getElementById('avatarOverlayName');
                 var sub = document.getElementById('avatarOverlaySubject');
-                var avatar = data.avatar || '';
+
+                if (nm)  nm.textContent  = data.name    || 'المضيف';
+                if (sub) sub.textContent = data.roomName || '';
+
+                // أخفِ الفيديو
+                if (tv) { tv.style.opacity = '0'; tv.style.visibility = 'hidden'; }
+
                 if (img) {
-                    img.style.background = '#2a2a4a';
                     img._ovTryN = 0;
+                    img.style.background = '#2a2a4a';
+                    img.removeAttribute('src');
+
                     img.onerror = function() {
                         img._ovTryN = (img._ovTryN || 0) + 1;
-                        if (img._ovTryN <= 3 && avatar) {
+                        if (img._ovTryN < 3) {
                             setTimeout(function() {
                                 img.src = avatar + (avatar.includes('?') ? '&' : '?') + '_t=' + Date.now();
                             }, img._ovTryN * 600);
+                        } else {
+                            // فشل تحميل الصورة — أخفِ overlay وأعِد الفيديو
+                            ov.classList.remove('show');
+                            if (tv) { tv.style.opacity = '1'; tv.style.visibility = ''; }
                         }
                     };
-                    img.onload = function() { img.style.background = 'transparent'; };
-                    if (avatar) {
-                        img.src = avatar;
-                    }
+
+                    img.onload = function() {
+                        img.style.background = 'transparent';
+                        // أظهر overlay فقط بعد تحميل الصورة
+                        ov.classList.add('show');
+                    };
+
+                    img.src = avatar;
+                } else {
+                    ov.classList.add('show');
                 }
-                if (nm)  nm.textContent  = data.name    || 'المضيف';
-                if (sub) sub.textContent = data.roomName || '';
-                if (tv)  { tv.style.opacity = '0'; tv.style.visibility = 'hidden'; }
-                ov.classList.add('show');
             } else {
                 // أخفِ overlay وأظهر الفيديو
-                if (tv)  { tv.style.opacity = '1'; tv.style.visibility = ''; }
                 ov.classList.remove('show');
+                if (tv) { tv.style.opacity = '1'; tv.style.visibility = ''; }
             }
         });
     }
@@ -5016,70 +5063,90 @@ async function uploadToCloudinary(file, onProgress) {
     }
 
     function showAvatarOverlay() {
-        _avOverlayOn = true;
-        var tv = document.getElementById('tv');
-        var ov = document.getElementById('avatarOverlay');
-        // الـ overlay يغطي الفيديو — نخفي الفيديو بشفافية فقط
-        if (tv) { tv.style.opacity = '0'; }
-        if (ov) {
-            // ملء البيانات
-            var img  = document.getElementById('avatarOverlayImg');
-            var nm   = document.getElementById('avatarOverlayName');
-            var sub  = document.getElementById('avatarOverlaySubject');
-            var avatar = (me && me.avatar) ? me.avatar : '';
-            var name   = (me && me.name)   ? me.name   : 'المضيف';
-            if (img) {
-                img.crossOrigin = 'anonymous';
-                img.style.background = '#2a2a4a';
-                img._avTryN = 0;
-                function __tryLoadOverlayAvatar() {
-                    if (!avatar) return;
-                    img._avTryN = (img._avTryN || 0) + 1;
-                    img.src = avatar + (avatar.includes('?') ? '&' : '?') + '_ot=' + Date.now();
-                }
-                img.onerror = function() {
-                    if ((img._avTryN || 0) < 3) {
-                        setTimeout(__tryLoadOverlayAvatar, 800);
-                    } else {
-                        img.style.background = '#2a2a4a';
-                        try { img.removeAttribute('src'); } catch(e) {}
-                    }
-                };
-                img.onload = function() {
-                    img.style.background = 'transparent';
-                };
-                if (avatar) {
-                    img.src = avatar;
-                }
-            }
-            if (nm)  nm.textContent  = name;
-            // معلومات الغرفة كعنوان فرعي
-            var roomInfo = '';
-            try {
-                var fd = JSON.parse(localStorage.getItem('yw_floating_room') || '{}');
-                roomInfo = fd.roomName || '';
-            } catch(e) {}
-            if (sub) sub.textContent = roomInfo;
-            ov.classList.add('show');
-            // إيقاف مسارات الفيديو من الإرسال (لكن الصوت يبقى)
-            if (localStream) {
-                localStream.getVideoTracks().forEach(function(t){ t.enabled = false; });
-            }
-            // إخبار الطلاب عبر Firebase بإخفاء الكاميرا وإظهار الصورة
-            if (typeof db !== 'undefined' && typeof roomId !== 'undefined' && roomId) {
-                db.ref('rooms/' + roomId + '/ownerOverlay').set({
-                    on: true,
-                    avatar: avatar || '',
-                    name: name || '',
-                    roomName: (roomData && roomData.roomName) ? roomData.roomName : '',
-                    ts: Date.now()
-                });
-            }
-            // بث placeholder video track شفاف للطلاب
-            _avSendBlackFrame();
-            // بدء كاشف الصوت
-            _avStartVoiceDetector();
+        var tv  = document.getElementById('tv');
+        var ov  = document.getElementById('avatarOverlay');
+        var img = document.getElementById('avatarOverlayImg');
+        var nm  = document.getElementById('avatarOverlayName');
+        var sub = document.getElementById('avatarOverlaySubject');
+
+        var avatar = (me && me.avatar && me.avatar.trim() !== '') ? me.avatar.trim() : '';
+        var name   = (me && me.name)  ? me.name   : 'المضيف';
+
+        // ── الشرط الأساسي: لا نُظهر الـ overlay أبداً إذا لم تكن هناك صورة ──
+        if (!avatar) {
+            // أخفِ overlay وأعِد الفيديو كما كان
+            _avOverlayOn = false;
+            if (ov) ov.classList.remove('show');
+            if (tv) { tv.style.opacity = '1'; tv.style.visibility = ''; }
+            return;
         }
+
+        _avOverlayOn = true;
+        // أخفِ الفيديو
+        if (tv) { tv.style.opacity = '0'; tv.style.visibility = 'hidden'; }
+
+        // ملء بيانات الـ overlay
+        if (nm)  nm.textContent  = name;
+        var roomInfo = '';
+        try {
+            var fd = JSON.parse(localStorage.getItem('yw_floating_room') || '{}');
+            roomInfo = fd.roomName || (roomData && roomData.roomName) || '';
+        } catch(e) {}
+        if (sub) sub.textContent = roomInfo;
+
+        if (img) {
+            img._avTryN = 0;
+            img.style.background = '#2a2a4a';
+            img.removeAttribute('src');
+
+            img.onerror = function() {
+                img._avTryN = (img._avTryN || 0) + 1;
+                if (img._avTryN < 3) {
+                    // إعادة المحاولة مرة أخرى
+                    setTimeout(function() {
+                        img.src = avatar + (avatar.includes('?') ? '&' : '?') + '_ot=' + Date.now();
+                    }, 800 * img._avTryN);
+                } else {
+                    // فشل تحميل الصورة نهائياً — أخفِ overlay وأعِد الفيديو
+                    _avOverlayOn = false;
+                    if (ov) ov.classList.remove('show');
+                    if (tv) { tv.style.opacity = '1'; tv.style.visibility = ''; }
+                    if (localStream) {
+                        localStream.getVideoTracks().forEach(function(t){ t.enabled = true; });
+                    }
+                    _avStopVoiceDetector();
+                }
+            };
+
+            img.onload = function() {
+                img.style.background = 'transparent';
+                // الصورة حُمِّلت بنجاح — أظهر overlay الآن
+                if (ov && _avOverlayOn) ov.classList.add('show');
+            };
+
+            // ابدأ تحميل الصورة
+            img.src = avatar;
+        } else {
+            // لا يوجد عنصر img — أظهر مباشرة بدون صورة
+            if (ov) ov.classList.add('show');
+        }
+
+        // أوقف video tracks (الصوت يبقى)
+        if (localStream) {
+            localStream.getVideoTracks().forEach(function(t){ t.enabled = false; });
+        }
+        // أخبر الطلاب عبر Firebase
+        if (typeof db !== 'undefined' && typeof roomId !== 'undefined' && roomId) {
+            db.ref('rooms/' + roomId + '/ownerOverlay').set({
+                on: true,
+                avatar: avatar || '',
+                name: name || '',
+                roomName: (roomData && roomData.roomName) ? roomData.roomName : '',
+                ts: Date.now()
+            });
+        }
+        _avSendBlackFrame();
+        _avStartVoiceDetector();
     }
 
     function hideAvatarOverlay() {
