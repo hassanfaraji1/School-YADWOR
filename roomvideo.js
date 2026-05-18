@@ -5127,7 +5127,7 @@ async function uploadToCloudinary(file, onProgress) {
                 if (nowSpeaking !== speaking) {
                     speaking = nowSpeaking;
                     if (ov) ov.classList.toggle('speaking', speaking);
-                    if (img) img.style.border = speaking ? '3px solid #2ecc71' : '3px solid #0084ff';
+                    // border يتحكم به CSS animation — لا نلمسه هنا
                 }
                 _avAnimFrame = requestAnimationFrame(tick);
             }
@@ -5141,8 +5141,6 @@ async function uploadToCloudinary(file, onProgress) {
         _avAnalyser = null;
         var ov = document.getElementById('avatarOverlay');
         if (ov) ov.classList.remove('speaking');
-        var img = document.getElementById('avatarOverlayImg');
-        if (img) img.style.border = '3px solid #0084ff';
     }
 
     // ── ربط زر التبديل في نافذة البروفايل ──
