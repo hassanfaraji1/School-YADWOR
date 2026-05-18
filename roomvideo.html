@@ -50,10 +50,10 @@
         #tv { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease; }
 
         /* overlays على الفيديو */
-        #liveTag { position: absolute; bottom: 10px; left: 10px; z-index: 30; background: rgba(229,57,53,.92); border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 800; color: white; display: flex; align-items: center; gap: 5px; letter-spacing: .8px; }
+        #liveTag { background: rgba(229,57,53,.92); border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 800; color: white; display: flex; align-items: center; gap: 5px; letter-spacing: .8px; flex-shrink: 0; }
         #liveTag .dot { width: 7px; height: 7px; background: white; border-radius: 50%; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.4;transform:scale(.85);} }
-        #roomLabel {
+        #netInfo { background: rgba(0,0,0,.4); border-radius: 6px; padding: 3px 7px; font-size: 11px; color: white; display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
             font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.92);
             white-space: nowrap; overflow: visible; text-overflow: clip;
             max-width: none;
@@ -64,8 +64,8 @@
         #roomLabelBar {
             position: absolute;
             top: 10px;
-            /* RTL: 2px مسافة فقط بين roomLabelBar وpCount */
-            right: 80px;
+            /* RTL: قريب من pCount بمسافة 4px فقط */
+            right: 56px;
             left: auto;
             z-index: 30;
             background: rgba(0,0,0,0.35);
@@ -73,7 +73,7 @@
             -webkit-backdrop-filter: blur(6px);
             padding: 3px 9px;
             border-radius: 6px;
-            display: flex; align-items: center; gap: 5px;
+            display: flex; align-items: center; gap: 4px;
             border-bottom: none;
             width: auto;
             max-width: 55%;
@@ -92,16 +92,16 @@
            --room-label-padding : المسافة الداخلية (مثال: 3px 14px)
            --room-label-offset  : رفع/إنزال الشريط (مثال: -4px للأعلى, 4px للأسفل)
         ════════════════════════════════════════════════════ */
-        #roomLabelBar .rlb-dot {
-            width: 6px; height: 6px; border-radius: 50%;
-            background: #4fc3f7; flex-shrink: 0;
-            animation: pulse 2s infinite;
-        }
-        #netInfo { position: absolute; bottom: 10px; right: 6px; z-index: 30; background: rgba(0,0,0,.4); border-radius: 6px; padding: 3px 7px; font-size: 11px; color: white; display: flex; align-items: center; gap: 4px; }
+        /* rlb-dot محذوفة بالكامل */
         #pCount { position: absolute; top: 10px; right: 10px; z-index: 30; background: rgba(0,0,0,.4); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: white; display: none; align-items: center; gap: 5px; cursor: pointer; overflow: visible; }
-        /* المسافة 4px بين roomLabelBar وpCount — نحرك roomLabelBar لليسار */
-
-        /* دردشة تراكبية على الفيديو — الجانب الأيمن فوق مؤشر الشبكة */
+        #roomLabel {
+            font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.92);
+            white-space: nowrap; overflow: visible; text-overflow: clip;
+            max-width: none;
+            letter-spacing: .3px;
+            font-family: 'Tajawal', sans-serif;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+        }
         #chatWin {
             position: absolute;
             bottom: 34px; top: auto;
@@ -176,30 +176,25 @@
         }
         @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
 
-        #switchCamBtn { background: rgba(0,0,0,.55); color: white; padding: 3px 10px; border-radius: 6px; font-size: 11px; border: none; cursor: pointer; display: none; align-items: center; gap: 4px; font-family: 'Tajawal',sans-serif; }
+        #switchCamBtn { background: rgba(0,0,0,.55); color: white; padding: 3px 10px; border-radius: 6px; font-size: 11px; border: none; cursor: pointer; display: none; align-items: center; gap: 4px; font-family: 'Tajawal',sans-serif; flex-shrink: 0; }
         #boardBtn { 
             background: rgba(0,100,255,0.7); color: white; 
             padding: 3px 10px; border-radius: 6px; font-size: 11px; 
             border: none; cursor: pointer; display: none; 
             align-items: center; gap: 4px; font-family: 'Tajawal',sans-serif;
-            transition: background .18s;
+            transition: background .18s; flex-shrink: 0;
             backdrop-filter: blur(4px);
         }
         #boardBtn:hover { background: rgba(0,100,255,0.95); }
-        /* حاوية أزرار أسفل الفيديو — صف flex لمنع التداخل */
+        #chatToggleBtn { flex-shrink: 0; }
+        /* حاوية أزرار أسفل الفيديو — صف flex ثابت بدون تمدد أو wrap */
         #bottomBtnsBar {
             position: absolute; bottom: 10px; left: 10px; z-index: 30;
-            display: flex; flex-direction: row; align-items: center; gap: 6px;
-            pointer-events: none;
+            display: flex; flex-direction: row; align-items: center;
+            gap: 6px; flex-wrap: nowrap; pointer-events: none;
         }
-        #bottomBtnsBar > * { pointer-events: auto; }
-        /* حاوية الأزرار اليمنى (Chat + Board) */
-        #rightBtnsBar {
-            position: absolute; bottom: 10px; right: 42px; z-index: 30;
-            display: flex; flex-direction: row; align-items: center; gap: 6px;
-            pointer-events: none;
-        }
-        #rightBtnsBar > * { pointer-events: auto; }
+        #bottomBtnsBar > * { pointer-events: auto; flex-shrink: 0; }
+        /* rightBtnsBar محذوف — الأزرار مدمجة في bottomBtnsBar */
 
         /* ── تحسين نافذة السبورة — Modern & Clean ── */
         #boardWindow {
@@ -1508,7 +1503,12 @@
 
     <!-- فيديو الأستاذ -->
     <div id="tvWrap">
-        <video id="tv" autoplay muted playsinline></video>
+        <video id="tv" autoplay muted playsinline
+               webkit-playsinline
+               x5-playsinline
+               x5-video-player-type="h5"
+               x5-video-orientation="portraint"
+               preload="auto"></video>
         <!-- لا overlay — الفيديو المباشر يُعرض مباشرة في #tv -->
         <!-- ===== Avatar Overlay — يظهر عند إخفاء الكاميرا ===== -->
         <div id="avatarOverlay">
@@ -1537,26 +1537,29 @@
         <div id="pCount"><i class="fas fa-users"></i> <span id="pCnt">0</span><span id="pCountQueueDot" style="position:absolute;top:-3px;left:-3px;width:9px;height:9px;background:#e53935;border-radius:50%;display:none;"></span></div>
         <div id="chatWin"><div id="chatArea"></div></div>
 
+        <!-- ترتيب الأزرار الثابت: LIVE | Chat | SwitchCam | Board | Network -->
         <div id="bottomBtnsBar">
-            <button id="switchCamBtn" onclick="switchCam()"><i class="fas fa-sync-alt"></i> Cam</button>
-        </div>
-        <div id="rightBtnsBar">
+            <!-- LIVE badge -->
+            <div id="liveTag"><span class="dot"></span> LIVE</div>
+            <!-- Chat button -->
             <button id="chatToggleBtn" onclick="toggleChat()">
                 <span class="notif-dot" id="chatDot"></span>
                 <i class="fas fa-comment-alt"></i> Chat
             </button>
+            <!-- Switch Camera (owner only) -->
+            <button id="switchCamBtn" onclick="switchCam()"><i class="fas fa-sync-alt"></i> Cam</button>
+            <!-- Whiteboard (owner only) -->
             <button id="boardBtn" onclick="openBoard()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                 السبورة
             </button>
+            <!-- Network indicator -->
+            <div id="netInfo"><i class="fas fa-wifi"></i> <span id="netSpd">---</span></div>
         </div>
-        <div id="netInfo"><i class="fas fa-wifi"></i> <span id="netSpd">---</span></div>
-        <div id="liveTag"><span class="dot"></span> LIVE</div>
         <!-- إشعارات الإيموجي فوق الفيديو -->
         <div id="emoNotifWrap"></div>
-        <!-- شريط اسم الغرفة — overlay فوق الفيديو -->
+        <!-- شريط اسم الغرفة — overlay فوق الفيديو (بدون نقطة) -->
         <div id="roomLabelBar">
-            <span class="rlb-dot"></span>
             <span id="roomLabel">YADWOR</span>
         </div>
     </div>
