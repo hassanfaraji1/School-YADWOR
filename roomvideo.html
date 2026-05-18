@@ -68,9 +68,9 @@
             right: 80px;
             left: auto;
             z-index: 30;
-            background: rgba(0,0,0,0.40);
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
+            background: rgba(0,100,255,0.55);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
             padding: 3px 9px;
             border-radius: 6px;
             display: flex; align-items: center; gap: 5px;
@@ -79,6 +79,7 @@
             max-width: 55%;
             flex-shrink: 0;
             overflow: visible;
+            border: 1px solid rgba(255,255,255,0.18);
         }
         /* LTR: نقل الشريط لليسار بجانب LIVE badge */
         html[dir="ltr"] #roomLabelBar,
@@ -161,9 +162,8 @@
             line-height: 1.35;
         }
 
-        /* زر Chat — أسفل الفيديو بين LIVE وCam */
+        /* زر Chat — أسفل الفيديو */
         #chatToggleBtn {
-            position: absolute; bottom: 10px; left: 80px; z-index: 30;
             background: rgba(0,0,0,.5); color: white;
             padding: 3px 10px; border-radius: 6px; font-size: 11px;
             font-weight: 500; border: none; cursor: pointer;
@@ -176,9 +176,8 @@
         }
         @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
 
-        #switchCamBtn { position: absolute; bottom: 10px; left: 10px; z-index: 30; background: rgba(0,0,0,.55); color: white; padding: 3px 10px; border-radius: 6px; font-size: 11px; border: none; cursor: pointer; display: none; align-items: center; gap: 4px; font-family: 'Tajawal',sans-serif; }
+        #switchCamBtn { background: rgba(0,0,0,.55); color: white; padding: 3px 10px; border-radius: 6px; font-size: 11px; border: none; cursor: pointer; display: none; align-items: center; gap: 4px; font-family: 'Tajawal',sans-serif; }
         #boardBtn { 
-            position: absolute; bottom: 10px; left: 88px; z-index: 30; 
             background: rgba(0,100,255,0.7); color: white; 
             padding: 3px 10px; border-radius: 6px; font-size: 11px; 
             border: none; cursor: pointer; display: none; 
@@ -187,6 +186,13 @@
             backdrop-filter: blur(4px);
         }
         #boardBtn:hover { background: rgba(0,100,255,0.95); }
+        /* حاوية أزرار أسفل الفيديو — صف flex لمنع التداخل */
+        #bottomBtnsBar {
+            position: absolute; bottom: 10px; left: 10px; z-index: 30;
+            display: flex; flex-direction: row; align-items: center; gap: 6px;
+            pointer-events: none;
+        }
+        #bottomBtnsBar > * { pointer-events: auto; }
 
         /* ── تحسين نافذة السبورة — Modern & Clean ── */
         #boardWindow {
@@ -1524,15 +1530,17 @@
         <div id="pCount"><i class="fas fa-users"></i> <span id="pCnt">0</span><span id="pCountQueueDot" style="position:absolute;top:-3px;left:-3px;width:9px;height:9px;background:#e53935;border-radius:50%;display:none;"></span></div>
         <div id="chatWin"><div id="chatArea"></div></div>
 
-        <button id="chatToggleBtn" onclick="toggleChat()">
-            <span class="notif-dot" id="chatDot"></span>
-            <i class="fas fa-comment-alt"></i> Chat
-        </button>
-        <button id="switchCamBtn" onclick="switchCam()"><i class="fas fa-sync-alt"></i> Cam</button>
-        <button id="boardBtn" onclick="openBoard()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-            السبورة
-        </button>
+        <div id="bottomBtnsBar">
+            <button id="chatToggleBtn" onclick="toggleChat()">
+                <span class="notif-dot" id="chatDot"></span>
+                <i class="fas fa-comment-alt"></i> Chat
+            </button>
+            <button id="switchCamBtn" onclick="switchCam()"><i class="fas fa-sync-alt"></i> Cam</button>
+            <button id="boardBtn" onclick="openBoard()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                السبورة
+            </button>
+        </div>
         <div id="netInfo"><i class="fas fa-wifi"></i> <span id="netSpd">---</span></div>
         <div id="liveTag"><span class="dot"></span> LIVE</div>
         <!-- إشعارات الإيموجي فوق الفيديو -->
