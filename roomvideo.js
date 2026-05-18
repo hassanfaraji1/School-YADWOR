@@ -137,6 +137,28 @@
             SEATS = 20;
             document.getElementById('roomLabel').textContent = roomData.roomName || 'YADWOR';
             document.title = roomData.roomName || 'غرفة فيديو';
+            // ── إضافة شارة التوثيق في شريط اسم الغرفة ──
+            (function() {
+                var labelEl = document.getElementById('roomLabel');
+                if (!labelEl) return;
+                var ownerUid = roomData.ownerUid || roomData.uid || '';
+                if (!ownerUid) return;
+                if (typeof db !== 'undefined') {
+                    db.ref('users/' + ownerUid + '/verified').once('value').then(function(snap) {
+                        if (snap.val() === true) {
+                            var bar = document.getElementById('roomLabelBar');
+                            if (bar && !bar.querySelector('img.rlb-verify')) {
+                                var vImg = document.createElement('img');
+                                vImg.src = 'verify.png';
+                                vImg.className = 'rlb-verify';
+                                vImg.style.cssText = 'width:13px;height:13px;object-fit:contain;flex-shrink:0;display:inline-block;vertical-align:middle;';
+                                vImg.alt = '';
+                                bar.appendChild(vImg);
+                            }
+                        }
+                    }).catch(function(){});
+                }
+            })();
             // عدد المشاهدين يظهر للجميع
             document.getElementById('pCount').style.display = 'flex';
             if (isOwner) {
@@ -6356,17 +6378,32 @@ async function uploadToCloudinary(file, onProgress) {
 
     // ── فتح / إغلاق ──
     window.openBoard = function() {
-        var win = document.getElementById('boardWindow');
-        if (!win) return;
-        win.classList.add('open');
-        setTimeout(function() {
-            if (!brdCanvas) brdInit();
-            else brdResizeCanvas();
-        }, 60);
-        // إخبار الطلاب بفتح السبورة (الأستاذ فقط)
-        if (typeof isOwner !== 'undefined' && isOwner && typeof db !== 'undefined' && typeof roomId !== 'undefined' && roomId) {
-            db.ref('rooms/' + roomId + '/boardOpen').set(true);
-        }
+        // ── ميزة السبورة قيد التطوير — نافذة "قريباً" ──
+        var existing = document.getElementById('boardSoonModal');
+        if (existing) { existing.classList.add('open'); return; }
+        // إنشاء النافذة ديناميكياً
+        var modal = document.createElement('div');
+        modal.id = 'boardSoonModal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:9800;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;';
+        modal.innerHTML = '<div style="background:#fff;border-radius:20px;width:100%;max-width:300px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.35);animation:vmIn .25s cubic-bezier(.25,.8,.25,1);">'
+            + '<div style="background:linear-gradient(135deg,rgba(0,100,255,0.85),rgba(0,60,180,0.95));padding:28px 20px 22px;text-align:center;">'
+            + '<div style="width:60px;height:60px;background:rgba(255,255,255,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">'
+            + '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:28px;height:28px;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'
+            + '</div>'
+            + '<h3 style="color:#fff;font-size:17px;font-weight:900;margin:0 0 6px;font-family:Tajawal,sans-serif;">السبورة التفاعلية</h3>'
+            + '<p style="color:rgba(255,255,255,0.8);font-size:12px;margin:0;font-family:Tajawal,sans-serif;">قيد التطوير</p>'
+            + '</div>'
+            + '<div style="padding:18px 20px 22px;text-align:center;">'
+            + '<div style="width:48px;height:48px;background:#e8f0fe;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">'
+            + '<svg viewBox="0 0 24 24" fill="none" stroke="#0064ff" stroke-width="2" stroke-linecap="round" style="width:22px;height:22px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+            + '</div>'
+            + '<p style="color:#333;font-size:14px;font-weight:700;margin:0 0 6px;font-family:Tajawal,sans-serif;">ميزة قريبة جداً! 🎉</p>'
+            + '<p style="color:#888;font-size:12px;line-height:1.7;margin:0 0 18px;font-family:Tajawal,sans-serif;">يتم حالياً تطوير ميزة السبورة التفاعلية وستُضاف قريباً على المنصة. ترقبوا التحديث القادم!</p>'
+            + '<button onclick="document.getElementById(\'boardSoonModal\').classList.remove(\'open\')" style="width:100%;height:44px;background:linear-gradient(135deg,rgba(0,100,255,0.85),rgba(0,60,180,0.95));border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif;">حسناً، أنتظر! 👍</button>'
+            + '</div>'
+            + '</div>';
+        modal.addEventListener('click', function(e){ if(e.target===modal) modal.classList.remove('open'); });
+        document.body.appendChild(modal);
     };
 
     window.closeBoard = function() {
