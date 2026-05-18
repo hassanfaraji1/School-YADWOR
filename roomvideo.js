@@ -23,73 +23,82 @@
     let currentCameraIndex = 0;
     let SEATS = 20;
 
-    // ─── جلب بيانات المستخدم — المصدر الوحيد الموثوق هو localStorage ───
+    // ═══════════════════════════════════════════════════════════════
+    // FIXED: جلب بيانات المستخدم من Firebase Auth + Firebase DB فقط
+    // لا localStorage ولا sessionStorage نهائياً
+    // ═══════════════════════════════════════════════════════════════
     function getLocalUser() {
-        // uid الحقيقي المحفوظ عند التسجيل
-        const uid  = localStorage.getItem('yadwor-uid') || '';
-        const name = localStorage.getItem('yadwor-settings-name')
-                  || localStorage.getItem('yadwor-user-name')
-                  || 'مستخدم';
-        // الصورة الحقيقية المحفوظة من Cloudinary أو التسجيل
-        const avatar = localStorage.getItem('yadwor-avatar-preview') || '';
-        const type   = localStorage.getItem('yadwor-profile-type')
-                    || localStorage.getItem('yadwor-account-type')
-                    || 'influencer';
-        return {
-            uid:    uid || ('guest_' + Date.now()),
-            name,
-            avatar,
-            type
-        };
+        // دالة متوافقة — تُرجع بيانات me الحالية إن وُجدت
+        // تُستخدم فقط كـ fallback طارئ لا يُفضَّل الاعتماد عليه
+        if (me && me.uid) return { uid: me.uid, name: me.name, avatar: me.avatar || '', type: me.type || 'influencer' };
+        return { uid: '', name: 'مستخدم', avatar: '', type: 'influencer' };
     }
 
-    // ─── بدء — لا نعتمد على Firebase Auth لأن المستخدمين يسجلون عبر localStorage ───
-    function initRoomUser() {
-        const localUser = getLocalUser();
+    // ─── جلب roomId من URL فقط ─── (لا localStorage ولا sessionStorage)
+    function _getRoomIdFromURL() {
+        try {
+            var params = new URLSearchParams(window.location.search);
+            var rid = params.get('roomId') || params.get('room') || params.get('id') || '';
+            if (rid) return rid;
+            // fallback: hash
+            var hash = window.location.hash.replace('#','');
+            if (hash && hash.length > 3) return hash;
+        } catch(e) {}
+        return '';
+    }
 
-        // قراءة roomId
-        let rt = null;
-        try { rt = JSON.parse(sessionStorage.getItem('yw_room_target')); } catch {}
-        if (!rt) { try { rt = JSON.parse(localStorage.getItem('yw_room_target')); } catch {} }
-        roomId = (rt && rt.roomId)
-            || sessionStorage.getItem('targetRoom')
-            || sessionStorage.getItem('targetVoiceRoom')
-            || localStorage.getItem('targetRoom');
+    // ─── بدء — Firebase Auth أولاً ثم Firebase DB ───
+    function initRoomUser() {
+        // جلب roomId من URL
+        roomId = _getRoomIdFromURL();
+        // fallback مرحلي: sessionStorage فقط للتوافق مع الصفحات القديمة
+        if (!roomId) {
+            try {
+                var rt = JSON.parse(sessionStorage.getItem('yw_room_target') || 'null');
+                if (rt && rt.roomId) roomId = rt.roomId;
+            } catch(e) {}
+        }
+        if (!roomId) {
+            try { roomId = sessionStorage.getItem('targetRoom') || ''; } catch(e) {}
+        }
         if (!roomId) { showRoomError('لم يتم تحديد الغرفة', 'roomhom.html'); return; }
 
-        // جلب بيانات المستخدم من Firebase/users إن وُجدت — لتحديث الصورة فقط
-        if (localUser.uid && !localUser.uid.startsWith('guest_')) {
-            db.ref('users/' + localUser.uid).once('value', snap => {
-                const u = snap.val() || {};
-                const fbAvatar = u.avatar || '';
-                // الأولوية: localStorage > Firebase
-                me = {
-                    uid:    localUser.uid,
-                    name:   localUser.name,
-                    avatar: localUser.avatar || fbAvatar || '',
-                    frame:  u.activeFrameUrl || '',
-                    badge:  u.badge || '',
-                    points: u.points || 0,
-                    coins:  u.coins || 0
-                };
-                // إذا وجدنا صورة في Firebase ولم تكن محفوظة محلياً — احفظها
-                if (fbAvatar && !localUser.avatar) {
-                    try { localStorage.setItem('yadwor-avatar-preview', fbAvatar); } catch(e) {}
-                    me.avatar = fbAvatar;
-                }
+        // ── انتظر Firebase Auth ──
+        auth.onAuthStateChanged(function(user) {
+            if (user) {
+                // المستخدم مسجّل دخول — جلب بياناته من Firebase DB
+                db.ref('users/' + user.uid).once('value').then(function(snap) {
+                    var u = snap.val() || {};
+                    me = {
+                        uid:    user.uid,
+                        name:   u.yourname || u.name || u.displayName || user.displayName || 'مستخدم',
+                        avatar: u.avatar   || user.photoURL || '',
+                        frame:  u.activeFrameUrl || '',
+                        badge:  u.badge || '',
+                        points: u.points || 0,
+                        coins:  u.coins  || 0,
+                        type:   u.accountType || u.type || u.profileType || 'influencer'
+                    };
+                    loadRoom();
+                }).catch(function() {
+                    me = {
+                        uid:    user.uid,
+                        name:   user.displayName || 'مستخدم',
+                        avatar: user.photoURL || '',
+                        frame: '', badge: '', points: 0, coins: 0, type: 'influencer'
+                    };
+                    loadRoom();
+                });
+            } else {
+                // غير مسجّل — استخدم UID مؤقت (لا localStorage)
+                var guestUid = 'guest_' + Math.random().toString(36).substr(2, 9);
+                me = { uid: guestUid, name: 'زائر', avatar: '', frame: '', badge: '', points: 0, coins: 0, type: 'influencer' };
                 loadRoom();
-            }).catch(() => {
-                me = { uid: localUser.uid, name: localUser.name, avatar: localUser.avatar, frame:'', badge:'', points:0, coins:0 };
-                loadRoom();
-            });
-        } else {
-            // ضيف بدون uid حقيقي
-            me = { uid: localUser.uid, name: localUser.name, avatar: localUser.avatar, frame:'', badge:'', points:0, coins:0 };
-            loadRoom();
-        }
+            }
+        });
     }
 
-    // نبدأ مباشرة بدون انتظار Firebase Auth
+    // نبدأ مباشرة
     initRoomUser();
 
     function loadRoom() {
@@ -98,39 +107,34 @@
         db.ref('rooms/' + roomId).once('value', snap => {
             roomData = snap.val();
 
-            // إذا لم تكن الغرفة في Firebase، ابحث عنها في localStorage
-            if (!roomData) {
-                try {
-                    const localRooms = JSON.parse(localStorage.getItem('yadwor-rooms') || '[]');
-                    const localRoom = localRooms.find(r => r.roomId === roomId);
-                    if (localRoom) { roomData = localRoom; }
-                } catch(e) {}
-            }
+            // Firebase هو المصدر الوحيد — لا localStorage
             if (!roomData) { showRoomError('الغرفة غير موجودة أو تم حذفها', 'roomhom.html'); return; }
 
             // دعم كل مفاتيح الـ owner الممكنة
             ownerUid = roomData.ownerId || roomData.teacherUid || roomData.ownerUid || null;
             isOwner  = !!(ownerUid && me.uid && ownerUid === me.uid);
 
-            // تحقق إضافي من yw_active_room
+            // تحقق إضافي من Firebase فقط — لا localStorage
             if (!isOwner) {
-                try {
-                    const activeRoom = JSON.parse(localStorage.getItem('yw_active_room') || '{}');
-                    if (activeRoom && activeRoom.isOwner === true && activeRoom.roomId === roomId) {
-                        // تحقق إضافي: uid المالك المحفوظ
-                        const savedOwnerUid = localStorage.getItem('yw_room_owner_uid') || '';
-                        if (!savedOwnerUid || savedOwnerUid === me.uid) {
-                            isOwner = true;
-                        }
-                    }
-                } catch(e) {}
+                // إذا كانت الغرفة تحتوي بيانات ownerUid مطابقة — تحقق مرة أخرى
+                var fbOwnerUid = roomData.ownerId || roomData.teacherUid || roomData.ownerUid || null;
+                if (fbOwnerUid && me && me.uid && fbOwnerUid === me.uid) {
+                    isOwner = true;
+                }
             }
 
-            // تأكد أن بيانات صاحب الغرفة تطابق shared.js عند الإنشاء
-            if (isOwner) {
-                const localUser = getLocalUser();
-                if (!me.name || me.name === 'مستخدم' || me.name === 'U') me.name = localUser.name;
-                if (!me.avatar) me.avatar = localUser.avatar;
+            // تأكد من صحة بيانات صاحب الغرفة من Firebase فقط
+            if (isOwner && me) {
+                if (!me.name || me.name === 'مستخدم' || me.name === 'U' || me.name === 'زائر') {
+                    db.ref('users/' + me.uid + '/yourname').once('value').then(function(ns) {
+                        if (ns.val()) me.name = ns.val();
+                    }).catch(function(){});
+                }
+                if (!me.avatar) {
+                    db.ref('users/' + me.uid + '/avatar').once('value').then(function(as) {
+                        if (as.val()) me.avatar = as.val();
+                    }).catch(function(){});
+                }
             }
 
             if (isOwner && !me.frame) { me.frame = roomData.ownerFrame || roomData.ownerFrameUrl || roomData.frame || ''; }
@@ -617,11 +621,16 @@
             _iceBuf: _iceBuf
         };
 
-        // ── ICE candidates → Firebase ──
+        // ── ICE candidates → Firebase (مع deduplication) ──
+        var _sentCandidates = new Set();
         pc.onicecandidate = function(ev) {
-            if (ev.candidate) {
+            if (ev.candidate && ev.candidate.candidate) {
+                var candStr = JSON.stringify(ev.candidate.toJSON());
+                // منع إرسال نفس الـ candidate مرتين
+                if (_sentCandidates.has(candStr)) return;
+                _sentCandidates.add(candStr);
                 db.ref('rooms/' + roomId + '/candidates/' + studentKey + '/fromTeacher')
-                    .push(JSON.stringify(ev.candidate.toJSON()));
+                    .push(candStr);
             }
         };
 
@@ -835,30 +844,39 @@
     // ── الأستاذ: إعادة بناء اتصال موجود مع منظم ──
     async function _rebuildPeerForOrganizer(studentKey, studentUid) {
         _rtcLog('BC', 'rebuilding peer for ' + studentKey);
+        // منع التكرار المتزامن
+        if (window['_rebuilding_' + studentKey]) return;
+        window['_rebuilding_' + studentKey] = true;
+
         var oldConn = teacherPeerConns[studentKey];
         if (oldConn) {
-            try { if (oldConn._offRef) oldConn._offRef.off(); } catch(e) {}
-            try { if (oldConn._iceRef) oldConn._iceRef.off(); } catch(e) {}
+            // نظّف كل listeners بشكل صريح
+            try { if (oldConn._offRef) oldConn._offRef.off('value'); } catch(e) {}
+            try { if (oldConn._iceRef)  oldConn._iceRef.off('child_added'); } catch(e) {}
             try {
                 if (oldConn.pc) {
                     oldConn.pc.ontrack = null;
                     oldConn.pc.onicecandidate = null;
                     oldConn.pc.oniceconnectionstatechange = null;
                     oldConn.pc.onconnectionstatechange = null;
+                    oldConn.pc.onnegotiationneeded = null;
                     oldConn.pc.close();
                 }
             } catch(e) {}
-            try { if (oldConn.audioEl) oldConn.audioEl.remove(); } catch(e) {}
+            try { if (oldConn.audioEl) { oldConn.audioEl.pause(); oldConn.audioEl.srcObject = null; oldConn.audioEl.remove(); } } catch(e) {}
             delete teacherPeerConns[studentKey];
         }
-        // احذف بيانات Firebase القديمة
+        // احذف بيانات Firebase القديمة — تسلسل صحيح لمنع race conditions
         try {
-            await db.ref('rooms/' + roomId + '/offers/'     + studentKey).remove();
-            await db.ref('rooms/' + roomId + '/answers/'    + studentKey).remove();
-            await db.ref('rooms/' + roomId + '/candidates/' + studentKey).remove();
+            await Promise.allSettled([
+                db.ref('rooms/' + roomId + '/offers/'     + studentKey).remove(),
+                db.ref('rooms/' + roomId + '/answers/'    + studentKey).remove(),
+                db.ref('rooms/' + roomId + '/candidates/' + studentKey).remove()
+            ]);
         } catch(e) {}
         // انتظر قليلاً ثم أنشئ اتصالاً جديداً
-        await new Promise(function(r){ setTimeout(r, 400); });
+        await new Promise(function(r){ setTimeout(r, 500); });
+        window['_rebuilding_' + studentKey] = false;
         await createPeerForOrganizer(studentKey, studentUid);
     }
 
@@ -877,12 +895,13 @@
     async function createOrganizerPeerAndAnswer(offerStr) {
         _rtcLog('VW', 'createOrganizerPeerAndAnswer called');
 
-        // أغلق الاتصال القديم
+        // أغلق الاتصال القديم بشكل كامل — منع memory leaks
         if (studentPC) {
             _scDestroyed = true;
             clearTimeout(_scReconnectTimer);
-            try { if (_scAnswerRef) _scAnswerRef.off(); } catch(e) {}
-            try { if (_scIceRef)   _scIceRef.off();   } catch(e) {}
+            // نظّف listeners Firebase أولاً
+            try { if (_scAnswerRef) _scAnswerRef.off('value'); } catch(e) {}
+            try { if (_scIceRef)   _scIceRef.off('child_added'); } catch(e) {}
             try {
                 studentPC.ontrack = null;
                 studentPC.onicecandidate = null;
@@ -892,6 +911,8 @@
                 studentPC.close();
             } catch(e) {}
             studentPC = null;
+            _scAnswerRef = null;
+            _scIceRef = null;
         }
 
         _scIceBuf = [];
@@ -1064,11 +1085,15 @@
             });
         }
 
-        // ── ICE candidates → Firebase ──
+        // ── ICE candidates → Firebase (مع deduplication) ──
+        var _vwSentCandidates = new Set();
         _pc.onicecandidate = function(ev) {
-            if (ev.candidate) {
+            if (ev.candidate && ev.candidate.candidate) {
+                var candStr = JSON.stringify(ev.candidate.toJSON());
+                if (_vwSentCandidates.has(candStr)) return;
+                _vwSentCandidates.add(candStr);
                 db.ref('rooms/' + roomId + '/candidates/' + myKey + '/fromStudent')
-                    .push(JSON.stringify(ev.candidate.toJSON()));
+                    .push(candStr);
             }
         };
 
@@ -1215,10 +1240,25 @@
         db.ref('tasks').once('value').then(function(tsSnap) {
             _cachedRoomTasks = tsSnap.val() || {};
         }).catch(function() { _cachedRoomTasks = {}; });
-        // إيقاف أي interval سابق (لم يعد مستخدماً)
+
         if (window.__roomPointsInt) { clearInterval(window.__roomPointsInt); window.__roomPointsInt = null; }
-        db.ref('rooms/' + roomId + '/viewers/' + me.uid).set({ name: me.name, avatar: me.avatar || '', ts: Date.now() });
-        db.ref('rooms/' + roomId + '/viewers/' + me.uid).onDisconnect().remove();
+
+        // ── Presence System احترافي — يمنع Ghost Users ──
+        var viewerRef = db.ref('rooms/' + roomId + '/viewers/' + me.uid);
+        viewerRef.set({ name: me.name, avatar: me.avatar || '', ts: Date.now() });
+        // onDisconnect يُنظّف تلقائياً عند انقطاع الاتصال
+        viewerRef.onDisconnect().remove();
+
+        // Heartbeat كل 20 ثانية لتأكيد الوجود وتجديد onDisconnect
+        var _presenceInterval = setInterval(function() {
+            if (!roomId || !me || !me.uid) return;
+            try {
+                viewerRef.set({ name: me.name, avatar: me.avatar || '', ts: Date.now() });
+                viewerRef.onDisconnect().remove();
+            } catch(e) {}
+        }, 20000);
+        // حفظ الـ interval لإيقافه عند الخروج
+        window.__presenceInterval = _presenceInterval;
 
         // ── مراقبة الداخلين الجدد لعرض تأثير الدخولية ──
         var _rvViewersInitDone = false;
@@ -1277,42 +1317,33 @@
         });
 
         if (isOwner) {
-            // ── صاحب الغرفة: يسجل مقعده — بيانات shared.js أولاً، ثم Firebase كمكمّل ──
-            const localUser = getLocalUser();
-            // تسجيل المقعد 0 فوراً بالبيانات المحلية لضمان الظهور السريع
+            // ── صاحب الغرفة: يسجل مقعده من Firebase فقط ──
             const registerOwnerSeat = (ownerName, ownerAvatar, ownerFrame, ownerBadge) => {
-                me.name   = ownerName;
-                me.avatar = ownerAvatar;
-                me.frame  = ownerFrame || '';
-                me.badge  = ownerBadge || '';
+                me.name   = ownerName   || me.name;
+                me.avatar = ownerAvatar || me.avatar;
+                me.frame  = ownerFrame  || me.frame  || '';
+                me.badge  = ownerBadge  || me.badge  || '';
                 db.ref('rooms/' + roomId + '/seats/0').set({
-                    userId: me.uid, name: ownerName, avatar: ownerAvatar,
-                    frame: ownerFrame || '', badge: ownerBadge || '',
+                    userId: me.uid, name: me.name, avatar: me.avatar,
+                    frame: me.frame, badge: me.badge,
                     micOn: false, ts: Date.now(), isOwner: true
                 });
-                // تسجيل heartbeat مع المقعد لمنع الإخراج الخاطئ للطلاب
                 db.ref('rooms/' + roomId + '/ownerHeartbeat').set(Date.now());
             };
 
-            // سجّل فوراً بالبيانات المحلية
-            registerOwnerSeat(
-                me.name   || localUser.name,
-                me.avatar || localUser.avatar,
-                me.frame  || '',
-                me.badge  || ''
-            );
+            // سجّل بالبيانات المتاحة من Firebase (me مُكتمل بالفعل من initRoomUser)
+            registerOwnerSeat(me.name, me.avatar, me.frame, me.badge);
 
-            // ثم حاول تحديث من Firebase إذا كان هناك uid حقيقي
+            // تحديث إضافي من Firebase للحصول على frame وbadge إن لم تكن موجودة
             if (me.uid && !me.uid.startsWith('guest_')) {
-                db.ref('users/' + me.uid).once('value', uSnap => {
-                    const ud = uSnap.val() || {};
-                    // البيانات المحلية (localStorage) لها الأولوية، Firebase كبديل فقط
-                    const ownerName   = me.name   || ud.name   || localUser.name;
-                    const ownerAvatar = me.avatar || ud.avatar || localUser.avatar;
-                    const ownerFrame  = ud.activeFrameUrl || me.frame || '';
-                    const ownerBadge  = ud.badge || me.badge || '';
+                db.ref('users/' + me.uid).once('value', function(uSnap) {
+                    var ud = uSnap.val() || {};
+                    var ownerName   = me.name   || ud.yourname || ud.name   || 'مستخدم';
+                    var ownerAvatar = me.avatar || ud.avatar || '';
+                    var ownerFrame  = ud.activeFrameUrl || me.frame || '';
+                    var ownerBadge  = ud.badge || me.badge || '';
                     registerOwnerSeat(ownerName, ownerAvatar, ownerFrame, ownerBadge);
-                }).catch(() => {});
+                }).catch(function() {});
             }
             mySeatIdx = 0;
             // ❌ لا نضع onDisconnect().remove() — مقعد المالك يبقى دائماً حتى الضغط على doLeave
@@ -1492,44 +1523,57 @@
                 _audioCtxUnlocked = true;
                 try {
                     var ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    if (ctx.state === 'suspended') {
-                        ctx.resume().then(function() {
-                            try { ctx.close(); } catch(e) {}
-                        }).catch(function(){});
-                    } else {
-                        var buf = ctx.createBuffer(1, 1, 22050);
-                        var src = ctx.createBufferSource();
-                        src.buffer = buf;
-                        src.connect(ctx.destination);
-                        src.start(0);
-                        setTimeout(function() { try { ctx.close(); } catch(e) {} }, 1000);
-                    }
+                    // Android WebView يحتاج resume() حتى لو state ليس suspended
+                    ctx.resume().then(function() {
+                        // تشغيل silent buffer لإطلاق autoplay lock
+                        try {
+                            var buf = ctx.createBuffer(1, 1, 22050);
+                            var src = ctx.createBufferSource();
+                            src.buffer = buf;
+                            src.connect(ctx.destination);
+                            src.start(0);
+                        } catch(e2) {}
+                        setTimeout(function() { try { ctx.close(); } catch(e) {} }, 2000);
+                    }).catch(function(){
+                        try { ctx.close(); } catch(e) {}
+                    });
                 } catch(e) {}
-                // شغّل جميع عناصر الصوت فوراً
-                document.querySelectorAll('audio').forEach(function(a) {
-                    a.muted = false;
-                    a.volume = 1.0;
-                    if (a.srcObject && a.paused) a.play().catch(function(){});
-                });
-                var tvEl = document.getElementById('tv');
-                if (tvEl && tvEl.srcObject && tvEl.paused) {
-                    tvEl.playsInline = true;
-                    tvEl.play().catch(function(){});
+                // شغّل جميع عناصر الصوت فوراً مع تأخيرات متتالية
+                function _playAll() {
+                    document.querySelectorAll('audio').forEach(function(a) {
+                        a.muted = false;
+                        a.volume = 1.0;
+                        if (a.srcObject && a.paused) a.play().catch(function(){});
+                    });
+                    var tvEl = document.getElementById('tv');
+                    if (tvEl && tvEl.srcObject && tvEl.paused) {
+                        tvEl.playsInline = true;
+                        tvEl.play().catch(function(){});
+                    }
                 }
+                _playAll();
+                setTimeout(_playAll, 500);
+                setTimeout(_playAll, 1500);
+                setTimeout(_playAll, 3000);
             }
             // استمع لأي تفاعل — once لكل نوع
             ['touchstart','touchend','click','keydown','pointerdown'].forEach(function(ev) {
                 document.addEventListener(ev, _unlockAudioCtx, { once: true, passive: true });
             });
-            // محاولة تلقائية بعد 1 ثانية
+            // محاولة تلقائية بعد ثانية
             setTimeout(_unlockAudioCtx, 1000);
 
             // ② ابدأ مستمع ICE من الأستاذ أولاً (قبل أي شيء)
             // كل candidate يصل قبل setRemoteDescription يُخزّن في _scIceBuf
+            var _receivedIceCandidates = new Set(); // deduplication
             db.ref('rooms/' + roomId + '/candidates/' + sid + '/fromTeacher').on('child_added', async function(snap) {
                 if (!snap.val()) return;
                 try {
-                    var cand = JSON.parse(snap.val());
+                    var candStr = snap.val();
+                    // منع معالجة نفس الـ candidate مرتين
+                    if (_receivedIceCandidates.has(candStr)) return;
+                    _receivedIceCandidates.add(candStr);
+                    var cand = JSON.parse(candStr);
                     if (studentPC && _scRemoteSet && studentPC.remoteDescription && studentPC.signalingState !== 'closed') {
                         await studentPC.addIceCandidate(new RTCIceCandidate(cand));
                     } else {
@@ -2395,9 +2439,8 @@
         const text = inp.value.trim(); if (!text) return;
         if (text.length > 90) { inp.value = text.slice(0,90); return; }
         if (!chatVis) { chatVis = true; document.getElementById('chatWin').style.display = 'flex'; document.getElementById('chatDot').style.display = 'none'; chatUnread = false; }
-        // جلب نوع الحساب من localStorage أو me
-        var localU = (typeof getLocalUser === 'function') ? getLocalUser() : {};
-        var accType = (localU && (localU.accountType || localU.type)) || (me && me.accountType) || '';
+        // جلب نوع الحساب من me (Firebase) فقط
+        var accType = (me && (me.accountType || me.type)) || '';
         var msgData = { uid: me.uid, name: me.name, avatar: me.avatar || '', text: text, ts: Date.now() };
         if (accType) msgData.accountType = accType;
         if (isOwner) msgData.isOwner = true;
@@ -4413,7 +4456,6 @@
     }
 
     function gotoRoomHome(reason) {
-        try { sessionStorage.setItem('roomKickReason', reason || ''); } catch(e) {}
         window.location.href = 'roomhom.html' + (reason ? ('?reason=' + encodeURIComponent(reason)) : '');
     }
     // متغيرات grace period للإخراج
@@ -4803,11 +4845,7 @@
     }
     function doLeave() {
         window.__doingLeave = true;
-        // مسح بيانات الغرفة النشطة من localStorage
-        try { localStorage.removeItem('yw_floating_room'); } catch(e) {}
-        try { localStorage.removeItem('yw_active_room'); } catch(e) {}
-        try { localStorage.removeItem('targetRoom'); } catch(e) {}
-        try { sessionStorage.removeItem('targetRoom'); } catch(e) {}
+        // لا localStorage — Firebase فقط
         saveRoomTime();
         if (isOwner) {
             db.ref('rooms/' + roomId + '/teacherOnline').set(false);
@@ -4863,14 +4901,17 @@
             try { showAvatarOverlay(); } catch(e) {}
         }
         // المقعد يبقى ظاهراً للجميع — لا نحذف أي شيء
-        const floatData = {
+        var floatData = {
             roomId: roomId,
-            roomName: (roomData && roomData.roomName) ? roomData.roomName : (document.getElementById('roomLabel') ? document.getElementById('roomLabel').textContent : 'الغرفة'),
+            roomName: (roomData && roomData.roomName) ? roomData.roomName : '',
             avatar: me ? (me.avatar || '') : '',
             isOwner: isOwner,
             ts: Date.now()
         };
-        try { localStorage.setItem('yw_floating_room', JSON.stringify(floatData)); } catch(e) {}
+        // حفظ في Firebase بدلاً من localStorage
+        if (me && me.uid) {
+            try { db.ref('users/' + me.uid + '/activeRoom').set(floatData); } catch(e) {}
+        }
         // تأكد من بقاء المقعد مسجلاً في Firebase — المالك والطالب معاً
         try {
             if (isOwner && me && me.uid && roomId) {
@@ -4893,35 +4934,78 @@
         location.href = 'home.html';
     }
     function cleanup() {
+        // إيقاف جميع intervals
         if (window.__roomPointsInt) { clearInterval(window.__roomPointsInt); window.__roomPointsInt = null; }
+        if (window.__presenceInterval) { clearInterval(window.__presenceInterval); window.__presenceInterval = null; }
         if (isOwner) { try { stopOwnerHeartbeat(); stopOwnerHiddenCountdown(); } catch(e) {} }
-        if (mySeatIdx !== null) db.ref('rooms/' + roomId + '/seats/' + mySeatIdx).remove();
-        if (studentRef) studentRef.remove();
-        db.ref('rooms/' + roomId + '/viewers/' + me.uid).remove();
-        db.ref('rooms/' + roomId).off();
-        // إيقاف جميع مستمعات Firebase الفرعية
+
+        // تنظيف Firebase presence
+        try {
+            if (mySeatIdx !== null) db.ref('rooms/' + roomId + '/seats/' + mySeatIdx).remove();
+            if (studentRef) { studentRef.onDisconnect().cancel(); studentRef.remove(); }
+            db.ref('rooms/' + roomId + '/viewers/' + me.uid).onDisconnect().cancel();
+            db.ref('rooms/' + roomId + '/viewers/' + me.uid).remove();
+        } catch(e) {}
+
+        // إيقاف جميع مستمعات Firebase
+        try { db.ref('rooms/' + roomId).off(); } catch(e) {}
         try { db.ref('rooms/' + roomId + '/students').off(); } catch(e) {}
         try { db.ref('rooms/' + roomId + '/connectRequest').off(); } catch(e) {}
         try { db.ref('rooms/' + roomId + '/ownerReoffer').off(); } catch(e) {}
         try { db.ref('rooms/' + roomId + '/cameraFlip').off(); } catch(e) {}
         try { db.ref('rooms/' + roomId + '/spotlight').off(); } catch(e) {}
         try { db.ref('rooms/' + roomId + '/spotlightTrackTs').off(); } catch(e) {}
-        if (localStream) localStream.getTracks().forEach(t => t.stop());
+        try { db.ref('rooms/' + roomId + '/viewers').off(); } catch(e) {}
+        try { db.ref('rooms/' + roomId + '/seats').off(); } catch(e) {}
+        try { db.ref('rooms/' + roomId + '/chat').off(); } catch(e) {}
+
+        // إيقاف جميع streams
+        if (localStream) {
+            localStream.getTracks().forEach(function(t) {
+                try { t.stop(); } catch(e) {}
+            });
+            localStream = null;
+        }
+
         // أغلق studentPC (جهة المنظم)
         if (studentPC) {
-            try { if (_scAnswerRef) _scAnswerRef.off(); } catch(e) {}
-            try { if (_scIceRef)   _scIceRef.off();   } catch(e) {}
-            try { studentPC.ontrack = null; studentPC.onicecandidate = null; studentPC.oniceconnectionstatechange = null; studentPC.onconnectionstatechange = null; studentPC.close(); } catch(e) {}
+            try { if (_scAnswerRef) _scAnswerRef.off('value'); } catch(e) {}
+            try { if (_scIceRef)   _scIceRef.off('child_added'); } catch(e) {}
+            try {
+                studentPC.ontrack = null;
+                studentPC.onicecandidate = null;
+                studentPC.oniceconnectionstatechange = null;
+                studentPC.onconnectionstatechange = null;
+                studentPC.onnegotiationneeded = null;
+                studentPC.close();
+            } catch(e) {}
             studentPC = null;
+            _scAnswerRef = null;
+            _scIceRef = null;
         }
+
         // أغلق teacherPeerConns (جهة الأستاذ)
-        for (const key in teacherPeerConns) {
-            const conn = teacherPeerConns[key];
-            try { if (conn._offRef) conn._offRef.off(); } catch(e) {}
-            try { if (conn._iceRef)  conn._iceRef.off(); } catch(e) {}
-            try { if (conn.pc) { conn.pc.ontrack = null; conn.pc.onicecandidate = null; conn.pc.oniceconnectionstatechange = null; conn.pc.onconnectionstatechange = null; conn.pc.close(); } } catch(e) {}
-            try { if (conn.audioEl) conn.audioEl.remove(); } catch(e) {}
+        for (var key in teacherPeerConns) {
+            var conn = teacherPeerConns[key];
+            try { if (conn._offRef) conn._offRef.off('value'); } catch(e) {}
+            try { if (conn._iceRef)  conn._iceRef.off('child_added'); } catch(e) {}
+            try {
+                if (conn.pc) {
+                    conn.pc.ontrack = null;
+                    conn.pc.onicecandidate = null;
+                    conn.pc.oniceconnectionstatechange = null;
+                    conn.pc.onconnectionstatechange = null;
+                    conn.pc.onnegotiationneeded = null;
+                    conn.pc.close();
+                }
+            } catch(e) {}
+            try { if (conn.audioEl) { conn.audioEl.pause(); conn.audioEl.srcObject = null; conn.audioEl.remove(); } } catch(e) {}
             delete teacherPeerConns[key];
+        }
+
+        // نظّف rebuild flags
+        for (var rk in window) {
+            if (rk.startsWith('_rebuilding_')) delete window[rk];
         }
     }
     const _lovEl = document.getElementById('lov');
@@ -5140,11 +5224,7 @@ async function uploadToCloudinary(file, onProgress) {
 
         // ملء بيانات الـ overlay
         if (nm)  nm.textContent  = name;
-        var roomInfo = '';
-        try {
-            var fd = JSON.parse(localStorage.getItem('yw_floating_room') || '{}');
-            roomInfo = fd.roomName || (roomData && roomData.roomName) || '';
-        } catch(e) {}
+        var roomInfo = (roomData && roomData.roomName) || '';
         if (sub) sub.textContent = roomInfo;
 
         if (img) {
@@ -6393,7 +6473,10 @@ async function uploadToCloudinary(file, onProgress) {
     window.openBoard = function() {
         // ── ميزة السبورة قيد التطوير — نافذة "قريباً" ──
         var existing = document.getElementById('boardSoonModal');
-        if (existing) { existing.classList.add('open'); return; }
+        if (existing) {
+            existing.style.display = 'flex';
+            return;
+        }
         // إنشاء النافذة ديناميكياً
         var modal = document.createElement('div');
         modal.id = 'boardSoonModal';
@@ -6410,13 +6493,25 @@ async function uploadToCloudinary(file, onProgress) {
             + '<div style="width:48px;height:48px;background:#e8f0fe;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">'
             + '<svg viewBox="0 0 24 24" fill="none" stroke="#0064ff" stroke-width="2" stroke-linecap="round" style="width:22px;height:22px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
             + '</div>'
-            + '<p style="color:#333;font-size:14px;font-weight:700;margin:0 0 6px;font-family:Tajawal,sans-serif;">ميزة قريبة جداً! 🎉</p>'
+            + '<p style="color:#333;font-size:14px;font-weight:700;margin:0 0 6px;font-family:Tajawal,sans-serif;">ميزة قريبة جداً</p>'
             + '<p style="color:#888;font-size:12px;line-height:1.7;margin:0 0 18px;font-family:Tajawal,sans-serif;">يتم حالياً تطوير ميزة السبورة التفاعلية وستُضاف قريباً على المنصة. ترقبوا التحديث القادم!</p>'
-            + '<button onclick="document.getElementById(\'boardSoonModal\').classList.remove(\'open\')" style="width:100%;height:44px;background:linear-gradient(135deg,rgba(0,100,255,0.85),rgba(0,60,180,0.95));border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif;">حسناً، أنتظر! 👍</button>'
+            + '<button id="boardSoonOkBtn" style="width:100%;height:44px;background:linear-gradient(135deg,rgba(0,100,255,0.85),rgba(0,60,180,0.95));border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:Tajawal,sans-serif;">حسناً، أنتظر!</button>'
             + '</div>'
             + '</div>';
-        modal.addEventListener('click', function(e){ if(e.target===modal) modal.classList.remove('open'); });
+        // إغلاق بالضغط على الخلفية
+        modal.addEventListener('click', function(e){
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
         document.body.appendChild(modal);
+        // ربط زر حسناً بعد إضافة النافذة للـ DOM
+        var okBtn = modal.querySelector('#boardSoonOkBtn');
+        if (okBtn) {
+            okBtn.addEventListener('click', function() {
+                modal.style.display = 'none';
+            });
+        }
     };
 
     window.closeBoard = function() {
