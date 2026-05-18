@@ -1377,59 +1377,75 @@
         .rci-text { color: #fff; font-size: 12px; font-family: 'Tajawal', sans-serif; }
         /* ── end indicators ── */
 
-        /* ===== Avatar Overlay — يغطي الفيديو كاملاً ===== */
+        /* ===== Avatar Overlay ===== */
         #avatarOverlay {
+            display: none !important;
             position: absolute;
             inset: 0;
             z-index: 25;
             background: #0f0f1e;
-            display: none;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             gap: 14px;
             overflow: hidden;
         }
-        #avatarOverlay.show { display: flex; }
-        /* الحلقة المحيطة بالصورة — داخل الصورة فقط بـ box-shadow */
+        #avatarOverlay.show {
+            display: flex !important;
+        }
+        .av-ring { display: none !important; }
         #avatarOverlayRing {
             position: relative;
-            width: 96px; height: 96px;
-            display: flex; align-items: center; justify-content: center;
+            width: 96px;
+            height: 96px;
             flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
         }
-        /* حذف av-ring الخارجية — نستبدلها بـ box-shadow على الصورة */
-        .av-ring { display: none !important; }
         #avatarOverlayImg {
-            width: 96px; height: 96px;
+            width: 96px;
+            height: 96px;
+            min-width: 96px;
+            min-height: 96px;
+            max-width: 96px;
+            max-height: 96px;
             border-radius: 50%;
             object-fit: cover;
             border: 3px solid #0084ff;
             background: #2a2a4a;
             display: block;
+            flex-shrink: 0;
             animation: avImgPulse 2.5s ease-in-out infinite;
         }
         @keyframes avImgPulse {
             0%, 100% { box-shadow: 0 0 0 0px rgba(0,132,255,0.5); }
-            50%       { box-shadow: 0 0 0 10px rgba(0,132,255,0); }
+            50%       { box-shadow: 0 0 0 8px  rgba(0,132,255,0); }
         }
         #avatarOverlay.speaking #avatarOverlayImg {
-            animation: avImgPulseSpeaking 0.7s ease-in-out infinite;
+            animation: avImgPulseSpeaking 0.75s ease-in-out infinite;
             border-color: #2ecc71;
         }
         @keyframes avImgPulseSpeaking {
-            0%, 100% { box-shadow: 0 0 0 0px rgba(46,204,113,0.6); }
-            50%       { box-shadow: 0 0 0 12px rgba(46,204,113,0); }
+            0%, 100% { box-shadow: 0 0 0 0px  rgba(46,204,113,0.6); }
+            50%       { box-shadow: 0 0 0 10px rgba(46,204,113,0); }
         }
         #avatarOverlayName {
-            color: #fff; font-size: 15px; font-weight: 700;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 700;
             text-shadow: 0 1px 4px rgba(0,0,0,.9);
-            max-width: 85%; text-align: center;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            max-width: 85%;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         #avatarOverlaySubject {
             color: rgba(255,255,255,.55);
-            font-size: 12px; text-align: center;
+            font-size: 12px;
+            text-align: center;
             max-width: 85%;
         }
         /* ===== End Avatar Overlay ===== */
@@ -2010,6 +2026,30 @@
   </div>
 </div>
 
+<!-- ===== نافذة إضافة/تعديل النص على السبورة ===== -->
+<div id="brdTextModal">
+  <div id="brdTextBox">
+    <h3>
+      <span id="brdTextModalTitle">إضافة نص</span>
+      <button class="btm-close" onclick="closeBrdTextModal()">✕</button>
+    </h3>
+    <!-- اتجاه النص -->
+    <div class="btm-lang-row">
+      <button class="btm-lang-btn active" id="brdLangRtl" onclick="setBrdTextDir('rtl')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:14px;height:14px;"><path d="M3 15h18M3 9h18M3 12h12"/></svg>
+        عربي ←
+      </button>
+      <button class="btm-lang-btn" id="brdLangLtr" onclick="setBrdTextDir('ltr')">
+        → English
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:14px;height:14px;"><path d="M3 15h18M3 9h18M9 12h12"/></svg>
+      </button>
+    </div>
+    <!-- منطقة النص -->
+    <textarea id="brdTxtArea" placeholder="اكتب النص هنا..." rows="3"></textarea>
+    <!-- لون + حجم -->
+    <div class="btm-row">
+      <span class="btm-label">اللون:</span>
+      <div id="brdTxtColor">
         <div id="brdTxtColorSwatch"></div>
         <input type="color" id="brdTxtColorPick" value="#222222"
           oninput="
