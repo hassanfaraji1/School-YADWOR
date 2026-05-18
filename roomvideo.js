@@ -953,7 +953,14 @@
                     if (tvEl && tvEl.srcObject !== _remoteVideoStream) {
                         tvEl.srcObject = _remoteVideoStream;
                     }
-                    if (tvEl && tvEl.paused) _vwPlayVideo(tvEl, 0);
+                    // تحقق قبل إظهار الفيديو
+                    db.ref('rooms/' + roomId + '/ownerOverlay').once('value', function(ov_snap) {
+                        var ov_d = ov_snap.val();
+                        if (!ov_d || ov_d.on !== true) {
+                            if (tvEl) { tvEl.style.opacity = '1'; tvEl.style.visibility = ''; }
+                            if (tvEl && tvEl.paused) _vwPlayVideo(tvEl, 0);
+                        }
+                    });
                     // إخفاء avatar overlay
                     _vwHideAvatarIfCamera();
                 };
@@ -968,12 +975,23 @@
                     tvEl.playsInline = true;
                     tvEl.autoplay = true;
                     tvEl.setAttribute('playsinline', '');
-                    tvEl.style.visibility = '';
-                    _vwPlayVideo(tvEl, 0);
-                    setTimeout(function() { _vwPlayVideo(tvEl, 0); }, 500);
-                    setTimeout(function() { _vwPlayVideo(tvEl, 0); }, 1500);
-                    // إخفاء avatar overlay
-                    _vwHideAvatarIfCamera();
+                    // ── تحقق من ownerOverlay قبل إظهار الفيديو مباشرةً ──
+                    db.ref('rooms/' + roomId + '/ownerOverlay').once('value', function(ov_snap) {
+                        var ov_d = ov_snap.val();
+                        if (ov_d && ov_d.on === true) {
+                            // الأستاذ أخفى كاميرته — لا تُظهر الفيديو الأسود
+                            tvEl.style.opacity = '0';
+                            tvEl.style.visibility = 'hidden';
+                        } else {
+                            tvEl.style.visibility = '';
+                            tvEl.style.opacity = '1';
+                        }
+                        _vwPlayVideo(tvEl, 0);
+                        setTimeout(function() { _vwPlayVideo(tvEl, 0); }, 500);
+                        setTimeout(function() { _vwPlayVideo(tvEl, 0); }, 1500);
+                        // إخفاء avatar overlay فقط إذا الكاميرا مفتوحة
+                        _vwHideAvatarIfCamera();
+                    });
                 }
             }
 
