@@ -137,27 +137,9 @@
             SEATS = 20;
             document.getElementById('roomLabel').textContent = roomData.roomName || 'YADWOR';
             document.title = roomData.roomName || 'غرفة فيديو';
-            // ── إضافة شارة التوثيق في شريط اسم الغرفة ──
+            // ── علامة التوثيق تظهر في الاسم فقط (ليس في شريط العنوان) ──
             (function() {
-                var labelEl = document.getElementById('roomLabel');
-                if (!labelEl) return;
-                var ownerUid = roomData.ownerUid || roomData.uid || '';
-                if (!ownerUid) return;
-                if (typeof db !== 'undefined') {
-                    db.ref('users/' + ownerUid + '/verified').once('value').then(function(snap) {
-                        if (snap.val() === true) {
-                            var bar = document.getElementById('roomLabelBar');
-                            if (bar && !bar.querySelector('img.rlb-verify')) {
-                                var vImg = document.createElement('img');
-                                vImg.src = 'verify.png';
-                                vImg.className = 'rlb-verify';
-                                vImg.style.cssText = 'width:13px;height:13px;object-fit:contain;flex-shrink:0;display:inline-block;vertical-align:middle;';
-                                vImg.alt = '';
-                                bar.appendChild(vImg);
-                            }
-                        }
-                    }).catch(function(){});
-                }
+                // لا نضيف verify.png في roomLabelBar — تظهر فقط في اسم الأستاذ داخل البث
             })();
             // عدد المشاهدين يظهر للجميع
             document.getElementById('pCount').style.display = 'flex';
@@ -531,9 +513,28 @@
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun.services.mozilla.com' }
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
+            { urls: 'stun:stun.services.mozilla.com' },
+            {
+                urls: 'turn:openrelay.metered.ca:80',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            {
+                urls: 'turn:openrelay.metered.ca:443',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            {
+                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            }
         ],
-        iceCandidatePoolSize: 10
+        iceCandidatePoolSize: 10,
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require'
     };
 
     // ── Logger احترافي ──
@@ -592,8 +593,10 @@
         audioEl.autoplay = true;
         audioEl.playsInline = true;
         audioEl.setAttribute('playsinline', '');
+        audioEl.setAttribute('webkit-playsinline', '');
         audioEl.muted = false;
         audioEl.volume = spkOn ? 1.0 : 0.0;
+        // إضافة للجسم لضمان التشغيل في Android WebView
         document.body.appendChild(audioEl);
 
         // ── ICE buffer محلي لهذا الـ peer ──
@@ -647,9 +650,16 @@
         function _bcPlayAudio(el, attempt) {
             if (_isDestroyed) return;
             if (!el || !el.srcObject) return;
+            el.muted = false;
+            el.volume = spkOn ? 1.0 : 0.0;
             el.play().catch(function() {
-                if (attempt < 15 && !_isDestroyed) {
+                if (attempt < 20 && !_isDestroyed) {
                     setTimeout(function() { _bcPlayAudio(el, attempt + 1); }, 600);
+                } else if (!_isDestroyed) {
+                    // آخر محاولة: انتظر تفاعل المستخدم
+                    var _retry = function() { el.muted = false; el.play().catch(function(){}); };
+                    document.addEventListener('touchstart', _retry, { once: true, passive: true });
+                    document.addEventListener('click', _retry, { once: true, passive: true });
                 }
             });
         }
@@ -908,6 +918,7 @@
         sAudio.autoplay = true;
         sAudio.playsInline = true;
         sAudio.setAttribute('playsinline', '');
+        sAudio.setAttribute('webkit-playsinline', '');
         sAudio.muted = false;
         sAudio.volume = 1.0;
 
@@ -915,8 +926,10 @@
         function _vwPlayAudio(el, attempt) {
             if (_scDestroyed) return;
             if (!el || !el.srcObject) return;
+            el.muted = false;
+            el.volume = 1.0;
             el.play().catch(function() {
-                if (attempt < 20 && !_scDestroyed) {
+                if (attempt < 25 && !_scDestroyed) {
                     setTimeout(function() { _vwPlayAudio(el, attempt + 1); }, 400 + attempt * 30);
                 }
             });
