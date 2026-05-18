@@ -47,7 +47,7 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.14);
             background: #12122a;
         }
-        #tv { width: 100%; height: 100%; object-fit: cover; }
+        #tv { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease; }
 
         /* overlays على الفيديو */
         #liveTag { position: absolute; bottom: 10px; left: 10px; z-index: 30; background: rgba(229,57,53,.92); border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 800; color: white; display: flex; align-items: center; gap: 5px; letter-spacing: .8px; }
@@ -176,16 +176,17 @@
         }
         @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
 
-        #switchCamBtn { position: absolute; bottom: 10px; left: 160px; z-index: 30; background: rgba(0,0,0,.5); color: white; padding: 3px 10px; border-radius: 6px; font-size: 11px; border: none; cursor: pointer; display: none; align-items: center; gap: 4px; font-family: 'Tajawal',sans-serif; }
+        #switchCamBtn { position: absolute; bottom: 10px; left: 10px; z-index: 30; background: rgba(0,0,0,.55); color: white; padding: 3px 10px; border-radius: 6px; font-size: 11px; border: none; cursor: pointer; display: none; align-items: center; gap: 4px; font-family: 'Tajawal',sans-serif; }
         #boardBtn { 
-            position: absolute; bottom: 10px; left: 248px; z-index: 30; 
-            background: rgba(79,142,247,0.85); color: white; 
+            position: absolute; bottom: 10px; left: 88px; z-index: 30; 
+            background: rgba(0,100,255,0.7); color: white; 
             padding: 3px 10px; border-radius: 6px; font-size: 11px; 
             border: none; cursor: pointer; display: none; 
             align-items: center; gap: 4px; font-family: 'Tajawal',sans-serif;
-            transition: background .15s;
+            transition: background .18s;
+            backdrop-filter: blur(4px);
         }
-        #boardBtn:hover { background: rgba(79,142,247,1); }
+        #boardBtn:hover { background: rgba(0,100,255,0.95); }
 
         /* ── تحسين نافذة السبورة — Modern & Clean ── */
         #boardWindow {
@@ -1375,54 +1376,68 @@
         .rci-dot { width: 8px; height: 8px; background: #ff9800; border-radius: 50%; animation: pulse 1s infinite; }
         .rci-text { color: #fff; font-size: 12px; font-family: 'Tajawal', sans-serif; }
         /* ── end indicators ── */
+
+        /* ===== Avatar Overlay — يغطي الفيديو كاملاً ===== */
         #avatarOverlay {
             position: absolute;
-            bottom: 38px;
-            left: 8px;
+            inset: 0;
             z-index: 25;
-            background: rgba(18,18,42,0.88);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border-radius: 12px;
+            background: #0f0f1e;
             display: none;
-            flex-direction: row;
+            flex-direction: column;
             align-items: center;
-            gap: 8px;
-            padding: 6px 10px 6px 6px;
-            border: 1px solid rgba(255,255,255,0.12);
-            min-width: 0;
-            max-width: 180px;
+            justify-content: center;
+            gap: 12px;
+            overflow: hidden;
         }
         #avatarOverlay.show { display: flex; }
         #avatarOverlayRing {
             position: relative;
-            width: 38px; height: 38px;
-            flex-shrink: 0;
+            width: 100px; height: 100px;
             display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
         }
         .av-ring {
             position: absolute; border-radius: 50%;
-            border: 2px solid rgba(0,132,255,0.5);
-            animation: avRingPulse 2s ease-out infinite; opacity: 0;
+            border: 2px solid rgba(0,132,255,0.4);
+            animation: avRingPulse 2.2s ease-out infinite;
+            opacity: 0;
+            pointer-events: none;
         }
-        .av-ring:nth-child(1) { width:38px; height:38px; animation-delay:0s; }
-        .av-ring:nth-child(2) { width:48px; height:48px; animation-delay:0.5s; }
-        .av-ring:nth-child(3) { width:56px; height:56px; animation-delay:1s; }
-        @keyframes avRingPulse { 0%{opacity:0;transform:scale(.85)} 30%{opacity:.6} 100%{opacity:0;transform:scale(1.1)} }
-        #avatarOverlay.speaking .av-ring { border-color:rgba(46,204,113,0.8); animation-duration:.75s; }
+        .av-ring:nth-child(1) { width:100px; height:100px; animation-delay:0s; }
+        .av-ring:nth-child(2) { width:128px; height:128px; animation-delay:0.6s; }
+        .av-ring:nth-child(3) { width:156px; height:156px; animation-delay:1.2s; }
+        @keyframes avRingPulse {
+            0%   { opacity:0; transform:scale(.85); }
+            25%  { opacity:.5; }
+            100% { opacity:0; transform:scale(1.1); }
+        }
+        #avatarOverlay.speaking .av-ring {
+            border-color: rgba(46,204,113,0.7);
+            animation-duration: .85s;
+        }
         #avatarOverlayImg {
-            width:34px; height:34px; border-radius:50%;
-            object-fit:cover; border:2px solid #0084ff;
-            position:relative; z-index:2; background:#1e1e3a;
-            display:block; flex-shrink:0;
+            width: 90px; height: 90px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #0084ff;
+            position: relative; z-index: 2;
+            background: #2a2a4a;
+            display: block;
         }
         #avatarOverlayName {
-            color:#fff; font-size:11px; font-weight:700;
-            text-shadow:0 1px 3px rgba(0,0,0,.8);
-            white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-            flex:1; min-width:0;
+            color: #fff; font-size: 14px; font-weight: 700;
+            text-shadow: 0 1px 4px rgba(0,0,0,.9);
+            max-width: 80%; text-align: center;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            position: relative; z-index: 2;
         }
-        #avatarOverlaySubject { display: none; }
+        #avatarOverlaySubject {
+            color: rgba(255,255,255,.55);
+            font-size: 12px; text-align: center;
+            max-width: 80%;
+            position: relative; z-index: 2;
+        }
         /* ===== End Avatar Overlay ===== */
     </style>
 </head>
